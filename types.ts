@@ -157,6 +157,127 @@ export interface ProductionStatus {
     }
 }
 
+// --- BUDGET CONTROL EXTENDED TYPES ---
+
+export interface BudgetNode {
+    id: string;
+    code: string; // "01", "01.01", etc.
+    description: string;
+    level: number;
+    totalValue: number;
+    type: 'GROUP' | 'ITEM';
+    itemType?: 'ST' | 'MT' | 'EQ'; // Only for items
+    parentId?: string;
+    children: BudgetNode[];
+
+    // Values
+    budgetInitial: number;
+    budgetCurrent: number;
+    realizedRDO: number; // From RDO
+    realizedFinancial: number; // From Paid Invoices
+    committed: number; // From Contracts/PO
+    lastUpdated?: string;
+}
+
+export interface FinancialEntry {
+    id: string;
+    documentNumber: string; // NF, Invoice Number
+    supplier: string;
+    description: string;
+    issueDate: string;
+    totalValue: number;
+
+    // Classification - Multi-allocation support
+    allocations: FinancialAllocation[];
+
+    // Payment Schedule
+    installments: Installment[];
+
+    // Metadata
+    status: 'DRAFT' | 'APPROVED' | 'PAID' | 'PARTIAL';
+    attachments?: string[];
+}
+
+export interface FinancialAllocation {
+    id: string;
+    budgetGroupCode: string; // Link to BudgetNode e.g. "01.01.03"
+    costType: 'ST' | 'MT' | 'EQ' | 'OUTROS';
+    value: number;
+    description?: string; // Optional detail
+}
+
+export interface Installment {
+    id: string;
+    number: number;
+    dueDate: string;
+    value: number;
+    status: 'PENDING' | 'PAID' | 'LATE';
+    paymentDate?: string;
+}
+
+export interface PurchaseRequest {
+    id: string;
+    requestId: string;
+    description: string;
+    date: string;
+    requester: string;
+    priority: 'Normal' | 'Urgente';
+    status: 'Aguardando Almoxarifado' | 'Em Análise Engenharia' | 'Aguardando Gerente' | 'Aprovado' | 'No TOTVS' | 'Finalizado';
+    items: PurchaseRequestItem[];
+    history: RequestHistoryItem[];
+    budgetGroupCode?: string;
+    totvsOrderNumber?: string;
+}
+
+export interface PurchaseRequestItem {
+    id: string;
+    description: string;
+    quantityRequested: number;
+    quantityStock?: number; // Available in stock
+    quantityToBuy?: number; // Final quantity to buy
+    unit: string;
+    observation?: string;
+    totvsCode?: string; // Code from TOTVS if registered
+}
+
+export interface RequestHistoryItem {
+    date: string;
+    user: string;
+    action: string;
+    details?: string;
+}
+
+export interface BudgetGroup {
+    id: string;
+    code: string; // e.g., '01.01.02'
+    description: string;
+    totalBudget: number;
+    type: 'ST' | 'MT' | 'EQ' | 'CI';
+    parentCode?: string; // for hierarchy
+    breakdown: {
+        st: number;
+        mt: number;
+        eq: number;
+    };
+    monthlyProjection: { [monthKey: string]: number }; // 'YYYY-MM' -> value
+}
+
+// Deprecated or Aliased for backward compat if needed, but FinancialEntry is preferred now
+export interface FinancialDocument {
+    id: string; // NF Number
+    supplier: string;
+    issueDate: string;
+    totalValue: number;
+    installments: {
+        number: number;
+        dueDate: string;
+        value: number;
+        isPaid: boolean;
+    }[];
+    purchaseRequestId?: string;
+    budgetGroupCode?: string; // Linked budget group
+}
+
 export interface AppData {
     budget: BudgetLine[];
     masterPlanSheets: SheetData[];
@@ -177,4 +298,11 @@ export interface AppData {
         services: ServiceDefinition[];
         status: ProductionStatus;
     };
+    purchaseRequests?: PurchaseRequest[];
+    budgetGroups?: BudgetGroup[];
+
+    // New Financial Control
+    financialEntries?: FinancialEntry[]; // New store for NFs
+    financialDocuments?: FinancialDocument[]; // Keep for legacy compat if needed
+    budgetTree?: BudgetNode[]; // Full hierarchical tree state if persisted
 }

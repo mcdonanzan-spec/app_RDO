@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Database, CheckCircle2, History, Target, TrendingUp, Upload, BrainCircuit } from 'lucide-react';
+import { Database, CheckCircle2, History, Target, TrendingUp, Upload, BrainCircuit, PenTool, LayoutTemplate } from 'lucide-react';
 import { AppData } from '../../types';
 import { ApiService } from '../services/api';
 import { ExcelService } from '../services/ExcelService';
@@ -17,6 +17,9 @@ export const ExcelMigrationView = ({ onDataLoaded }: { onDataLoaded: (data: AppD
 
     const [manualRDO, setManualRDO] = useState<number>(0);
     const [manualBudget, setManualBudget] = useState<number>(0);
+
+    const [activeTab, setActiveTab] = useState<'upload' | 'manual'>('upload');
+    const [manualDate, setManualDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     const handleFileChange = (key: string, file: File) => {
         setFiles(prev => ({ ...prev, [key]: file }));
@@ -161,6 +164,65 @@ export const ExcelMigrationView = ({ onDataLoaded }: { onDataLoaded: (data: AppD
         }
     };
 
+    const handleManualGeneration = async () => {
+        if (manualRDO <= 0 && manualBudget <= 0) {
+            alert("Por favor, insira valores maiores que zero.");
+            return;
+        }
+
+        const newAppData: AppData = {
+            budget: [],
+            masterPlanSheets: [],
+            rhPremises: [],
+            contractorData: { contracts: [] },
+            supplyChainData: { orders: [] },
+            isLoaded: true,
+            rdoData: [],
+            projectionData: [],
+            rdoSheets: [],
+            budgetSheets: []
+        };
+
+        // Create Synthetic Budget Item
+        if (manualBudget > 0) {
+            newAppData.budget = [{
+                code: 'MANUAL-01',
+                desc: 'Orçamento Global (Manual)',
+                unit: 'vb',
+                qty: 1,
+                unitPrice: manualBudget,
+                total: manualBudget,
+                type: 'st',
+                originSheet: 'Entrada Manual',
+                isGroup: false,
+                isConstructionCost: true,
+                itemType: 'MACRO_ETAPA'
+            }];
+        }
+
+        // Create Synthetic RDO Item
+        if (manualRDO > 0) {
+            newAppData.rdoData = [{
+                id: `RDO-MANUAL-${manualDate}`,
+                service: 'Lançamento Consolidado (Manual)',
+                group: 'Geral',
+                accumulatedValue: manualRDO,
+                monthlyValue: manualRDO,
+                date: manualDate,
+                status: 'concluido',
+                isConstructionCost: true,
+                budgetGroupCode: 'MANUAL-01',
+                sigla: 'MAN',
+                history: 'Inserção Manual de Totais'
+            }];
+        }
+
+        // Link them
+        newAppData.rdoData = ExcelService.linkRDOToBudget(newAppData.rdoData, newAppData.budget);
+
+        await saveDataToApi(newAppData);
+    };
+
     return (
         <div className="p-8 max-w-6xl mx-auto">
             {/* Validation Modal */}
@@ -267,10 +329,102 @@ export const ExcelMigrationView = ({ onDataLoaded }: { onDataLoaded: (data: AppD
                     <Database size={24} />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Migração de Dados (Excel)</h2>
-                    <p className="text-slate-500">Carregue as planilhas para alimentar o Gêmeo Digital e a Inteligência Artificial.</p>
+                    <h2 className="text-2xl font-bold text-slate-900">Origem de Dados</h2>
+                    <p className="text-slate-500">Escolha como deseja alimentar o sistema: via Arquivos Excel ou Entrada Manual.</p>
                 </div>
             </div>
+
+            <div className="flex gap-4 mb-8 border-b border-slate-200">
+                <button
+                    onClick={() => setActiveTab('upload')}
+                    className={`pb-4 px-4 font-bold flex items-center gap-2 transition-all ${activeTab === 'upload' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    <Upload size={18} /> Importar Excel
+                </button>
+                <button
+                    onClick={() => setActiveTab('manual')}
+                    className={`pb-4 px-4 font-bold flex items-center gap-2 transition-all ${activeTab === 'manual' ? 'text-amber-600 border-b-2 border-amber-600' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                    <PenTool size={18} /> Entrada Manual
+                </button>
+            </div>
+
+            {activeTab === 'manual' ? (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 max-w-2xl mx-auto animate-in fade-in zoom-in-95 duration-300">
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600">
+                            <LayoutTemplate size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-800">Criação Rápida de Cenário</h3>
+                        <p className="text-slate-500 max-w-md mx-auto mt-2">
+                            Insira os totais gerais da obra para habilitar imediatamente os painéis de indicadores e a Inteligência Artificial, sem precisar processar planilhas complexas.
+                        </p>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                    <Target size={16} className="text-amber-500" />
+                                    Orçamento Total (Meta)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-3 text-slate-400 font-bold">R$</span>
+                                    <input
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={manualBudget || ''}
+                                        onChange={(e) => setManualBudget(parseFloat(e.target.value))}
+                                        className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-mono text-lg"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                    <History size={16} className="text-blue-500" />
+                                    Total Realizado (RDO)
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-3 text-slate-400 font-bold">R$</span>
+                                    <input
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={manualRDO || ''}
+                                        onChange={(e) => setManualRDO(parseFloat(e.target.value))}
+                                        className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-lg"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Data de Referência</label>
+                            <input
+                                type="date"
+                                value={manualDate}
+                                onChange={(e) => setManualDate(e.target.value)}
+                                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-500 outline-none"
+                            />
+                        </div>
+
+                        <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-600">
+                            <strong>Nota:</strong> Esta ação criará um "Banco de Dados Sintético" com apenas 2 itens (um de Orçamento e um de RDO). Isso permitirá calcular o POC e usar a IA, mas você perderá a granularidade (detalhes item a item).
+                        </div>
+
+                        <button
+                            onClick={handleManualGeneration}
+                            disabled={!manualBudget && !manualRDO}
+                            className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 disabled:opacity-50 transition-all shadow-lg flex items-center justify-center gap-3 text-lg"
+                        >
+                            <CheckCircle2 size={24} />
+                            GERAR DADOS E ACESSAR PAINEL
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                null
+            )}
 
             {
                 loading ? (
@@ -279,7 +433,7 @@ export const ExcelMigrationView = ({ onDataLoaded }: { onDataLoaded: (data: AppD
                         <p className="text-slate-800 font-bold text-xl animate-pulse">{loadingMessage}</p>
                         <p className="text-sm text-slate-400 mt-2">Isso pode levar alguns segundos dependendo do tamanho dos arquivos.</p>
                     </div>
-                ) : (
+                ) : activeTab === 'upload' && (
                     <div className="space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             {/* RDO */}

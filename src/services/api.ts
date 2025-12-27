@@ -9,7 +9,7 @@ export class ApiService {
     // Switch to LocalDB (Dexie) implementation
     static async getAppData(): Promise<AppData> {
         try {
-            const [rhPremises, contracts, orders, budget, masterPlanSheets, rdoData, isLoaded] = await Promise.all([
+            const [rhPremises, contracts, orders, budget, masterPlanSheets, rdoData, isLoaded, purchaseRequests, budgetGroups] = await Promise.all([
                 db.rhPremises.toArray(),
                 db.contracts.toArray(),
                 db.orders.toArray(),
@@ -17,6 +17,8 @@ export class ApiService {
                 db.masterPlanSheets.toArray(),
                 db.rdoData.toArray(),
                 checkIsLoaded(),
+                db.purchaseRequests.toArray(),
+                db.budgetGroups.toArray()
             ]);
 
             return {
@@ -27,6 +29,8 @@ export class ApiService {
                 masterPlanSheets,
                 rdoData,
                 isLoaded,
+                purchaseRequests,
+                budgetGroups,
                 projectionData: [],
                 rdoSheets: [],
                 budgetSheets: []
@@ -52,7 +56,7 @@ export class ApiService {
         // Parallel saving is safe in IndexedDB and much faster
         console.time("saveAppData");
 
-        await db.transaction('rw', db.rhPremises, db.contracts, db.orders, db.budget, db.masterPlanSheets, db.rdoData, db.meta, async () => {
+        await db.transaction('rw', [db.rhPremises, db.contracts, db.orders, db.budget, db.masterPlanSheets, db.rdoData, db.meta, db.purchaseRequests, db.budgetGroups], async () => {
             // Clear existing data to ensure full sync (or implement smart diffing if needed)
             // For bulk loads, clear+add is often fastest in IDB unless items are very large
 
@@ -65,6 +69,8 @@ export class ApiService {
                 db.orders.clear().then(() => db.orders.bulkAdd(data.supplyChainData.orders)),
                 db.budget.clear().then(() => db.budget.bulkAdd(data.budget)),
                 db.masterPlanSheets.clear().then(() => db.masterPlanSheets.bulkAdd(data.masterPlanSheets)),
+                data.purchaseRequests ? db.purchaseRequests.clear().then(() => db.purchaseRequests.bulkAdd(data.purchaseRequests!)) : Promise.resolve(),
+                data.budgetGroups ? db.budgetGroups.clear().then(() => db.budgetGroups.bulkAdd(data.budgetGroups!)) : Promise.resolve()
             ]);
 
             // Specialized handling for RDO to prevent UI freezing on massive datasets?

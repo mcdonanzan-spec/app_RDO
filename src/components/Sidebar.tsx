@@ -1,16 +1,9 @@
 import React from 'react';
 import {
-    Sparkles,
-    Database,
-    FlaskConical,
-    BrainCircuit,
+    ShoppingCart,
+    CircleDollarSign,
     Building2,
-    FileSpreadsheet,
-    Upload,
-    Settings,
-    History,
-    Target,
-    TrendingUp
+    Settings
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -22,16 +15,11 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isMobileOpen, setIsMobileOpen }) => {
     const menuItems = [
-        { id: 'intelligence', label: 'Inteligência Artificial', icon: <Sparkles size={20} />, section: 'ESTRATÉGIA & DECISÃO' },
-        { id: 'ai_input', label: 'Central de Dados IA', icon: <Database size={20} />, section: 'ESTRATÉGIA & DECISÃO' },
-        { id: 'ai_strategy', label: 'Laboratório de IA', icon: <FlaskConical size={20} />, section: 'ESTRATÉGIA & DECISÃO' },
-        { id: 'rdo', label: 'O PASSADO (RDO)', icon: <History size={20} />, section: 'TRIPÉ DE GESTÃO' },
-        { id: 'budget_spreadsheet', label: 'O CAMINHO (Orçamento)', icon: <Target size={20} />, section: 'TRIPÉ DE GESTÃO' },
-        { id: 'master_planning', label: 'O FUTURO (Master Plan)', icon: <BrainCircuit size={20} />, section: 'TRIPÉ DE GESTÃO' },
-        { id: 'visual_management', label: 'Gestão à Vista', icon: <Building2 size={20} />, section: 'VISUALIZAÇÃO' },
-        { id: 'live_budget', label: 'Orçamento Vivo', icon: <FileSpreadsheet size={20} />, section: 'BASE DE DADOS' },
-        { id: 'excel_migration', label: 'Migração Excel', icon: <Upload size={20} />, section: 'CONFIGURAÇÃO' },
-        { id: 'system_blueprint', label: 'Mapa do Sistema', icon: <Settings size={20} />, section: 'CONFIGURAÇÃO' },
+        { id: 'purchase_flow', label: 'Fluxo de Compras', icon: <ShoppingCart size={20} />, section: 'SUPPLY CHAIN' },
+        { id: 'budget_control', label: 'Controle Orçamentário', icon: <CircleDollarSign size={20} />, section: 'FINANCEIRO' },
+        { id: 'visual_management', label: 'Gestão à Vista', icon: <Building2 size={20} />, section: 'PRODUÇÃO' },
+        // Keeping System Blueprint for debugging mostly, or can remove if strict "remove all"
+        // { id: 'system_blueprint', label: 'Mapa do Sistema', icon: <Settings size={20} />, section: 'CONFIGURAÇÃO' },
     ];
 
     const groupedMenu = menuItems.reduce((acc, item) => {

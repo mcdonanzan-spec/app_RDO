@@ -4,21 +4,17 @@ import { AlertTriangle } from 'lucide-react';
 
 import { AppData } from './types';
 import { Sidebar } from './src/components/Sidebar';
-import { AIInputCenterView } from './src/views/AIInputCenterView';
-import { IntelligenceView } from './src/views/IntelligenceView';
-import { AIStrategyView } from './src/views/AIStrategyView';
-import { MasterPlanningView } from './src/views/MasterPlanningView';
+
+// Consolidated Views
 import { VisualManagementView } from './src/views/VisualManagementView';
-import { LiveBudgetView } from './src/views/LiveBudgetView';
-import { ExcelMigrationView } from './src/views/ExcelMigrationView';
-import { SystemBlueprintView } from './src/views/SystemBlueprintView';
-import { RDOView } from './src/views/RDOView';
-import { BudgetSpreadsheetView } from './src/views/BudgetSpreadsheetView';
+import { PurchaseFlowView } from './src/views/PurchaseFlowView';
+import { BudgetControlView } from './src/views/BudgetControlView';
+
 import { ApiService } from './src/services/api';
 
 // --- APP ---
 const App = () => {
-  const [activeView, setActiveView] = useState('excel_migration');
+  const [activeView, setActiveView] = useState('purchase_flow'); // Default to Purchase Flow
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [appData, setAppData] = useState<AppData>({
     budget: [],
@@ -26,7 +22,13 @@ const App = () => {
     rhPremises: [],
     contractorData: { contracts: [] },
     supplyChainData: { orders: [] },
-    isLoaded: false
+    purchaseRequests: [],
+    budgetGroups: [],
+    isLoaded: false,
+    rdoData: [],
+    projectionData: [],
+    rdoSheets: [],
+    budgetSheets: []
   });
 
   useEffect(() => {
@@ -39,23 +41,23 @@ const App = () => {
     loadData();
   }, []);
 
-  const handleDataLoaded = (data: AppData) => {
-    setAppData(data);
+  const handleDataLoaded = async (data: Partial<AppData>) => {
+    setAppData(prev => {
+      const newData = { ...prev, ...data };
+      // Trigger background save (fire and forget for UI responsiveness, or await if critical)
+      ApiService.saveAppData(newData).catch(err => console.error("Auto-save failed", err));
+      return newData;
+    });
   };
 
   const renderView = () => {
     switch (activeView) {
-      case 'rdo': return <RDOView appData={appData} />;
-      case 'budget_spreadsheet': return <BudgetSpreadsheetView appData={appData} />;
-      case 'intelligence': return <IntelligenceView appData={appData} />;
-      case 'ai_input': return <AIInputCenterView appData={appData} setAppData={handleDataLoaded} />;
-      case 'ai_strategy': return <AIStrategyView appData={appData} />;
-      case 'master_planning': return <MasterPlanningView appData={appData} />;
+      case 'purchase_flow': return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
+      case 'budget_control': return <BudgetControlView appData={appData} onUpdate={handleDataLoaded} />;
       case 'visual_management': return <VisualManagementView appData={appData} />;
-      case 'live_budget': return <LiveBudgetView appData={appData} />;
-      case 'system_blueprint': return <SystemBlueprintView />;
-      case 'excel_migration': return <ExcelMigrationView onDataLoaded={handleDataLoaded} />;
-      default: return <VisualManagementView appData={appData} />;
+
+      // Fallback
+      default: return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
     }
   };
 

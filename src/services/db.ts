@@ -10,6 +10,9 @@ export class ConstructionDB extends Dexie {
     rdoData!: Table<RDOItem, string>;
     meta!: Table<{ key: string, value: any }, string>;
     visualManagement!: Table<{ id: string, data: any }, string>;
+    purchaseRequests!: Table<any, string>; // Typing 'any' for now to avoid circular deps if types not updated perfectly or PurchaseRequest
+    budgetGroups!: Table<any, string>;
+    financialDocuments!: Table<any, string>;
 
     constructor() {
         super('ConstructionDB');
@@ -26,6 +29,13 @@ export class ConstructionDB extends Dexie {
         // Upgrade for Visual Management
         this.version(2).stores({
             visualManagement: 'id'
+        });
+
+        // Version 3: Supply Chain & Financials
+        this.version(3).stores({
+            purchaseRequests: 'id, requestId, status, budgetGroupCode',
+            budgetGroups: 'id, code, type',
+            financialDocuments: 'id, supplier, purchaseRequestId'
         });
     }
 }

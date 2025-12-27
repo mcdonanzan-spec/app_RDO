@@ -1,0 +1,835 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { AppData, BudgetGroup, BudgetNode, FinancialEntry, Installment, FinancialAllocation } from '../../types';
+import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff } from 'lucide-react';
+
+interface Props {
+    appData: AppData;
+    onUpdate: (data: Partial<AppData>) => void;
+}
+
+// --- UTILS & HELPERS ---
+
+function generateInitialTree(groups: BudgetGroup[]): BudgetNode[] {
+    // Basic Mock
+    return [
+        {
+            id: '1', code: '01', description: 'CUSTOS DE CONSTRUÇÃO', level: 0, totalValue: 53670434.74, type: 'GROUP', budgetInitial: 53670434.74, budgetCurrent: 53670434.74, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
+                {
+                    id: '2', code: '01.01', description: 'FUNDAÇÃO E CONTENÇÕES', level: 1, totalValue: 2897999.08, type: 'GROUP', budgetInitial: 2897999.08, budgetCurrent: 2897999.08, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
+                        { id: '3', code: '01.01.01', description: 'SERVIÇOS PRELIMINARES', level: 2, totalValue: 980221.99, type: 'ITEM', itemType: 'ST', budgetInitial: 980221.99, budgetCurrent: 980221.99, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
+                        { id: '4', code: '01.01.02', description: 'ESTACAS / TRADO', level: 2, totalValue: 911671.62, type: 'ITEM', itemType: 'ST', budgetInitial: 911671.62, budgetCurrent: 911671.62, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
+                    ]
+                },
+                {
+                    id: '5', code: '01.02', description: 'ESTRUTURA DE CONCRETO', level: 1, totalValue: 12500000.00, type: 'GROUP', budgetInitial: 12500000.00, budgetCurrent: 12500000.00, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
+                        { id: '6', code: '01.02.01', description: 'CONCRETO USINADO', level: 2, totalValue: 4500000.00, type: 'ITEM', itemType: 'MT', budgetInitial: 4500000.00, budgetCurrent: 4500000.00, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
+                        { id: '7', code: '01.02.02', description: 'AÇO CA-50', level: 2, totalValue: 3200000.00, type: 'ITEM', itemType: 'MT', budgetInitial: 3200000.00, budgetCurrent: 3200000.00, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
+                    ]
+                }
+            ]
+        }
+    ];
+};
+
+const TabButton = ({ active, onClick, icon, label }: any) => (
+    <button
+        onClick={onClick}
+        className={`flex items-center space-x-2 px-6 py-2.5 transition-colors text-sm font-bold uppercase rounded-md my-0.5 mx-0.5 ${active ? 'bg-indigo-600 text-white shadow-sm' : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-700'}`}
+    >
+        {icon}
+        <span>{label}</span>
+    </button>
+);
+
+// --- SUB-COMPONENTS ---
+
+const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRemoveResources, onDelete }: {
+    node: BudgetNode,
+    level: number,
+    onUpdateNode: (n: BudgetNode) => void,
+    onAddChild: (id: string, type: 'GROUP' | 'ITEM') => void,
+    onAddResources: (id: string) => void,
+    onRemoveResources: (id: string) => void,
+    onDelete: (id: string) => void
+}) => {
+    const isGroup = node.type === 'GROUP' || (node.children && node.children.length > 0);
+    const hasChildren = node.children && node.children.length > 0;
+
+    // Indentation and Styling
+    const paddingLeft = `${level * 24 + 12}px`;
+
+    // Specific styling for resource types (MT, ST, EQ)
+    let rowBg = 'bg-white';
+    if (level === 0) rowBg = 'bg-slate-100'; // Root
+    if (!isGroup && node.itemType === 'MT') rowBg = 'bg-yellow-50';
+    if (!isGroup && node.itemType === 'ST') rowBg = 'bg-blue-50';
+    if (!isGroup && node.itemType === 'EQ') rowBg = 'bg-orange-50';
+
+    const handleValueChange = (val: number) => {
+        onUpdateNode({ ...node, totalValue: val, budgetInitial: val, budgetCurrent: val });
+    };
+
+    const handleNameChange = (val: string) => {
+        onUpdateNode({ ...node, description: val.toUpperCase() });
+    };
+
+    return (
+        <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${rowBg}`}>
+            <td className="p-2 font-mono text-slate-600 text-xs font-bold truncate" style={{ paddingLeft }}>
+                {node.code}
+            </td>
+            <td className="p-2">
+                <input
+                    className={`bg-transparent w-full outline-none uppercase text-xs ${level === 0 ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}
+                    value={node.description}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                />
+            </td>
+            <td className="p-2 text-center text-[10px]">
+                {/* Visual Fix: If it has children, treat as GRP strongly to indicate composition */}
+                {isGroup ? <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold">{node.children && node.children.length > 0 ? 'CMP' : 'GRP'}</span> :
+                    <select
+                        value={node.itemType || 'MT'}
+                        onChange={(e) => onUpdateNode({ ...node, itemType: e.target.value as any })}
+                        className="bg-transparent font-bold border-b border-dotted border-slate-400 outline-none text-center"
+                    >
+                        <option value="MT">MAT</option>
+                        <option value="ST">SRV</option>
+                        <option value="EQ">EQP</option>
+                    </select>
+                }
+            </td>
+            <td className={`p-2 text-right font-mono font-medium border-l border-r border-orange-100 ${hasChildren ? 'bg-orange-50 text-orange-900 opacity-80' : 'text-orange-700 bg-white'}`}>
+                {hasChildren ?
+                    <span>{node.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    :
+                    <input
+                        type="number"
+                        className="w-full text-right bg-transparent outline-none border-b border-transparent focus:border-orange-400 transition-colors"
+                        value={node.totalValue}
+                        onChange={(e) => handleValueChange(Number(e.target.value))}
+                    />
+                }
+            </td>
+            <td className="p-2 text-right flex justify-end gap-1 items-center">
+                {!node.code || node.code.length > 0 ? (
+                    <>
+                        {/* Always visible buttons for better UX */}
+                        <button onClick={() => onAddChild(node.id, 'GROUP')} title="Adicionar Sub-Grupo" className="p-1 text-slate-400 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 rounded">
+                            <Plus size={14} />
+                        </button>
+                        <button onClick={() => onAddChild(node.id, 'ITEM')} title="Adicionar Item" className="p-1 text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 rounded">
+                            <FileText size={14} />
+                        </button>
+
+                        {/* Dynamic Toggle: Show Add Resources ($$) or Remove Resources (X) */}
+                        {hasChildren ?
+                            <button onClick={() => onRemoveResources(node.id)} title="Remover Agrupamento (Limpar Filhos)" className="p-1 text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-50 rounded font-bold text-[10px] w-6 border border-slate-200 flex items-center justify-center">
+                                <X size={14} />
+                            </button>
+                            :
+                            <button onClick={() => onAddResources(node.id)} title="Adicionar Composição Padrão (MT/ST/EQ)" className="p-1 text-slate-400 hover:text-orange-600 bg-slate-100 hover:bg-orange-50 rounded font-bold text-[10px] w-6 border border-slate-200">
+                                $$
+                            </button>
+                        }
+                    </>
+                ) : null}
+                <button onClick={() => onDelete(node.id)} className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded ml-2"><Trash size={14} /></button>
+            </td>
+        </tr>
+    );
+};
+
+const renderTreeRows = (
+    nodes: BudgetNode[],
+    onUpdateNode: (n: BudgetNode) => void,
+    onAddChild: (id: string, type: 'GROUP' | 'ITEM') => void,
+    onAddResources: (id: string) => void,
+    onRemoveResources: (id: string) => void,
+    onDelete: (id: string) => void,
+    level = 0,
+    showResources = true
+): React.ReactNode[] => {
+    return nodes.flatMap((node) => {
+        // Hiding logic:
+        // If showResources is FALSE, and this node looks like a "resource" items (MT/ST/EQ without a formal code), hide it.
+        const isResourceNode = (!node.code || node.code.trim() === '') && ['MT', 'ST', 'EQ'].includes(node.itemType || '');
+        if (!showResources && isResourceNode) {
+            return [];
+        }
+
+        return [
+            <BudgetRow
+                key={node.id}
+                node={node}
+                level={level}
+                onUpdateNode={onUpdateNode}
+                onAddChild={onAddChild}
+                onAddResources={onAddResources}
+                onRemoveResources={onRemoveResources}
+                onDelete={onDelete}
+            />,
+            ...(node.children ? renderTreeRows(node.children, onUpdateNode, onAddChild, onAddResources, onRemoveResources, onDelete, level + 1, showResources) : [])
+        ];
+    });
+};
+
+const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: (t: BudgetNode[]) => void }) => {
+    const [showResources, setShowResources] = useState(true);
+
+    // Helper to recalculate totals bottom-up
+    const recalculateTotals = (nodes: BudgetNode[]): { nodes: BudgetNode[], total: number } => {
+        let sum = 0;
+        const newNodes = nodes.map(node => {
+            if (node.children && node.children.length > 0) {
+                const { nodes: newChildren, total: childTotal } = recalculateTotals(node.children);
+                // Update parent value based on children
+                const newNode = {
+                    ...node,
+                    children: newChildren,
+                    totalValue: childTotal,
+                    budgetInitial: childTotal,
+                    budgetCurrent: childTotal
+                };
+                sum += newNode.totalValue;
+                return newNode;
+            } else {
+                // If it's a leaf, use its own value
+                sum += node.totalValue;
+                return node;
+            }
+        });
+        return { nodes: newNodes, total: sum };
+    };
+
+    const handleUpdateNode = (updatedNode: BudgetNode) => {
+        // Recursive search and update logic:
+        const updateRecursive = (nodes: BudgetNode[]): BudgetNode[] => {
+            return nodes.map(n => {
+                if (n.id === updatedNode.id) {
+                    return updatedNode;
+                }
+                if (n.children) {
+                    return { ...n, children: updateRecursive(n.children) };
+                }
+                return n;
+            });
+        };
+        const newTree = updateRecursive(tree);
+        // After updating value/name, recalculate totals up the tree
+        const { nodes: recalculatedTree } = recalculateTotals(newTree);
+        onUpdate(recalculatedTree);
+    };
+
+    const handleAddRoot = () => {
+        const code = prompt("Digite o Código do Grupo (Ex: 01):");
+        if (!code) return;
+        const name = prompt("Digite o Nome do Grupo:");
+        if (!name) return;
+
+        const newNode: BudgetNode = {
+            id: Date.now().toString(),
+            code,
+            description: name.toUpperCase(),
+            level: 0,
+            totalValue: 0,
+            type: 'GROUP',
+            children: [],
+            budgetInitial: 0,
+            budgetCurrent: 0,
+            realizedRDO: 0,
+            realizedFinancial: 0,
+            committed: 0
+        };
+        onUpdate([...tree, newNode]);
+    };
+
+    const handleAddChild = (parentId: string, type: 'GROUP' | 'ITEM' = 'GROUP') => {
+        const findAndAdd = (nodes: BudgetNode[]): BudgetNode[] => {
+            return nodes.map(node => {
+                if (node.id === parentId) {
+                    // Intelligent code generation
+                    let newCode = node.code + ".01";
+                    if (node.children && node.children.length > 0) {
+                        try {
+                            const lastChildCode = node.children[node.children.length - 1].code;
+                            const parts = lastChildCode.split('.');
+                            const lastSection = parts[parts.length - 1];
+                            const lastNum = parseInt(lastSection);
+                            if (!isNaN(lastNum)) {
+                                parts[parts.length - 1] = (lastNum + 1).toString().padStart(2, '0');
+                                newCode = parts.join('.');
+                            }
+                        } catch (e) {
+                            // fallback if code format is weird
+                            newCode = node.code + "." + (node.children.length + 1).toString().padStart(2, '0');
+                        }
+                    }
+
+                    const name = prompt(`Adicionar ${type === 'GROUP' ? 'Sub-Grupo' : 'Item'} em ${node.description}.\nSugestão de Código: ${newCode}\n\nNome:`);
+                    if (!name) return node;
+
+                    let val = 0;
+                    if (type === 'ITEM') {
+                        // Ask value only for items initially
+                        // But if user creates item with intention of children, value will be overwritten.
+                        val = Number(prompt("Valor do Orçamento (Meta):", "0"));
+                    }
+
+                    const newNode: BudgetNode = {
+                        id: Date.now().toString(),
+                        code: newCode,
+                        description: name.toUpperCase(),
+                        level: node.level + 1,
+                        totalValue: val,
+                        type: type,
+                        itemType: type === 'ITEM' ? 'MT' : undefined,
+                        children: [],
+                        budgetInitial: val,
+                        budgetCurrent: val,
+                        realizedRDO: 0,
+                        realizedFinancial: 0,
+                        committed: 0,
+                        parentId: node.id
+                    };
+                    return { ...node, children: [...(node.children || []), newNode] };
+                }
+                if (node.children) {
+                    return { ...node, children: findAndAdd(node.children) };
+                }
+                return node;
+            });
+        };
+
+        const newTree = findAndAdd(tree);
+        const { nodes: recalculatedTree } = recalculateTotals(newTree);
+        onUpdate(recalculatedTree);
+    };
+
+    const handleAddResources = (nodeId: string) => {
+        const findAndAddRes = (nodes: BudgetNode[]): BudgetNode[] => {
+            return nodes.map(node => {
+                if (node.id === nodeId) {
+                    if (node.children && node.children.length > 0) {
+                        // Alert usually bad UX, but simple for now
+                        alert("Este item já possui filhos. Não é possível adicionar a composição padrão.");
+                        return node;
+                    }
+                    // Create standard MT/ST/EQ structure logic
+                    // The user wants to replicate the spreadsheet structure where items have MT/ST/EQ components.
+                    const resources: BudgetNode[] = [
+                        { id: Date.now() + '1', code: '', description: 'MATERIAL', level: node.level + 1, type: 'ITEM', itemType: 'MT', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
+                        { id: Date.now() + '2', code: '', description: 'SERVIÇO DE TERCEIROS', level: node.level + 1, type: 'ITEM', itemType: 'ST', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
+                        { id: Date.now() + '3', code: '', description: 'EQUIPAMENTOS', level: node.level + 1, type: 'ITEM', itemType: 'EQ', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
+                    ];
+                    setShowResources(true); // Force visibility when adding
+                    return { ...node, children: resources };
+                }
+                if (node.children) {
+                    return { ...node, children: findAndAddRes(node.children) };
+                }
+                return node;
+            });
+        };
+        const newTree = findAndAddRes(tree);
+        onUpdate(newTree);
+    };
+
+    const handleRemoveResources = (nodeId: string) => {
+        // Confirmation? Maybe skip if user wants speed, but safer to have it
+        // The user asked for "freedom" to insert or remove.
+        const findAndRemoveRes = (nodes: BudgetNode[]): BudgetNode[] => {
+            return nodes.map(node => {
+                if (node.id === nodeId) {
+                    return { ...node, children: [], totalValue: 0, budgetInitial: 0, budgetCurrent: 0 };
+                }
+                if (node.children) {
+                    return { ...node, children: findAndRemoveRes(node.children) };
+                }
+                return node;
+            });
+        };
+        const newTree = findAndRemoveRes(tree);
+        const { nodes: recalculatedTree } = recalculateTotals(newTree);
+        onUpdate(recalculatedTree);
+    }
+
+    const handleDelete = (id: string) => {
+        if (!confirm("Tem certeza? Isso apagará o item e seus filhos.")) return;
+        const deleteRecursive = (nodes: BudgetNode[]): BudgetNode[] => {
+            return nodes.filter(n => n.id !== id).map(n => ({
+                ...n,
+                children: deleteRecursive(n.children)
+            }));
+        };
+        const newTree = deleteRecursive(tree);
+        const { nodes: recalculatedTree } = recalculateTotals(newTree);
+        onUpdate(recalculatedTree);
+    };
+
+    return (
+        <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <div className="flex gap-2">
+                    <button onClick={handleAddRoot} className="flex items-center gap-2 bg-indigo-600 text-white border border-indigo-700 px-3 py-1.5 rounded text-sm font-bold hover:bg-indigo-700 shadow-sm">
+                        <Plus size={14} /> Adicionar Grupo Raiz
+                    </button>
+
+                    <button
+                        onClick={() => setShowResources(!showResources)}
+                        className={`ml-4 flex items-center gap-2 px-3 py-1.5 rounded text-sm font-bold shadow-sm border transition-colors ${showResources ? 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50' : 'bg-slate-800 text-white border-slate-900 hover:bg-slate-900'}`}
+                        title={showResources ? "Ocultar detalhamento de recursos (MT, ST, EQ)" : "Mostrar detalhamento de recursos (MT, ST, EQ)"}
+                    >
+                        {showResources ? <EyeOff size={14} /> : <Eye size={14} />}
+                        {showResources ? 'Ocultar Recursos (Sintético)' : 'Mostrar Recursos (Analítico)'}
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <div className="text-xs text-slate-400 flex items-center">
+                        <div className="w-3 h-3 bg-slate-200 rounded mr-1"></div> Grupo
+                        <div className="w-3 h-3 bg-blue-100 rounded ml-2 mr-1"></div> Serviço
+                        <div className="w-3 h-3 bg-yellow-100 rounded ml-2 mr-1"></div> Material
+                        <div className="w-3 h-3 bg-orange-100 rounded ml-2 mr-1"></div> Equip
+                    </div>
+                    <div className="text-sm text-slate-500 border-l pl-3 ml-2">
+                        Versão Atual: <span className="font-bold text-slate-800">01 (Editável)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-auto bg-slate-50">
+                <table className="w-full text-sm border-collapse">
+                    <thead className="bg-slate-200 text-slate-700 font-bold sticky top-0 z-10 shadow-sm uppercase text-xs">
+                        <tr>
+                            <th className="p-3 text-left w-48 border-b border-slate-300">Código</th>
+                            <th className="p-3 text-left border-b border-slate-300">Descrição</th>
+                            <th className="p-3 text-center w-24 border-b border-slate-300">Tipo</th>
+                            <th className="p-3 text-right w-40 border-b border-slate-300 bg-orange-100 text-orange-900 border-l border-r border-orange-200">Orçamento (Meta)</th>
+                            <th className="p-3 text-right w-48 border-b border-slate-300">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                        {renderTreeRows(tree, handleUpdateNode, handleAddChild, handleAddResources, handleRemoveResources, handleDelete, 0, showResources)}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const FinancialEntryTab = ({ entries, budgetTree, onUpdate }: { entries: FinancialEntry[], budgetTree: BudgetNode[], onUpdate: (e: FinancialEntry[]) => void }) => {
+    const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+
+    // Form State for Header
+    const [supplier, setSupplier] = useState('');
+    const [docNum, setDocNum] = useState('');
+    const [totalValue, setTotalValue] = useState(0);
+    const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+    const [installmentsCount, setInstallmentsCount] = useState(1);
+
+    // Form State for Allocations (Multi)
+    const [allocations, setAllocations] = useState<FinancialAllocation[]>([]);
+
+    // Temporary State for Adding Allocation
+    const [tempAllocGroup, setTempAllocGroup] = useState('');
+    const [tempAllocValue, setTempAllocValue] = useState(0);
+    const [tempAllocType, setTempAllocType] = useState<'MT' | 'ST' | 'EQ'>('MT');
+
+    const [installments, setInstallments] = useState<Installment[]>([]);
+
+    // Determine Groups Options (Flattened)
+    const flatGroups = useMemo(() => {
+        const list: { code: string, desc: string }[] = [];
+        const traverse = (nodes: BudgetNode[]) => {
+            nodes.forEach(n => {
+                list.push({ code: n.code, desc: n.description });
+                if (n.children) traverse(n.children);
+            });
+        };
+        traverse(budgetTree);
+        return list;
+    }, [budgetTree]);
+
+    const allocatedSum = allocations.reduce((acc, a) => acc + a.value, 0);
+    const remainingToAllocate = totalValue - allocatedSum;
+
+    const handleAddAllocation = () => {
+        if (!tempAllocGroup || tempAllocValue <= 0) return;
+        if (tempAllocValue > remainingToAllocate + 0.01) { // tolerance
+            alert("Valor da alocação excede o saldo restante da nota!");
+            return;
+        }
+
+        const newAlloc: FinancialAllocation = {
+            id: Date.now().toString(),
+            budgetGroupCode: tempAllocGroup,
+            costType: tempAllocType,
+            value: tempAllocValue,
+            description: flatGroups.find(g => g.code === tempAllocGroup)?.desc || ''
+        };
+
+        setAllocations([...allocations, newAlloc]);
+        // Reset temp
+        setTempAllocGroup('');
+        setTempAllocValue(0);
+    };
+
+    const removeAllocation = (id: string) => {
+        setAllocations(allocations.filter(a => a.id !== id));
+    };
+
+    const generateInstallmentsPreview = () => {
+        if (totalValue <= 0) return;
+        const valPerInst = totalValue / installmentsCount;
+        const newInsts: Installment[] = [];
+        for (let i = 0; i < installmentsCount; i++) {
+            const date = new Date(issueDate);
+            date.setMonth(date.getMonth() + i + 1);
+            newInsts.push({
+                id: Date.now() + i + '',
+                number: i + 1,
+                dueDate: date.toISOString().split('T')[0],
+                value: valPerInst,
+                status: 'PENDING'
+            });
+        }
+        setInstallments(newInsts);
+    };
+
+    const handleSaveEntry = () => {
+        // Validation
+        if (Math.abs(remainingToAllocate) > 0.1) {
+            alert("O valor total da nota deve ser totalmente alocado antes de salvar!");
+            return;
+        }
+        if (installments.length === 0) {
+            // auto gen if user forgot
+            generateInstallmentsPreview();
+        }
+
+        const newEntry: FinancialEntry = {
+            id: Date.now().toString(),
+            supplier: supplier.toUpperCase(),
+            documentNumber: docNum,
+            description: `NF ${docNum} - ${supplier.toUpperCase()}`,
+            issueDate,
+            totalValue: totalValue,
+            allocations,
+            status: 'APPROVED',
+            installments: installments.length > 0 ? installments : [] // logic fix
+        };
+
+        // If installments empty because state lag or something, re-gen:
+        if (newEntry.installments.length === 0) {
+            const valPerInst = totalValue / installmentsCount;
+            for (let i = 0; i < installmentsCount; i++) {
+                const date = new Date(issueDate);
+                date.setMonth(date.getMonth() + i + 1);
+                newEntry.installments.push({
+                    id: Date.now() + i + 'fix',
+                    number: i + 1,
+                    dueDate: date.toISOString().split('T')[0],
+                    value: valPerInst,
+                    status: 'PENDING'
+                });
+            }
+        }
+
+        onUpdate([...entries, newEntry]);
+        setViewMode('list');
+        // Reset form
+        setSupplier(''); setDocNum(''); setTotalValue(0); setAllocations([]); setInstallments([]);
+    };
+
+    if (viewMode === 'form') {
+        return (
+            <div className="p-6 max-w-5xl mx-auto w-full">
+                <div className="flex items-center gap-4 mb-6">
+                    <button onClick={() => setViewMode('list')} className="text-slate-500 hover:text-slate-800 font-bold uppercase text-xs flex items-center gap-1">
+                        <ChevronRight className="rotate-180" size={14} /> Voltar
+                    </button>
+                    <h2 className="text-xl font-bold uppercase text-slate-800">Lançamento de Nota Fiscal (Multi-G.O.)</h2>
+                </div>
+
+                {/* Header Data */}
+                <div className="grid grid-cols-4 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6">
+                    <div className="col-span-2">
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Fornecedor</label>
+                        <input className="w-full border rounded p-2 uppercase" value={supplier} onChange={e => setSupplier(e.target.value.toUpperCase())} placeholder="RAZÃO SOCIAL..." />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Data Emissão</label>
+                        <input className="w-full border rounded p-2" type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Nº Nota Fiscal</label>
+                        <input className="w-full border rounded p-2" value={docNum} onChange={e => setDocNum(e.target.value)} placeholder="000.000" />
+                    </div>
+                    <div className="bg-white p-4 items-center flex rounded border border-blue-200 col-span-4 justify-between shadow-sm">
+                        <div className="font-bold text-blue-900 uppercase text-sm">Valor Total da Nota</div>
+                        <div className="flex items-center">
+                            <span className="mr-2 text-slate-400 font-bold">R$</span>
+                            <input
+                                className="text-2xl font-mono font-bold text-blue-700 outline-none w-48 text-right border-b border-dashed border-blue-300 focus:border-blue-600"
+                                type="number"
+                                value={totalValue}
+                                onChange={e => setTotalValue(Number(e.target.value))}
+                                placeholder="0.00"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Multi-Allocation Section */}
+                <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-orange-900 uppercase text-sm">Apropriação de Custos (Rateio)</h3>
+                        <div className="text-xs font-bold flex gap-4">
+                            <div className="text-slate-500">Alocado: <span className="text-slate-800">{allocatedSum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>
+                            <div className={`${remainingToAllocate === 0 ? 'text-green-600' : 'text-red-600'}`}>Restante: <span>{remainingToAllocate.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>
+                        </div>
+                    </div>
+
+                    {/* Add Line */}
+                    <div className="flex gap-2 mb-4 items-end">
+                        <div className="flex-1">
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Grupo Orçamentário</label>
+                            <select className="w-full border rounded p-2 text-sm" value={tempAllocGroup} onChange={e => setTempAllocGroup(e.target.value)}>
+                                <option value="">Selecione...</option>
+                                {flatGroups.map(g => <option key={g.code} value={g.code}>{g.code} - {g.desc}</option>)}
+                            </select>
+                        </div>
+                        <div className="w-32">
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Tipo</label>
+                            <select className="w-full border rounded p-2 text-sm" value={tempAllocType} onChange={e => setTempAllocType(e.target.value as any)}>
+                                <option value="MT">Material</option>
+                                <option value="ST">Serviço</option>
+                                <option value="EQ">Equipamento</option>
+                            </select>
+                        </div>
+                        <div className="w-40">
+                            <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Valor</label>
+                            <input className="w-full border rounded p-2 text-sm" type="number" value={tempAllocValue} onChange={e => setTempAllocValue(Number(e.target.value))} />
+                        </div>
+                        <button onClick={handleAddAllocation} className="bg-orange-600 text-white p-2 rounded hover:bg-orange-700" title="Adicionar Linha de Rateio">
+                            <Plus size={18} />
+                        </button>
+                    </div>
+
+                    {/* List */}
+                    {allocations.length > 0 && (
+                        <div className="bg-white rounded border border-orange-200 overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-orange-100 text-orange-900">
+                                    <tr>
+                                        <th className="p-2 text-left text-xs uppercase">Grupo</th>
+                                        <th className="p-2 text-left text-xs uppercase">Descrição do Grupo</th>
+                                        <th className="p-2 text-center text-xs uppercase w-20">Tipo</th>
+                                        <th className="p-2 text-right text-xs uppercase">Valor</th>
+                                        <th className="p-2 w-10"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {allocations.map(alloc => (
+                                        <tr key={alloc.id} className="border-b last:border-0">
+                                            <td className="p-2 font-mono text-xs">{alloc.budgetGroupCode}</td>
+                                            <td className="p-2 text-xs font-bold text-slate-700">{alloc.description}</td>
+                                            <td className="p-2 text-center text-[10px] font-bold">{alloc.costType}</td>
+                                            <td className="p-2 text-right font-mono">{alloc.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                            <td className="p-2 text-center"><button onClick={() => removeAllocation(alloc.id)} className="text-red-400 hover:text-red-600"><X size={14} /></button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                {/* Installments */}
+                <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 mb-6">
+                    <div className="flex justify-between items-end mb-4">
+                        <h3 className="font-bold text-blue-900 uppercase text-sm">Parcelamento & Desembolso</h3>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-blue-800 uppercase">Qtd Parcelas:</span>
+                            <input className="w-16 border border-blue-200 rounded p-1 text-center" type="number" min="1" max="60" value={installmentsCount} onChange={e => setInstallmentsCount(Number(e.target.value))} />
+                            <button onClick={generateInstallmentsPreview} className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold uppercase hover:bg-blue-700">Gerar Datas</button>
+                        </div>
+                    </div>
+                    {installments.length > 0 && (
+                        <div className="bg-white rounded border border-blue-100 overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-blue-100 text-blue-800">
+                                    <tr>
+                                        <th className="p-2 text-center w-16">#</th>
+                                        <th className="p-2 text-left">Vencimento</th>
+                                        <th className="p-2 text-right">Valor Parcela</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {installments.map((inst, idx) => (
+                                        <tr key={inst.id} className="border-b last:border-0">
+                                            <td className="p-2 text-center font-bold text-slate-500">{inst.number}</td>
+                                            <td className="p-2">
+                                                <input type="date" className="border rounded px-2 py-1 w-full text-xs" value={inst.dueDate} onChange={e => {
+                                                    const newInsts = [...installments];
+                                                    newInsts[idx].dueDate = e.target.value;
+                                                    setInstallments(newInsts);
+                                                }} />
+                                            </td>
+                                            <td className="p-2 text-right font-mono font-medium">
+                                                {inst.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-3 pb-10">
+                    <button onClick={() => setViewMode('list')} className="px-6 py-3 text-slate-600 font-bold uppercase hover:bg-slate-100 rounded">Cancelar</button>
+                    <button onClick={handleSaveEntry} className="px-6 py-3 bg-green-600 text-white font-bold uppercase hover:bg-green-700 rounded shadow-sm disabled:opacity-50" disabled={Math.abs(remainingToAllocate) > 0.1}>Confirmar Lançamento</button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col h-full bg-white">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                <div className="flex gap-2">
+                    <button onClick={() => setViewMode('form')} className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 font-bold uppercase text-xs hover:bg-green-700 shadow-sm">
+                        <Plus size={16} /> Novo Lançamento (NF)
+                    </button>
+                </div>
+                <div className="flex gap-4 text-xs font-bold text-slate-500">
+                    <div>Total Lançado: <span className="text-slate-800 text-base">{entries.reduce((acc, e) => acc + e.totalValue, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+                <table className="w-full text-sm text-left border-collapse">
+                    <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
+                        <tr>
+                            <th className="p-3 border-b">Data Emissão</th>
+                            <th className="p-3 border-b">Forncedor</th>
+                            <th className="p-3 border-b">Documento</th>
+                            <th className="p-3 border-b text-center">Itens (Rateio)</th>
+                            <th className="p-3 border-b text-right">Valor Total</th>
+                            <th className="p-3 border-b text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {entries.map(entry => (
+                            <tr key={entry.id} className="border-b hover:bg-slate-50 transition-colors">
+                                <td className="p-3 font-mono text-slate-500">{new Date(entry.issueDate).toLocaleDateString()}</td>
+                                <td className="p-3 font-bold text-slate-700">{entry.supplier}</td>
+                                <td className="p-3">{entry.documentNumber}</td>
+                                <td className="p-3 text-center">
+                                    {entry.allocations?.length > 1 ?
+                                        <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px] font-bold">MULTIPLO ({entry.allocations.length})</span>
+                                        : <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-mono">{entry.allocations?.[0]?.budgetGroupCode}</span>
+                                    }
+                                </td>
+                                <td className="p-3 text-right font-bold text-slate-800">{entry.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                <td className="p-3 text-center">
+                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">{entry.status}</span>
+                                </td>
+                            </tr>
+                        ))}
+                        {entries.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="p-10 text-center text-slate-400 uppercase text-sm italic">Nenhum lançamento registrado.</td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+// --- TAB 3: ANALYSIS DASHBOARD ---
+const AnalysisDashboardTab = ({ tree, entries }: { tree: BudgetNode[], entries: FinancialEntry[] }) => {
+    return (
+        <div className="p-6 h-full overflow-auto bg-slate-50">
+            <div className="grid grid-cols-3 gap-6 mb-6">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 className="text-slate-500 uppercase text-xs font-bold mb-2">Orçamento Total (Meta)</h3>
+                    <div className="text-2xl font-bold text-slate-900">R$ 53.670.434,74</div>
+                    <div className="text-xs text-green-600 mt-1 flex items-center gap-1"><Check size={12} /> Base: Versão 01</div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 className="text-slate-500 uppercase text-xs font-bold mb-2">Total Comprometido (NFs + Pedidos)</h3>
+                    <div className="text-2xl font-bold text-blue-600">
+                        {entries.reduce((acc, e) => acc + e.totalValue, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">Apropriação por emissão</div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 className="text-slate-500 uppercase text-xs font-bold mb-2">Desembolso Previsto (Próx. 30 Dias)</h3>
+                    <div className="text-2xl font-bold text-orange-600">R$ 145.200,00</div>
+                    <div className="text-xs text-slate-400 mt-1">Conforme vencimento das parcelas</div>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
+                <div className="p-4 border-b border-slate-100 bg-slate-50">
+                    <h3 className="font-bold text-slate-700 uppercase text-sm">Fluxo de Caixa Projetado (Desembolso)</h3>
+                </div>
+                <div className="p-8 flex items-center justify-center text-slate-400 italic">
+                    <BarChart className="mr-2" size={24} /> Gráfico de Barras: Vencimentos Jan/Fev/Mar (Mock)
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// --- MAIN VIEW COMPONENT ---
+export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
+    const [activeTab, setActiveTab] = useState<'budget' | 'financial' | 'analysis'>('budget');
+
+    // --- STATE MANAGEMENT ---
+    // If we have persisted tree, use it, otherwise convert flat budgetGroups or start empty
+    const [budgetTree, setBudgetTree] = useState<BudgetNode[]>(appData.budgetTree || generateInitialTree(appData.budgetGroups || []));
+    const [entries, setEntries] = useState<FinancialEntry[]>(appData.financialEntries || []);
+
+    // Auto-Save Effect
+    useEffect(() => {
+        // In a real app we'd debounce or explicit save
+    }, [budgetTree, entries]);
+
+    const handleUpdateTree = (newTree: BudgetNode[]) => {
+        setBudgetTree(newTree);
+        onUpdate({ budgetTree: newTree });
+    };
+
+    const handleUpdateEntries = (newEntries: FinancialEntry[]) => {
+        setEntries(newEntries);
+        onUpdate({ financialEntries: newEntries });
+    };
+
+    return (
+        <div className="flex flex-col h-full bg-slate-50 p-4">
+            <header className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900">Controle Orçamentário e Financeiro (ERP)</h1>
+                    <p className="text-slate-500">Gestão Integrada: Orçamento x Realizado x Desembolso</p>
+                </div>
+                <div className="flex bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
+                    <TabButton active={activeTab === 'budget'} onClick={() => setActiveTab('budget')} icon={<BarChart size={16} />} label="Estrutura Orçamentária" />
+                    <TabButton active={activeTab === 'financial'} onClick={() => setActiveTab('financial')} icon={<DollarSign size={16} />} label="Lançamento de NFs" />
+                    <TabButton active={activeTab === 'analysis'} onClick={() => setActiveTab('analysis')} icon={<FileText size={16} />} label="Análise & Relatórios" />
+                </div>
+            </header>
+
+            <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                {activeTab === 'budget' && <BudgetStructureTab tree={budgetTree} onUpdate={handleUpdateTree} />}
+                {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} />}
+                {activeTab === 'analysis' && <AnalysisDashboardTab tree={budgetTree} entries={entries} />}
+            </div>
+        </div>
+    );
+};
