@@ -306,6 +306,11 @@ export interface AppData {
         config: ProductionConfig;
         services: ServiceDefinition[];
         status: ProductionStatus;
+        foundationData?: Record<string, { total: number; realized: number }>; // Tower Index -> Data
+        unitProgress?: Record<string, Record<string, number>>; // UnitId -> ServiceId -> Percent
+        towerNames?: string[]; // Custom names for towers
+        legendColors?: { pending: string; started: string; completed: string }; // Customizable legend colors
+        serviceStatus?: Record<string, 'pending' | 'executing' | 'completed'>; // ServiceId -> Pipeline Status
     };
     purchaseRequests?: PurchaseRequest[];
     budgetGroups?: BudgetGroup[];
