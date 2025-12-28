@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AppData, PurchaseRequest, PurchaseRequestItem } from '../../types';
+import { AppData, PurchaseRequest, PurchaseRequestItem, BudgetNode } from '../../types';
 import { Plus, Check, X, AlertCircle, ShoppingCart, Archive, FileText } from 'lucide-react';
 
 interface Props {
@@ -83,11 +83,15 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                     setRequests(newReqs);
                     onUpdate({ purchaseRequests: newReqs });
                 }} />}
-                {activeTab === 'engineering' && <BudgetLinkView requests={requests.filter(r => r.status === 'Em Análise Engenharia')} onUpdateRequests={(updated) => {
-                    const newReqs = requests.map(r => updated.find(u => u.id === r.id) || r);
-                    setRequests(newReqs);
-                    onUpdate({ purchaseRequests: newReqs });
-                }} />}
+                {activeTab === 'engineering' && <BudgetLinkView
+                    requests={requests.filter(r => r.status === 'Em Análise Engenharia')}
+                    budgetTree={appData.budgetTree || []}
+                    onUpdateRequests={(updated) => {
+                        const newReqs = requests.map(r => updated.find(u => u.id === r.id) || r);
+                        setRequests(newReqs);
+                        onUpdate({ purchaseRequests: newReqs });
+                    }}
+                />}
                 {activeTab === 'manager' && <ManagerApprovalView requests={requests.filter(r => r.status === 'Aguardando Gerente')} onUpdateRequests={(updated: PurchaseRequest[]) => {
                     const newReqs = requests.map(r => updated.find(u => u.id === r.id) || r);
                     setRequests(newReqs);
@@ -458,98 +462,132 @@ const WarehouseCard = ({ req, onProcess }: { req: PurchaseRequest, onProcess: (r
     )
 }
 
-const BudgetLinkView = ({ requests, onUpdateRequests }: { requests: PurchaseRequest[], onUpdateRequests: (reqs: PurchaseRequest[]) => void }) => (
-    <div>
-        <h3 className="text-xl font-bold mb-4">Vínculo Orçamentário (Engenharia)</h3>
-        {requests.map((req: PurchaseRequest) => (
-            <div key={req.id} className="border rounded-xl p-6 mb-6 bg-white shadow-sm border-slate-200">
-                <div className="flex justify-between items-start mb-4 border-b border-slate-100 pb-4">
-                    <div>
-                        <div className="font-bold text-lg text-slate-800">{req.requestId} - {req.description}</div>
-                        <div className="text-sm text-slate-500 mt-1">
-                            Solicitante: {req.requester} • Data: {new Date(req.date).toLocaleDateString()}
-                        </div>
-                    </div>
-                </div>
+const BudgetLinkView = ({ requests, onUpdateRequests, budgetTree }: { requests: PurchaseRequest[], onUpdateRequests: (reqs: PurchaseRequest[]) => void, budgetTree: BudgetNode[] }) => {
+    // Helper to get flat groups
+    const flatGroups = React.useMemo(() => {
+        const list: { code: string, desc: string }[] = [];
+        const traverse = (nodes: BudgetNode[]) => {
+            nodes.forEach(n => {
+                // Should we allow selecting Groups or only Items? Usually Items (leafs) or Groups that are cost centers.
+                // For simplicity, let's allow any node that has a code.
+                if (n.code) list.push({ code: n.code, desc: n.description });
+                if (n.children) traverse(n.children);
+            });
+        };
+        traverse(budgetTree);
+        return list;
+    }, [budgetTree]);
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Left: Items List */}
-                    <div>
-                        <h4 className="font-bold text-sm text-slate-700 mb-2 uppercase">Itens da Solicitação</h4>
-                        <div className="bg-slate-50 rounded border border-slate-200 overflow-hidden">
-                            <table className="w-full text-sm">
-                                <thead className="bg-slate-100 text-slate-600">
-                                    <tr>
-                                        <th className="p-2 text-left text-xs uppercase">Item</th>
-                                        <th className="p-2 text-center text-xs w-20 uppercase">Qtd</th>
-                                        <th className="p-2 text-center text-xs w-16 uppercase">Un</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {req.items.map(item => (
-                                        <tr key={item.id} className="border-t border-slate-100 last:border-0 hover:bg-white transition-colors">
-                                            <td className="p-2 text-slate-700">
-                                                <div className="font-medium">{item.description}</div>
-                                                {item.totvsCode && <div className="text-[10px] text-slate-400 font-mono">COD: {item.totvsCode}</div>}
-                                            </td>
-                                            <td className="p-2 text-center font-semibold">{item.quantityToBuy}</td>
-                                            <td className="p-2 text-center text-xs text-slate-500">{item.unit}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+    // Local state to track edits before saving? 
+    // Actually we can update the request object directly since it's passed down.
 
-                    {/* Right: Budget Action */}
-                    <div className="bg-indigo-50 rounded-xl p-5 border border-indigo-100 flex flex-col justify-between">
+    return (
+        <div>
+            <h3 className="text-xl font-bold mb-4">Vínculo Orçamentário (Engenharia)</h3>
+            {requests.map((req: PurchaseRequest) => (
+                <div key={req.id} className="border rounded-xl p-6 mb-6 bg-white shadow-sm border-slate-200">
+                    <div className="flex justify-between items-start mb-4 border-b border-slate-100 pb-4">
                         <div>
-                            <label className="block text-sm font-bold text-indigo-900 mb-2 uppercase">Selecionar Grupo Orçamentário (G.O.)</label>
-                            <p className="text-xs text-indigo-700 mb-4">Selecione onde este custo será alocado no orçamento da obra.</p>
-
-                            <select
-                                className="w-full border border-indigo-200 rounded p-3 bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 font-medium"
-                                value={req.budgetGroupCode || ''}
-                                onChange={(e) => {
-                                    // Normally we would update local state first, but here we can try to "save draft" or just select
-                                    // For this prototype, we'll imply selection happens before clicking button
-                                    const updated = { ...req, budgetGroupCode: e.target.value };
-                                    // We need to trigger an update, but maybe not move stage yet? 
-                                    // Actually, let's just update the req in the parent list, keeping stage same until button press
-                                    onUpdateRequests([updated]);
-                                }}
-                            >
-                                <option value="">Selecione o Grupo...</option>
-                                <option value="01.01">01.01 - FUNDAÇÕES E CONTENÇÕES</option>
-                                <option value="01.02">01.02 - ESTRUTURA DE CONCRETO</option>
-                                <option value="01.03">01.03 - ALVENARIA E VEDAÇÕES</option>
-                                <option value="02.01">02.01 - INSTALAÇÕES ELÉTRICAS</option>
-                                <option value="02.02">02.02 - INSTALAÇÕES HIDRÁULICAS</option>
-                                <option value="03.00">03.00 - ADMINISTRAÇÃO DA OBRA</option>
-                            </select>
+                            <div className="font-bold text-lg text-slate-800">{req.requestId} - {req.description}</div>
+                            <div className="text-sm text-slate-500 mt-1">
+                                Solicitante: {req.requester} • Data: {new Date(req.date).toLocaleDateString()}
+                            </div>
                         </div>
+                    </div>
 
+                    <div className="grid grid-cols-1 gap-6">
+                        {/* Items List with Per-Item Budget Link */}
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="font-bold text-sm text-slate-700 uppercase">Classificação de Custos (Itens)</h4>
+                                {/* Batch Apply Helper */}
+                                <div className="flex gap-2 items-center">
+                                    <span className="text-[10px] font-bold uppercase text-slate-400">Aplicar a todos:</span>
+                                    <select
+                                        className="border rounded text-xs p-1 max-w-[200px]"
+                                        onChange={(e) => {
+                                            if (!e.target.value) return;
+                                            const updatedItems = req.items.map(i => ({ ...i, budgetGroupCode: e.target.value }));
+                                            const updatedReq = { ...req, items: updatedItems, budgetGroupCode: e.target.value }; // Also set main one as default/fallback
+                                            onUpdateRequests([updatedReq]);
+                                        }}
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {flatGroups.map(g => <option key={g.code} value={g.code}>{g.code} - {g.desc}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-50 rounded border border-slate-200 overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-100 text-slate-600">
+                                        <tr>
+                                            <th className="p-2 text-left text-xs uppercase">Item</th>
+                                            <th className="p-2 text-center text-xs w-20 uppercase">Qtd</th>
+                                            <th className="p-2 text-center text-xs w-16 uppercase">Un</th>
+                                            <th className="p-2 text-left text-xs uppercase w-64 bg-indigo-50 text-indigo-800">Grupo Orçamentário (G.O.)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {req.items.map(item => (
+                                            <tr key={item.id} className="border-t border-slate-100 last:border-0 hover:bg-white transition-colors">
+                                                <td className="p-2 text-slate-700">
+                                                    <div className="font-medium">{item.description}</div>
+                                                    {item.totvsCode && <div className="text-[10px] text-slate-400 font-mono">COD: {item.totvsCode}</div>}
+                                                </td>
+                                                <td className="p-2 text-center font-semibold">{item.quantityToBuy}</td>
+                                                <td className="p-2 text-center text-xs text-slate-500">{item.unit}</td>
+                                                <td className="p-2 bg-indigo-50/30">
+                                                    <select
+                                                        className={`w-full border rounded text-xs p-1.5 focus:ring-2 focus:ring-indigo-500 outline-none ${item.budgetGroupCode ? 'border-indigo-300 text-indigo-700 font-bold bg-white' : 'border-red-300 bg-red-50 text-red-700'}`}
+                                                        value={item.budgetGroupCode || ''}
+                                                        onChange={(e) => {
+                                                            const updatedItems = req.items.map(i => i.id === item.id ? { ...i, budgetGroupCode: e.target.value } : i);
+                                                            // Check if all items are same, if so update main budgetGroupCode, else maybe clear it or set to 'MIXED'
+                                                            const allSame = updatedItems.every(i => i.budgetGroupCode === updatedItems[0].budgetGroupCode);
+                                                            const updatedReq = {
+                                                                ...req,
+                                                                items: updatedItems,
+                                                                budgetGroupCode: allSame ? updatedItems[0].budgetGroupCode : 'MULTIPLO'
+                                                            };
+                                                            onUpdateRequests([updatedReq]);
+                                                        }}
+                                                    >
+                                                        <option value="">Selecione...</option>
+                                                        {flatGroups.map(g => <option key={g.code} value={g.code}>{g.code} - {g.desc}</option>)}
+                                                    </select>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end">
                         <button
-                            disabled={!req.budgetGroupCode}
+                            disabled={req.items.some(i => !i.budgetGroupCode)}
                             onClick={() => {
-                                if (!req.budgetGroupCode) return;
+                                if (req.items.some(i => !i.budgetGroupCode)) return;
                                 const updated = {
                                     ...req,
                                     status: 'Aguardando Gerente',
-                                    history: [...req.history, { date: new Date().toISOString(), user: 'Engenharia', action: 'Vínculo G.O. - ' + req.budgetGroupCode }]
-                                } as PurchaseRequest; // Type assertion to fix 'any' inferred warning if needed
+                                    history: [...req.history, { date: new Date().toISOString(), user: 'Engenharia', action: 'Vínculo Orçamentário Finalizado' }]
+                                } as PurchaseRequest;
                                 onUpdateRequests([updated]);
                             }}
-                            className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg font-bold shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed mt-4 transition-all flex justify-center items-center gap-2"
+                            className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-2"
+                            title={req.items.some(i => !i.budgetGroupCode) ? "Vincule todos os itens a um G.O. antes de prosseguir" : "Enviar para Aprovação"}
                         >
                             <Check size={18} /> Confirmar Vínculo e Enviar
                         </button>
                     </div>
                 </div>
-            </div>
-        ))}
-    </div>
-);
+            ))}
+        </div>
+    );
+};
 
 const ManagerApprovalView = ({ requests, onUpdateRequests }: { requests: PurchaseRequest[], onUpdateRequests: (reqs: PurchaseRequest[]) => void }) => {
     // We can use local state for expanding cards
@@ -598,6 +636,7 @@ const ManagerApprovalView = ({ requests, onUpdateRequests }: { requests: Purchas
                                                 <th className="p-2 text-center w-24">Qtd Solicitada</th>
                                                 <th className="p-2 text-center w-24">Qtd Compra</th>
                                                 <th className="p-2 text-center w-16">Un</th>
+                                                <th className="p-2 text-left w-32">Classificação (G.O.)</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -607,6 +646,7 @@ const ManagerApprovalView = ({ requests, onUpdateRequests }: { requests: Purchas
                                                     <td className="p-2 text-center text-slate-400">{item.quantityRequested}</td>
                                                     <td className="p-2 text-center font-bold text-slate-800">{item.quantityToBuy}</td>
                                                     <td className="p-2 text-center text-slate-500">{item.unit}</td>
+                                                    <td className="p-2 text-xs font-mono text-indigo-700 bg-indigo-50/50">{item.budgetGroupCode || '-'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -757,6 +797,7 @@ const TotvsIntegrationView = ({ requests, onUpdateRequests }: { requests: Purcha
                                                 <th className="p-2 text-center uppercase text-xs w-24">Qtd Aprovada</th>
                                                 {editingId && <th className="p-2 text-center uppercase text-xs w-24 text-orange-700 bg-orange-50">Nova Qtd</th>}
                                                 <th className="p-2 text-center uppercase text-xs w-16">Un</th>
+                                                <th className="p-2 text-left uppercase text-xs w-32">Classificação (G.O.)</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -776,6 +817,7 @@ const TotvsIntegrationView = ({ requests, onUpdateRequests }: { requests: Purcha
                                                         </td>
                                                     )}
                                                     <td className="p-2 text-center text-xs text-slate-500">{item.unit}</td>
+                                                    <td className="p-2 text-xs font-mono text-indigo-700 bg-indigo-50/50">{item.budgetGroupCode || '-'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>

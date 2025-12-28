@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { AppData, BudgetGroup, BudgetNode, FinancialEntry, Installment, FinancialAllocation } from '../../types';
-import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff } from 'lucide-react';
+import { AppData, BudgetGroup, BudgetNode, FinancialEntry, Installment, FinancialAllocation, BudgetSnapshot, Supplier } from '../../types';
+import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers } from 'lucide-react';
 
 interface Props {
     appData: AppData;
@@ -13,7 +13,7 @@ function generateInitialTree(groups: BudgetGroup[]): BudgetNode[] {
     // Basic Mock
     return [
         {
-            id: '1', code: '01', description: 'CUSTOS DE CONSTRUÇÃO', level: 0, totalValue: 53670434.74, type: 'GROUP', budgetInitial: 53670434.74, budgetCurrent: 53670434.74, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
+            id: '1', code: '01', description: 'CUSTOS DE CONSTRUÇÃO', level: 0, totalValue: 53670434.74, type: 'GROUP', budgetInitial: 53670434.74, budgetCurrent: 53670434.74, realizedRDO: 0, realizedFinancial: 0, committed: 0, costCenter: 'T1_T2', children: [
                 {
                     id: '2', code: '01.01', description: 'FUNDAÇÃO E CONTENÇÕES', level: 1, totalValue: 2897999.08, type: 'GROUP', budgetInitial: 2897999.08, budgetCurrent: 2897999.08, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
                         { id: '3', code: '01.01.01', description: 'SERVIÇOS PRELIMINARES', level: 2, totalValue: 980221.99, type: 'ITEM', itemType: 'ST', budgetInitial: 980221.99, budgetCurrent: 980221.99, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
@@ -86,7 +86,6 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
                 />
             </td>
             <td className="p-2 text-center text-[10px]">
-                {/* Visual Fix: If it has children, treat as GRP strongly to indicate composition */}
                 {isGroup ? <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold">{node.children && node.children.length > 0 ? 'CMP' : 'GRP'}</span> :
                     <select
                         value={node.itemType || 'MT'}
@@ -114,15 +113,12 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
             <td className="p-2 text-right flex justify-end gap-1 items-center">
                 {!node.code || node.code.length > 0 ? (
                     <>
-                        {/* Always visible buttons for better UX */}
                         <button onClick={() => onAddChild(node.id, 'GROUP')} title="Adicionar Sub-Grupo" className="p-1 text-slate-400 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 rounded">
                             <Plus size={14} />
                         </button>
                         <button onClick={() => onAddChild(node.id, 'ITEM')} title="Adicionar Item" className="p-1 text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 rounded">
                             <FileText size={14} />
                         </button>
-
-                        {/* Dynamic Toggle: Show Add Resources ($$) or Remove Resources (X) */}
                         {hasChildren ?
                             <button onClick={() => onRemoveResources(node.id)} title="Remover Agrupamento (Limpar Filhos)" className="p-1 text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-50 rounded font-bold text-[10px] w-6 border border-slate-200 flex items-center justify-center">
                                 <X size={14} />
@@ -151,8 +147,6 @@ const renderTreeRows = (
     showResources = true
 ): React.ReactNode[] => {
     return nodes.flatMap((node) => {
-        // Hiding logic:
-        // If showResources is FALSE, and this node looks like a "resource" items (MT/ST/EQ without a formal code), hide it.
         const isResourceNode = (!node.code || node.code.trim() === '') && ['MT', 'ST', 'EQ'].includes(node.itemType || '');
         if (!showResources && isResourceNode) {
             return [];
@@ -174,16 +168,15 @@ const renderTreeRows = (
     });
 };
 
-const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: (t: BudgetNode[]) => void }) => {
+const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion }: { tree: BudgetNode[], onUpdate: (t: BudgetNode[]) => void, versions?: BudgetSnapshot[], onSaveVersion: (desc: string) => void }) => {
     const [showResources, setShowResources] = useState(true);
+    const [activeSubTab, setActiveSubTab] = useState<'ALL' | 'T1_T2' | 'T3_T4' | 'INFRA' | 'CI'>('ALL');
 
-    // Helper to recalculate totals bottom-up
     const recalculateTotals = (nodes: BudgetNode[]): { nodes: BudgetNode[], total: number } => {
         let sum = 0;
         const newNodes = nodes.map(node => {
             if (node.children && node.children.length > 0) {
                 const { nodes: newChildren, total: childTotal } = recalculateTotals(node.children);
-                // Update parent value based on children
                 const newNode = {
                     ...node,
                     children: newChildren,
@@ -194,7 +187,6 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
                 sum += newNode.totalValue;
                 return newNode;
             } else {
-                // If it's a leaf, use its own value
                 sum += node.totalValue;
                 return node;
             }
@@ -203,7 +195,6 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
     };
 
     const handleUpdateNode = (updatedNode: BudgetNode) => {
-        // Recursive search and update logic:
         const updateRecursive = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.map(n => {
                 if (n.id === updatedNode.id) {
@@ -216,12 +207,16 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
             });
         };
         const newTree = updateRecursive(tree);
-        // After updating value/name, recalculate totals up the tree
         const { nodes: recalculatedTree } = recalculateTotals(newTree);
         onUpdate(recalculatedTree);
     };
 
     const handleAddRoot = () => {
+        if (activeSubTab === 'ALL') {
+            alert("Selecione um Centro de Custo específico (Abas acima) para adicionar um novo Grupo Raiz.");
+            return;
+        }
+
         const code = prompt("Digite o Código do Grupo (Ex: 01):");
         if (!code) return;
         const name = prompt("Digite o Nome do Grupo:");
@@ -239,7 +234,8 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
             budgetCurrent: 0,
             realizedRDO: 0,
             realizedFinancial: 0,
-            committed: 0
+            committed: 0,
+            costCenter: activeSubTab
         };
         onUpdate([...tree, newNode]);
     };
@@ -248,7 +244,6 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
         const findAndAdd = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.map(node => {
                 if (node.id === parentId) {
-                    // Intelligent code generation
                     let newCode = node.code + ".01";
                     if (node.children && node.children.length > 0) {
                         try {
@@ -261,7 +256,6 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
                                 newCode = parts.join('.');
                             }
                         } catch (e) {
-                            // fallback if code format is weird
                             newCode = node.code + "." + (node.children.length + 1).toString().padStart(2, '0');
                         }
                     }
@@ -271,8 +265,6 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
 
                     let val = 0;
                     if (type === 'ITEM') {
-                        // Ask value only for items initially
-                        // But if user creates item with intention of children, value will be overwritten.
                         val = Number(prompt("Valor do Orçamento (Meta):", "0"));
                     }
 
@@ -311,18 +303,15 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
             return nodes.map(node => {
                 if (node.id === nodeId) {
                     if (node.children && node.children.length > 0) {
-                        // Alert usually bad UX, but simple for now
                         alert("Este item já possui filhos. Não é possível adicionar a composição padrão.");
                         return node;
                     }
-                    // Create standard MT/ST/EQ structure logic
-                    // The user wants to replicate the spreadsheet structure where items have MT/ST/EQ components.
                     const resources: BudgetNode[] = [
                         { id: Date.now() + '1', code: '', description: 'MATERIAL', level: node.level + 1, type: 'ITEM', itemType: 'MT', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
                         { id: Date.now() + '2', code: '', description: 'SERVIÇO DE TERCEIROS', level: node.level + 1, type: 'ITEM', itemType: 'ST', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
                         { id: Date.now() + '3', code: '', description: 'EQUIPAMENTOS', level: node.level + 1, type: 'ITEM', itemType: 'EQ', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
                     ];
-                    setShowResources(true); // Force visibility when adding
+                    setShowResources(true);
                     return { ...node, children: resources };
                 }
                 if (node.children) {
@@ -336,8 +325,6 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
     };
 
     const handleRemoveResources = (nodeId: string) => {
-        // Confirmation? Maybe skip if user wants speed, but safer to have it
-        // The user asked for "freedom" to insert or remove.
         const findAndRemoveRes = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.map(node => {
                 if (node.id === nodeId) {
@@ -367,38 +354,78 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
         onUpdate(recalculatedTree);
     };
 
+    // Filter Logic
+    const filteredTree = useMemo(() => {
+        if (activeSubTab === 'ALL') return tree;
+        // Filter roots. Note that children are rendered inside the root, so if we show a root, we show its children.
+        // We filter top-level nodes by costCenter.
+        return tree.filter(n => n.costCenter === activeSubTab);
+    }, [tree, activeSubTab]);
+
     return (
         <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <div className="flex gap-2">
-                    <button onClick={handleAddRoot} className="flex items-center gap-2 bg-indigo-600 text-white border border-indigo-700 px-3 py-1.5 rounded text-sm font-bold hover:bg-indigo-700 shadow-sm">
-                        <Plus size={14} /> Adicionar Grupo Raiz
-                    </button>
+            {/* --- HEADER CONTROLS --- */}
+            <div className="bg-white border-b border-slate-200">
+                <div className="p-4 flex justify-between items-center">
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleAddRoot} className="flex items-center gap-2 bg-indigo-600 text-white border border-indigo-700 px-3 py-1.5 rounded text-sm font-bold hover:bg-indigo-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled={activeSubTab === 'ALL'} title={activeSubTab === 'ALL' ? "Selecione uma aba de Centro de Custo para adicionar" : "Adicionar Grupo neste Centro de Custo"}>
+                            <Plus size={14} /> Adicionar Grupo Raiz
+                        </button>
 
-                    <button
-                        onClick={() => setShowResources(!showResources)}
-                        className={`ml-4 flex items-center gap-2 px-3 py-1.5 rounded text-sm font-bold shadow-sm border transition-colors ${showResources ? 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50' : 'bg-slate-800 text-white border-slate-900 hover:bg-slate-900'}`}
-                        title={showResources ? "Ocultar detalhamento de recursos (MT, ST, EQ)" : "Mostrar detalhamento de recursos (MT, ST, EQ)"}
-                    >
-                        {showResources ? <EyeOff size={14} /> : <Eye size={14} />}
-                        {showResources ? 'Ocultar Recursos (Sintético)' : 'Mostrar Recursos (Analítico)'}
-                    </button>
+                        <div className="h-6 w-px bg-slate-300 mx-2"></div>
+
+                        <button
+                            onClick={() => setShowResources(!showResources)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-bold shadow-sm border transition-colors ${showResources ? 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50' : 'bg-slate-800 text-white border-slate-900 hover:bg-slate-900'}`}
+                            title={showResources ? "Ocultar detalhamento de recursos (MT, ST, EQ)" : "Mostrar detalhamento de recursos (MT, ST, EQ)"}
+                        >
+                            {showResources ? <EyeOff size={14} /> : <Eye size={14} />}
+                            {showResources ? 'Ocultar Recursos' : 'Mostrar Recursos'}
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        {/* VERSIONING BUTTON */}
+                        <div className="flex items-center gap-2 mr-4">
+                            <div className="text-xs text-right mr-2">
+                                <div className="font-bold text-slate-700">VERSÃO ATUAL: {versions && versions.length > 0 ? versions.length + 1 : 1}</div>
+                                <div className="text-orange-500 font-bold text-[10px]">EM EDIÇÃO</div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    const desc = prompt("Descreva essa versão (ex: Validação Inicial):");
+                                    if (desc) onSaveVersion(desc);
+                                }}
+                                className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 font-bold text-xs uppercase shadow-sm"
+                            >
+                                <Save size={14} /> Concluir Orçamento
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="text-xs text-slate-400 flex items-center">
-                        <div className="w-3 h-3 bg-slate-200 rounded mr-1"></div> Grupo
-                        <div className="w-3 h-3 bg-blue-100 rounded ml-2 mr-1"></div> Serviço
-                        <div className="w-3 h-3 bg-yellow-100 rounded ml-2 mr-1"></div> Material
-                        <div className="w-3 h-3 bg-orange-100 rounded ml-2 mr-1"></div> Equip
-                    </div>
-                    <div className="text-sm text-slate-500 border-l pl-3 ml-2">
-                        Versão Atual: <span className="font-bold text-slate-800">01 (Editável)</span>
-                    </div>
+                {/* --- SUB TABS NAVIGATION --- */}
+                <div className="flex px-4 gap-1 transform translate-y-px">
+                    <button onClick={() => setActiveSubTab('ALL')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'ALL' ? 'bg-slate-50 border-slate-200 text-indigo-600 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-slate-200'}`}>
+                        <Layers size={14} className="inline mr-1 mb-0.5" /> CONSOLIDADO
+                    </button>
+                    <div className="w-px h-6 bg-slate-300 my-auto mx-2 self-center"></div>
+                    <button onClick={() => setActiveSubTab('T1_T2')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'T1_T2' ? 'bg-green-50 border-green-200 text-green-700 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-green-50 hover:text-green-600'}`}>
+                        TORRES 01 & 02
+                    </button>
+                    <button onClick={() => setActiveSubTab('T3_T4')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'T3_T4' ? 'bg-blue-50 border-blue-200 text-blue-700 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-blue-50 hover:text-blue-600'}`}>
+                        TORRES 03 & 04
+                    </button>
+                    <button onClick={() => setActiveSubTab('INFRA')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'INFRA' ? 'bg-orange-50 border-orange-200 text-orange-700 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-orange-50 hover:text-orange-600'}`}>
+                        INFRAESTRUTURA
+                    </button>
+                    <button onClick={() => setActiveSubTab('CI')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'CI' ? 'bg-slate-50 border-slate-300 text-slate-800 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-slate-200'}`}>
+                        CUSTO INDIRETO (CI)
+                    </button>
                 </div>
             </div>
 
-            <div className="flex-1 overflow-auto bg-slate-50">
+            <div className={`flex-1 overflow-auto p-0 ${activeSubTab === 'T1_T2' ? 'bg-green-50/30' : activeSubTab === 'T3_T4' ? 'bg-blue-50/30' : activeSubTab === 'INFRA' ? 'bg-orange-50/30' : activeSubTab === 'CI' ? 'bg-slate-100' : 'bg-slate-50'}`}>
                 <table className="w-full text-sm border-collapse">
                     <thead className="bg-slate-200 text-slate-700 font-bold sticky top-0 z-10 shadow-sm uppercase text-xs">
                         <tr>
@@ -410,7 +437,15 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
                         </tr>
                     </thead>
                     <tbody className="bg-white">
-                        {renderTreeRows(tree, handleUpdateNode, handleAddChild, handleAddResources, handleRemoveResources, handleDelete, 0, showResources)}
+                        {filteredTree.length > 0 ?
+                            renderTreeRows(filteredTree, handleUpdateNode, handleAddChild, handleAddResources, handleRemoveResources, handleDelete, 0, showResources)
+                            :
+                            <tr>
+                                <td colSpan={5} className="p-10 text-center text-slate-400 italic">
+                                    {activeSubTab === 'ALL' ? "Nenhum item cadastrado no orçamento global." : "Nenhum item cadastrado para este Centro de Custo. Adicione um Grupo Raiz acima."}
+                                </td>
+                            </tr>
+                        }
                     </tbody>
                 </table>
             </div>
@@ -418,7 +453,7 @@ const BudgetStructureTab = ({ tree, onUpdate }: { tree: BudgetNode[], onUpdate: 
     );
 };
 
-const FinancialEntryTab = ({ entries, budgetTree, onUpdate }: { entries: FinancialEntry[], budgetTree: BudgetNode[], onUpdate: (e: FinancialEntry[]) => void }) => {
+const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSaveSuppliers }: { entries: FinancialEntry[], budgetTree: BudgetNode[], onUpdate: (e: FinancialEntry[]) => void, savedSuppliers?: Supplier[], onSaveSuppliers?: (s: Supplier[]) => void }) => {
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
 
     // Form State for Header
@@ -427,6 +462,38 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate }: { entries: Financi
     const [totalValue, setTotalValue] = useState(0);
     const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [installmentsCount, setInstallmentsCount] = useState(1);
+
+    // Supplier Management
+    const [suppliers, setSuppliers] = useState<Supplier[]>(savedSuppliers || []);
+    const [showSupplierImport, setShowSupplierImport] = useState(false);
+    const [importText, setImportText] = useState('');
+
+    const handleImportSuppliers = () => {
+        const lines = importText.split('\n');
+        const newSuppliers: Supplier[] = [];
+        lines.forEach(line => {
+            const parts = line.split('\t'); // Assume copy-paste from Excel
+            if (parts.length >= 2) {
+                const razao = parts[0].trim().toUpperCase();
+                const cnpj = parts[1].trim();
+                if (razao && cnpj) {
+                    newSuppliers.push({ id: Date.now() + Math.random().toString(), razaoSocial: razao, cnpj });
+                }
+            }
+        });
+        const combined = [...suppliers, ...newSuppliers];
+        setSuppliers(combined);
+        if (onSaveSuppliers) onSaveSuppliers(combined);
+        setShowSupplierImport(false);
+        setImportText('');
+        alert(`${newSuppliers.length} fornecedores importados com sucesso!`);
+    };
+
+    // Filtered suppliers for autocomplete
+    const filteredSuppliers = useMemo(() => {
+        if (!supplier) return [];
+        return suppliers.filter(s => s.razaoSocial.includes(supplier.toUpperCase()));
+    }, [supplier, suppliers]);
 
     // Form State for Allocations (Multi)
     const [allocations, setAllocations] = useState<FinancialAllocation[]>([]);
@@ -553,10 +620,48 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate }: { entries: Financi
                 </div>
 
                 {/* Header Data */}
-                <div className="grid grid-cols-4 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6">
-                    <div className="col-span-2">
-                        <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Fornecedor</label>
-                        <input className="w-full border rounded p-2 uppercase" value={supplier} onChange={e => setSupplier(e.target.value.toUpperCase())} placeholder="RAZÃO SOCIAL..." />
+                <div className="grid grid-cols-4 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6 relative">
+                    {showSupplierImport && (
+                        <div className="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center p-10 rounded-xl border-2 border-dashed border-indigo-300">
+                            <h3 className="font-bold text-lg mb-2 text-indigo-800">Importar Fornecedores (Cola do Excel/TOTVS)</h3>
+                            <p className="text-sm text-slate-500 mb-4">Copie as colunas [RAZÃO SOCIAL] e [CNPJ] do Excel e cole abaixo:</p>
+                            <textarea
+                                className="w-full h-32 border rounded p-2 text-xs font-mono mb-4 bg-slate-50"
+                                placeholder={`Exemplo:\nCONSTRUTORA XYZ\t00.000.000/0001-00\nFORNECEDOR ABC\t11.111.111/0001-11`}
+                                value={importText}
+                                onChange={e => setImportText(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                                <button onClick={() => setShowSupplierImport(false)} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancelar</button>
+                                <button onClick={handleImportSuppliers} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold uppercase text-xs hover:bg-indigo-700">Processar Importação</button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="col-span-2 relative">
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="block text-xs font-bold uppercase text-slate-500">Fornecedor</label>
+                            <button onClick={() => setShowSupplierImport(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 uppercase">
+                                <Upload size={10} /> Importar Lista
+                            </button>
+                        </div>
+                        <input
+                            className="w-full border rounded p-2 uppercase focus:ring-2 focus:ring-indigo-100 outline-none"
+                            value={supplier}
+                            onChange={e => setSupplier(e.target.value.toUpperCase())}
+                            placeholder="DIGITE PARA BUSCAR..."
+                            list="suppliers-list"
+                        />
+                        <datalist id="suppliers-list">
+                            {suppliers.map(s => (
+                                <option key={s.id} value={s.razaoSocial}>{s.cnpj}</option>
+                            ))}
+                        </datalist>
+                        {supplier && !suppliers.find(s => s.razaoSocial === supplier) && (
+                            <div className="text-[10px] text-orange-500 mt-1 font-bold flex items-center gap-1">
+                                <AlertTriangle size={10} /> Novo fornecedor será cadastrado ao salvar.
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Data Emissão</label>
@@ -791,15 +896,16 @@ const AnalysisDashboardTab = ({ tree, entries }: { tree: BudgetNode[], entries: 
 export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
     const [activeTab, setActiveTab] = useState<'budget' | 'financial' | 'analysis'>('budget');
 
-    // --- STATE MANAGEMENT ---
-    // If we have persisted tree, use it, otherwise convert flat budgetGroups or start empty
+    // State
     const [budgetTree, setBudgetTree] = useState<BudgetNode[]>(appData.budgetTree || generateInitialTree(appData.budgetGroups || []));
     const [entries, setEntries] = useState<FinancialEntry[]>(appData.financialEntries || []);
+    const [budgetVersions, setBudgetVersions] = useState<BudgetSnapshot[]>(appData.budgetVersions || []);
+    const [suppliers, setSuppliers] = useState<Supplier[]>(appData.suppliers || []);
 
     // Auto-Save Effect
     useEffect(() => {
         // In a real app we'd debounce or explicit save
-    }, [budgetTree, entries]);
+    }, [budgetTree, entries, budgetVersions, suppliers]);
 
     const handleUpdateTree = (newTree: BudgetNode[]) => {
         setBudgetTree(newTree);
@@ -809,6 +915,26 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
     const handleUpdateEntries = (newEntries: FinancialEntry[]) => {
         setEntries(newEntries);
         onUpdate({ financialEntries: newEntries });
+    };
+
+    const handleUpdateSuppliers = (newSuppliers: Supplier[]) => {
+        setSuppliers(newSuppliers);
+        onUpdate({ suppliers: newSuppliers });
+    };
+
+    const handleSaveVersion = (desc: string) => {
+        // Create Snapshot
+        const newVersion: BudgetSnapshot = {
+            version: (budgetVersions.length || 0) + 1,
+            createdAt: new Date().toISOString(),
+            description: desc,
+            tree: JSON.parse(JSON.stringify(budgetTree)), // Deep copy state
+            totalValue: budgetTree.reduce((acc, n) => acc + n.totalValue, 0)
+        };
+        const newVersions = [...budgetVersions, newVersion];
+        setBudgetVersions(newVersions);
+        onUpdate({ budgetVersions: newVersions });
+        alert(`Versão ${newVersion.version} salva com sucesso!`);
     };
 
     return (
@@ -826,8 +952,8 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
             </header>
 
             <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                {activeTab === 'budget' && <BudgetStructureTab tree={budgetTree} onUpdate={handleUpdateTree} />}
-                {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} />}
+                {activeTab === 'budget' && <BudgetStructureTab tree={budgetTree} onUpdate={handleUpdateTree} versions={budgetVersions} onSaveVersion={handleSaveVersion} />}
+                {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} savedSuppliers={suppliers} onSaveSuppliers={handleUpdateSuppliers} />}
                 {activeTab === 'analysis' && <AnalysisDashboardTab tree={budgetTree} entries={entries} />}
             </div>
         </div>

@@ -176,7 +176,9 @@ export interface BudgetNode {
     realizedRDO: number; // From RDO
     realizedFinancial: number; // From Paid Invoices
     committed: number; // From Contracts/PO
+
     lastUpdated?: string;
+    costCenter?: string; // 'T1_T2', 'T3_T4', 'INFRA', 'CI'
 }
 
 export interface FinancialEntry {
@@ -238,6 +240,7 @@ export interface PurchaseRequestItem {
     unit: string;
     observation?: string;
     totvsCode?: string; // Code from TOTVS if registered
+    budgetGroupCode?: string;
 }
 
 export interface RequestHistoryItem {
@@ -278,6 +281,12 @@ export interface FinancialDocument {
     budgetGroupCode?: string; // Linked budget group
 }
 
+export interface Supplier {
+    id: string;
+    razaoSocial: string;
+    cnpj: string;
+}
+
 export interface AppData {
     budget: BudgetLine[];
     masterPlanSheets: SheetData[];
@@ -305,4 +314,15 @@ export interface AppData {
     financialEntries?: FinancialEntry[]; // New store for NFs
     financialDocuments?: FinancialDocument[]; // Keep for legacy compat if needed
     budgetTree?: BudgetNode[]; // Full hierarchical tree state if persisted
+
+    budgetVersions?: BudgetSnapshot[];
+    suppliers?: Supplier[];
+}
+
+export interface BudgetSnapshot {
+    version: number;
+    createdAt: string;
+    description: string;
+    tree: BudgetNode[];
+    totalValue: number;
 }
