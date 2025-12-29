@@ -183,10 +183,57 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += `Total Aprovado: R$${approvedEntries.toFixed(2)}\n`;
             contextText += `Total Pago: R$${paidEntries.toFixed(2)}\n\n`;
 
-            contextText += `Últimos lançamentos:\n`;
-            entries.slice(0, 10).forEach(e => {
-                contextText += `- ${e.issueDate} | ${e.supplier} | Doc: ${e.documentNumber} | R$${e.totalValue.toFixed(2)}\n`;
+
+            const totalNFs = entries.reduce((acc, e) => acc + e.totalValue, 0);
+            const approvedPending = entries.filter(e => e.status === 'APPROVED').reduce((acc, e) => acc + e.totalValue, 0);
+            const paid = entries.filter(e => e.status === 'PAID').reduce((acc, e) => acc + e.totalValue, 0);
+
+            contextText += `RESUMO GERAL NFs:\n`;
+            contextText += `Total Lançado: R$${totalNFs.toFixed(2)}\n`;
+            contextText += `Total Aprovado Pendente: R$${approvedPending.toFixed(2)}\n`;
+            contextText += `Total Pago: R$${paid.toFixed(2)}\n`;
+            contextText += `Qtd NFs: ${entries.length}\n\n`;
+
+            // Payment Forecast (Next Month)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const endNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+
+            let forecastNextMonth = 0;
+            let forecastNext3Months = 0;
+            const threeMonthsOut = new Date(today);
+            threeMonthsOut.setMonth(threeMonthsOut.getMonth() + 3);
+
+            entries.forEach(entry => {
+                entry.installments?.forEach(inst => {
+                    const dueDate = new Date(inst.dueDate + 'T12:00:00');
+                    if (inst.status === 'PENDING') {
+                        if (dueDate >= nextMonth && dueDate <= endNextMonth) {
+                            forecastNextMonth += inst.value;
+                        }
+                        if (dueDate >= today && dueDate <= threeMonthsOut) {
+                            forecastNext3Months += inst.value;
+                        }
+                    }
+                });
             });
+
+            contextText += `PREVISÃO DE DESEMBOLSO:\n`;
+            contextText += `Próximo Mês: R$${forecastNextMonth.toFixed(2)}\n`;
+            contextText += `Próximos 3 Meses: R$${forecastNext3Months.toFixed(2)}\n`;
+        }
+
+        // Monthly HR Cost
+        if (appData.rhPremises && appData.rhPremises.length > 0) {
+            const totalMonthlyCost = appData.rhPremises.reduce((acc, p) => {
+                const individualCost = p.baseSalary * (1 + p.chargesPct / 100) + p.foodCost + (p.transportCost || 0) + (p.housingCost || 0);
+                return acc + (individualCost * (p.quantity || 0));
+            }, 0);
+
+            contextText += `\n\n=== CUSTO MENSAL DE RH ESTIMADO ===\n`;
+            contextText += `Total Mensal (com encargos): R$${totalMonthlyCost.toFixed(2)}\n`;
+            contextText += `Qtd Funcionários: ${appData.rhPremises.reduce((acc, p) => acc + (p.quantity || 0), 0)}\n`;
         }
 
         return contextText;
