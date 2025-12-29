@@ -3,7 +3,8 @@ import {
     ShoppingCart,
     CircleDollarSign,
     Building2,
-    Settings
+    Settings,
+    BrainCircuit
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -18,8 +19,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isM
         { id: 'purchase_flow', label: 'Fluxo de Compras', icon: <ShoppingCart size={20} />, section: 'SUPPLY CHAIN' },
         { id: 'budget_control', label: 'Controle Orçamentário', icon: <CircleDollarSign size={20} />, section: 'FINANCEIRO' },
         { id: 'visual_management', label: 'Gestão à Vista', icon: <Building2 size={20} />, section: 'PRODUÇÃO' },
-        // Keeping System Blueprint for debugging mostly, or can remove if strict "remove all"
-        // { id: 'system_blueprint', label: 'Mapa do Sistema', icon: <Settings size={20} />, section: 'CONFIGURAÇÃO' },
+        { id: 'intelligence', label: 'IA Estratégica', icon: <BrainCircuit size={20} />, section: 'ANÁLISE' },
     ];
 
     const groupedMenu = menuItems.reduce((acc, item) => {

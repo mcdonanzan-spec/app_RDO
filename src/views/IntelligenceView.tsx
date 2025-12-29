@@ -12,7 +12,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<AIResponse | null>(null);
     const [manualApiKey, setManualApiKey] = useState('');
-    const [includeDI, setIncludeDI] = useState(true);
 
     // Tenta pegar do env, mas permite override manual
     const apiKey = manualApiKey || import.meta.env.VITE_API_KEY || "";
@@ -50,7 +49,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             const groupedBudget: Record<string, number> = {};
             appData.budget.forEach(item => {
                 if (item.isGroup) return; // Skip groups
-                if (!includeDI && item.isConstructionCost === false) return; // Skip DI if filter is active
 
                 const group = item.desc || "Outros";
                 groupedBudget[group] = (groupedBudget[group] || 0) + (item.total || 0);
@@ -64,8 +62,8 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
         // POC Analysis
         if (appData.rdoData && appData.budget) {
-            const rdoItems = includeDI ? appData.rdoData : appData.rdoData.filter(i => i.isConstructionCost !== false);
-            const budgetItems = includeDI ? appData.budget.filter(i => !i.isGroup) : appData.budget.filter(i => !i.isGroup && i.isConstructionCost !== false);
+            const rdoItems = appData.rdoData;
+            const budgetItems = appData.budget.filter(i => !i.isGroup);
 
             const totalRDO = rdoItems.reduce((acc, i) => acc + (i.accumulatedValue || 0), 0);
             const totalBudget = budgetItems.reduce((acc, i) => acc + (i.total || 0), 0);
@@ -144,6 +142,25 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
             orders.slice(0, 15).forEach(o => {
                 contextText += `- Fornecedor: ${o.supplier} | Desc: ${o.description} | Valor: R$${o.totalValue.toFixed(2)} | Status: ${o.status}\n`;
+            });
+        }
+
+        // Financial Entries (Desembolso / NFs)
+        if (appData.financialEntries && appData.financialEntries.length > 0) {
+            contextText += `\n\n=== LANÇAMENTOS FINANCEIROS (DESEMBOLSO) ===\n`;
+
+            const entries = appData.financialEntries;
+            const totalEntries = entries.reduce((acc, e) => acc + e.totalValue, 0);
+            const paidEntries = entries.filter(e => e.status === 'PAID').reduce((acc, e) => acc + e.totalValue, 0);
+            const approvedEntries = entries.filter(e => e.status === 'APPROVED').reduce((acc, e) => acc + e.totalValue, 0);
+
+            contextText += `Total Lançado: R$${totalEntries.toFixed(2)}\n`;
+            contextText += `Total Aprovado: R$${approvedEntries.toFixed(2)}\n`;
+            contextText += `Total Pago: R$${paidEntries.toFixed(2)}\n\n`;
+
+            contextText += `Últimos lançamentos:\n`;
+            entries.slice(0, 10).forEach(e => {
+                contextText += `- ${e.issueDate} | ${e.supplier} | Doc: ${e.documentNumber} | R$${e.totalValue.toFixed(2)}\n`;
             });
         }
 
@@ -286,30 +303,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     <p className="text-sm text-slate-500">Inteligência Artificial Generativa aplicada ao Controle de Obras</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="flex gap-2 text-xs text-slate-500 bg-slate-50 px-2 py-1 rounded border border-slate-200">
-                        <span title="Contratos Carregados">📄 Prj: {appData.contractorData?.contracts?.length || 0}</span>
-                        <span className="text-slate-300">|</span>
-                        <span title="Suprimentos Carregados">📦 Sup: {appData.supplyChainData?.orders?.length || 0}</span>
-                        <span className="text-slate-300">|</span>
-                        <span title="RDO Carregados">🏗️ RDO: {appData.rdoData?.length || 0}</span>
-                        <span className="text-slate-300">|</span>
-                        <span title="Orçamento Carregado">💰 Orc: {appData.budget?.length || 0}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
-                        <button
-                            onClick={() => setIncludeDI(true)}
-                            className={`px-3 py-1 text-xs font-bold rounded transition-all ${includeDI ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            Com DI
-                        </button>
-                        <button
-                            onClick={() => setIncludeDI(false)}
-                            className={`px-3 py-1 text-xs font-bold rounded transition-all ${!includeDI ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            Sem DI (Construção)
-                        </button>
-                    </div>
 
                     {!apiKey && (
                         <div className="flex items-center gap-2">

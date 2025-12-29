@@ -9,6 +9,7 @@ import { Sidebar } from './src/components/Sidebar';
 import { VisualManagementView } from './src/views/VisualManagementView';
 import { PurchaseFlowView } from './src/views/PurchaseFlowView';
 import { BudgetControlView } from './src/views/BudgetControlView';
+import { IntelligenceView } from './src/views/IntelligenceView';
 
 import { ApiService } from './src/services/api';
 
@@ -28,7 +29,8 @@ const App = () => {
     rdoData: [],
     projectionData: [],
     rdoSheets: [],
-    budgetSheets: []
+    budgetSheets: [],
+    financialEntries: []
   });
 
   useEffect(() => {
@@ -55,6 +57,7 @@ const App = () => {
       case 'purchase_flow': return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
       case 'budget_control': return <BudgetControlView appData={appData} onUpdate={handleDataLoaded} />;
       case 'visual_management': return <VisualManagementView appData={appData} />;
+      case 'intelligence': return <IntelligenceView appData={appData} />;
 
       // Fallback
       default: return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
