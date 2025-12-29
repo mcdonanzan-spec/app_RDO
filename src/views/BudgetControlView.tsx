@@ -9,6 +9,78 @@ interface Props {
 
 // --- UTILS & HELPERS ---
 
+function recalculateTotals(nodes: BudgetNode[]): { nodes: BudgetNode[], total: number } {
+    let sum = 0;
+    const newNodes = nodes.map(node => {
+        if (node.children && node.children.length > 0) {
+            const { nodes: newChildren, total: childTotal } = recalculateTotals(node.children);
+            const newNode = {
+                ...node,
+                children: newChildren,
+                totalValue: childTotal,
+                budgetInitial: childTotal,
+                budgetCurrent: childTotal
+            };
+            sum += newNode.totalValue;
+            return newNode;
+        } else {
+            sum += node.totalValue;
+            return node;
+        }
+    });
+    return { nodes: newNodes, total: sum };
+}
+
+function buildTreeFromBudget(budgetLines: import('../../types').BudgetLine[]): BudgetNode[] {
+    if (!budgetLines || budgetLines.length === 0) return [];
+
+    // Sort by code length then code value
+    const sortedLines = [...budgetLines].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+
+    // 1. Convert all lines to Nodes
+    const allNodes: BudgetNode[] = sortedLines.map(line => ({
+        id: line.id || `node-${line.code}-${Math.random().toString(36).substr(2, 9)}`,
+        code: line.code,
+        description: line.desc,
+        level: (line.code.match(/\./g) || []).length, // 01 is level 0, 01.01 is level 1
+        totalValue: line.total,
+        type: line.isGroup ? 'GROUP' : 'ITEM',
+        itemType: line.isGroup ? undefined : (line.type === 'mt' ? 'MT' : 'ST'),
+        children: [],
+        budgetInitial: line.total,
+        budgetCurrent: line.total,
+        realizedRDO: 0,
+        realizedFinancial: 0,
+        committed: 0,
+        costCenter: 'ALL' // Default
+    }));
+
+    // 2. Build Hierarchy
+    const rootNodes: BudgetNode[] = [];
+    const nodeMap = new Map<string, BudgetNode>();
+
+    allNodes.forEach(node => nodeMap.set(node.code, node));
+
+    allNodes.forEach(node => {
+        const lastDotIndex = node.code.lastIndexOf('.');
+        if (lastDotIndex !== -1) {
+            const parentCode = node.code.substring(0, lastDotIndex);
+            const parent = nodeMap.get(parentCode);
+            if (parent) {
+                parent.children.push(node);
+                node.parentId = parent.id;
+                parent.type = 'GROUP';
+            } else {
+                rootNodes.push(node);
+            }
+        } else {
+            rootNodes.push(node);
+        }
+    });
+
+    return rootNodes;
+}
+
 function generateInitialTree(groups: BudgetGroup[]): BudgetNode[] {
     // Basic Mock
     return [
@@ -478,6 +550,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     // Filtering State
     const [filterStart, setFilterStart] = useState('');
     const [filterEnd, setFilterEnd] = useState('');
+    const [activePaymentFilter, setActivePaymentFilter] = useState<'ALL' | 'LAST_MONTH' | 'NEXT_MONTH' | 'NEXT_3_MONTHS'>('ALL');
 
     // Selection State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -488,7 +561,35 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     // Error states for validation
     const [errors, setErrors] = useState<{ [key: string]: boolean }>({});
 
-    // Filtered entries for consultation
+    // Quick filter functions for payment periods
+    const applyPaymentFilter = (filter: 'ALL' | 'LAST_MONTH' | 'NEXT_MONTH' | 'NEXT_3_MONTHS') => {
+        setActivePaymentFilter(filter);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (filter === 'ALL') {
+            setFilterStart('');
+            setFilterEnd('');
+        } else if (filter === 'LAST_MONTH') {
+            const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const end = new Date(today.getFullYear(), today.getMonth(), 0);
+            setFilterStart(start.toISOString().split('T')[0]);
+            setFilterEnd(end.toISOString().split('T')[0]);
+        } else if (filter === 'NEXT_MONTH') {
+            const start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+            setFilterStart(start.toISOString().split('T')[0]);
+            setFilterEnd(end.toISOString().split('T')[0]);
+        } else if (filter === 'NEXT_3_MONTHS') {
+            const start = new Date(today);
+            const end = new Date(today);
+            end.setMonth(end.getMonth() + 3);
+            setFilterStart(start.toISOString().split('T')[0]);
+            setFilterEnd(end.toISOString().split('T')[0]);
+        }
+    };
+
+    // Filtered entries for consultation (based on installment due dates)
     const filteredEntries = useMemo(() => {
         return entries.filter(e => {
             const matchesSearch = e.supplier.toUpperCase().includes(searchTerm.toUpperCase()) ||
@@ -496,9 +597,18 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
 
             let matchesDate = true;
             if (filterStart || filterEnd) {
-                const eDate = new Date(e.issueDate);
-                if (filterStart && eDate < new Date(filterStart)) matchesDate = false;
-                if (filterEnd && eDate > new Date(filterEnd)) matchesDate = false;
+                // Check if any installment falls within the date range
+                const hasMatchingInstallment = e.installments?.some(inst => {
+                    const dueDate = new Date(inst.dueDate + 'T12:00:00');
+                    const startDate = filterStart ? new Date(filterStart + 'T00:00:00') : null;
+                    const endDate = filterEnd ? new Date(filterEnd + 'T23:59:59') : null;
+
+                    let inRange = true;
+                    if (startDate && dueDate < startDate) inRange = false;
+                    if (endDate && dueDate > endDate) inRange = false;
+                    return inRange;
+                });
+                matchesDate = hasMatchingInstallment || false;
             }
 
             return matchesSearch && matchesDate;
@@ -1131,6 +1241,43 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                     </div>
                 </div>
 
+                {/* Quick Payment Period Filters */}
+                <div className="flex items-center gap-2 pb-2 border-t border-slate-50 pt-3">
+                    <span className="text-xs font-bold text-slate-500 uppercase mr-2">Filtros Rápidos (Vencimento):</span>
+                    <button
+                        onClick={() => applyPaymentFilter('ALL')}
+                        className={`px-3 py-1.5 rounded text-xs font-bold uppercase transition-all ${activePaymentFilter === 'ALL' ? 'bg-slate-800 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                        Todos
+                    </button>
+                    <button
+                        onClick={() => applyPaymentFilter('LAST_MONTH')}
+                        className={`px-3 py-1.5 rounded text-xs font-bold uppercase transition-all ${activePaymentFilter === 'LAST_MONTH' ? 'bg-blue-600 text-white shadow-sm' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'}`}
+                    >
+                        Mês Passado
+                    </button>
+                    <button
+                        onClick={() => applyPaymentFilter('NEXT_MONTH')}
+                        className={`px-3 py-1.5 rounded text-xs font-bold uppercase transition-all ${activePaymentFilter === 'NEXT_MONTH' ? 'bg-orange-600 text-white shadow-sm' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}
+                    >
+                        Próximo Mês
+                    </button>
+                    <button
+                        onClick={() => applyPaymentFilter('NEXT_3_MONTHS')}
+                        className={`px-3 py-1.5 rounded text-xs font-bold uppercase transition-all ${activePaymentFilter === 'NEXT_3_MONTHS' ? 'bg-green-600 text-white shadow-sm' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                    >
+                        Próximos 3 Meses
+                    </button>
+                    {activePaymentFilter !== 'ALL' && (
+                        <div className="ml-auto flex items-center gap-2 text-xs text-slate-600">
+                            <Calendar size={14} className="text-slate-400" />
+                            <span className="font-mono">{filterStart ? new Date(filterStart).toLocaleDateString('pt-BR') : '--'}</span>
+                            <span className="text-slate-400">até</span>
+                            <span className="font-mono">{filterEnd ? new Date(filterEnd).toLocaleDateString('pt-BR') : '--'}</span>
+                        </div>
+                    )}
+                </div>
+
                 {/* Summary Row */}
                 <div className="flex justify-end border-t border-slate-50 pt-2">
                     <div className="text-xs font-bold text-slate-500 uppercase flex gap-4">
@@ -1211,13 +1358,38 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
 
 // --- TAB 3: ANALYSIS DASHBOARD ---
 const AnalysisDashboardTab = ({ tree, entries }: { tree: BudgetNode[], entries: FinancialEntry[] }) => {
+    // 1. Calculate Total Budget directly from the Tree (Source of Truth)
+    const totalBudget = tree.reduce((acc, node) => acc + node.totalValue, 0);
+
+    // 2. Calculate Forecasted Disbursement (Next 30 Days)
+    const next30Days = new Date();
+    next30Days.setDate(next30Days.getDate() + 30);
+    const today = new Date();
+    // Reset time for comparison
+    today.setHours(0, 0, 0, 0);
+
+    let forecastNext30Days = 0;
+
+    entries.forEach(entry => {
+        if (entry.installments) {
+            entry.installments.forEach(inst => {
+                const dueDate = new Date(inst.dueDate + 'T12:00:00'); // Safe date parsing
+                if (inst.status === 'PENDING' && dueDate >= today && dueDate <= next30Days) {
+                    forecastNext30Days += inst.value;
+                }
+            });
+        }
+    });
+
     return (
         <div className="p-6 h-full overflow-auto bg-slate-50">
             <div className="grid grid-cols-3 gap-6 mb-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h3 className="text-slate-500 uppercase text-xs font-bold mb-2">Orçamento Total (Meta)</h3>
-                    <div className="text-2xl font-bold text-slate-900">R$ 53.670.434,74</div>
-                    <div className="text-xs text-green-600 mt-1 flex items-center gap-1"><Check size={12} /> Base: Versão 01</div>
+                    <div className="text-2xl font-bold text-slate-900">
+                        {totalBudget.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
+                    <div className="text-xs text-green-600 mt-1 flex items-center gap-1"><Check size={12} /> Base: Estrutura Atual</div>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h3 className="text-slate-500 uppercase text-xs font-bold mb-2">Total Comprometido (NFs + Pedidos)</h3>
@@ -1228,7 +1400,9 @@ const AnalysisDashboardTab = ({ tree, entries }: { tree: BudgetNode[], entries: 
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <h3 className="text-slate-500 uppercase text-xs font-bold mb-2">Desembolso Previsto (Próx. 30 Dias)</h3>
-                    <div className="text-2xl font-bold text-orange-600">R$ 145.200,00</div>
+                    <div className="text-2xl font-bold text-orange-600">
+                        {forecastNext30Days.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </div>
                     <div className="text-xs text-slate-400 mt-1">Conforme vencimento das parcelas</div>
                 </div>
 
@@ -1279,7 +1453,14 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
     const [activeTab, setActiveTab] = useState<'budget' | 'financial' | 'analysis'>('budget');
 
     // State
-    const [budgetTree, setBudgetTree] = useState<BudgetNode[]>(appData.budgetTree || generateInitialTree(appData.budgetGroups || []));
+    const [budgetTree, setBudgetTree] = useState<BudgetNode[]>(() => {
+        if (appData.budgetTree && appData.budgetTree.length > 0) return appData.budgetTree;
+        if (appData.budget && appData.budget.length > 0) {
+            const builtTree = buildTreeFromBudget(appData.budget);
+            return recalculateTotals(builtTree).nodes;
+        }
+        return generateInitialTree(appData.budgetGroups || []);
+    });
     const [entries, setEntries] = useState<FinancialEntry[]>(appData.financialEntries || []);
     const [budgetVersions, setBudgetVersions] = useState<BudgetSnapshot[]>(appData.budgetVersions || []);
     const [suppliers, setSuppliers] = useState<Supplier[]>(appData.suppliers || []);
