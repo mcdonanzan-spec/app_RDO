@@ -822,4 +822,55 @@ export class ExcelService {
 
         return services;
     }
+
+    static exportBudget(tree: import('../../types').BudgetNode[]) {
+        const flat: any[] = [];
+        const traverse = (nodes: import('../../types').BudgetNode[], parentCode = '') => {
+            nodes.forEach(node => {
+                flat.push({
+                    'CÓDIGO': node.code,
+                    'DESCRIÇÃO': node.description,
+                    'TIPO': node.type,
+                    'VALOR TOTAL': node.totalValue,
+                    'ORÇAMENTO INICIAL': node.budgetInitial,
+                    'CENTRO DE CUSTO': node.costCenter || '',
+                    'NÍVEL': node.level
+                });
+                if (node.children && node.children.length > 0) {
+                    traverse(node.children, node.code);
+                }
+            });
+        };
+        traverse(tree);
+
+        const worksheet = XLSX.utils.json_to_sheet(flat);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Orçamento");
+        XLSX.writeFile(workbook, `Orcamento_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+
+    static exportFinancialEntries(entries: import('../../types').FinancialEntry[]) {
+        const data = entries.flatMap(entry =>
+            entry.allocations.map(alloc => ({
+                'DATA EMISSÃO': entry.issueDate,
+                'FORNECEDOR': entry.supplier,
+                'Nº DOCUMENTO': entry.documentNumber,
+                'DESCRICAO': entry.description,
+                'GRUPO ORÇAMENTÁRIO': alloc.budgetGroupCode,
+                'DESCRIÇÃO GRUPO': alloc.description,
+                'TIPO CUSTO': alloc.costType === 'MT' ? 'MATERIAL' : alloc.costType === 'ST' ? 'SERVICO' : 'EQUIPAMENTO',
+                'VALOR RATEIO': alloc.value,
+                'VALOR TOTAL NF': entry.totalValue,
+                'STATUS': entry.status,
+                'PARCELAS': entry.installments?.length || 0
+            }))
+        );
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Relatório Financeiro");
+
+        // Export to file
+        XLSX.writeFile(workbook, `Relatorio_Financeiro_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
 }
