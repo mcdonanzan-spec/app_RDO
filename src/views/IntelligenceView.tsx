@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot } from 'lucide-react';
-import { AppData, AIResponse } from '../../types';
+import { AppData, AIResponse, SavedAnalysis } from '../../types';
+import { ApiService } from '../services/api';
+import { Save, History, Clock, Trash2 } from 'lucide-react';
 
 interface IntelligenceViewProps {
     appData: AppData;
@@ -12,6 +14,29 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<AIResponse | null>(null);
     const [manualApiKey, setManualApiKey] = useState('');
+    const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
+    const [showHistory, setShowHistory] = useState(false);
+
+    React.useEffect(() => {
+        loadHistory();
+    }, []);
+
+    const loadHistory = async () => {
+        const history = await ApiService.getSavedAnalyses();
+        setSavedAnalyses(history);
+    };
+
+    const handleSaveAnalysis = async () => {
+        if (!response || !query) return;
+        const newAnalysis: SavedAnalysis = {
+            date: new Date().toISOString(),
+            query,
+            response
+        };
+        await ApiService.saveAnalysis(newAnalysis);
+        await loadHistory();
+        alert("Análise salva com sucesso!");
+    };
 
     // Tenta pegar do env, mas permite override manual
     const apiKey = manualApiKey || import.meta.env.VITE_API_KEY || "";
@@ -303,6 +328,14 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     <p className="text-sm text-slate-500">Inteligência Artificial Generativa aplicada ao Controle de Obras</p>
                 </div>
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className={`p-2 rounded-lg border transition-all flex items-center gap-2 ${showHistory ? 'bg-slate-200 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'}`}
+                        title="Ver Histórico de Análises"
+                    >
+                        <History size={20} />
+                        <span className="text-sm font-medium">Histórico</span>
+                    </button>
 
                     {!apiKey && (
                         <div className="flex items-center gap-2">
@@ -342,85 +375,123 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                         </div>
                     )}
 
-                    {loading ? (
-                        <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100 text-center animate-pulse">
-                            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <BrainCircuit className="text-yellow-600 animate-spin-slow" size={32} />
-                            </div>
-                            <h3 className="text-lg font-bold text-slate-800">Analisando Dados Complexos...</h3>
-                            <p className="text-slate-500 mt-2">A IA está cruzando o Cronograma Mestre com o Orçamento Detalhado.</p>
-                        </div>
-                    ) : response ? (
-                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            {response.kpis && response.kpis.length > 0 && (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {response.kpis.map((kpi, idx) => (
-                                        <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                            <p className="text-xs text-slate-500 font-bold uppercase">{kpi.label}</p>
-                                            <p className={`text-2xl font-bold mt-1 ${kpi.color || 'text-slate-800'}`}>{kpi.value}</p>
+                    {showHistory ? (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <History size={20} /> Histórico de Análises Salvas
+                            </h3>
+                            {savedAnalyses.length === 0 ? (
+                                <p className="text-slate-400 italic">Nenhuma análise salva ainda.</p>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {savedAnalyses.map((item) => (
+                                        <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => {
+                                            setQuery(item.query);
+                                            setResponse(item.response);
+                                            setShowHistory(false);
+                                        }}>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-slate-800 line-clamp-1">"{item.query}"</h4>
+                                                <span className="text-xs text-slate-400 flex items-center gap-1">
+                                                    <Clock size={12} /> {new Date(item.date).toLocaleString()}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-500 line-clamp-2">{item.response.analysis}</p>
                                         </div>
                                     ))}
                                 </div>
                             )}
-
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                    <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                        <FileText size={18} className="text-blue-500" /> Relatório Executivo
-                                    </h3>
-                                    <div className="prose prose-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                        {response.analysis}
-                                    </div>
-                                </div>
-
-                                {response.chart && (
-                                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                            {response.chart.type === 'pie' ? <PieChart size={18} className="text-purple-500" /> : <BarChart3 size={18} className="text-purple-500" />}
-                                            {response.chart.title}
-                                        </h3>
-                                        <div className="flex flex-col gap-4">
-                                            {response.chart.values.map((val, idx) => {
-                                                // Type guard for simple number array
-                                                if (typeof val !== 'number') return null;
-
-                                                // Safe cast since we checked type
-                                                const numericValues = response.chart!.values.filter((v): v is number => typeof v === 'number');
-                                                const max = Math.max(...numericValues);
-
-                                                // Evita divisão por zero e garante largura mínima visível
-                                                const widthPct = max > 0 ? (val / max) * 100 : 0;
-                                                const label = response.chart!.labels[idx];
-
-                                                return (
-                                                    <div key={idx} className="w-full">
-                                                        <div className="flex justify-between text-xs mb-1">
-                                                            <span className="font-bold text-slate-700 truncate max-w-[70%]" title={label}>
-                                                                {label}
-                                                            </span>
-                                                            <span className="font-mono text-slate-500">
-                                                                {val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                                            </span>
-                                                        </div>
-                                                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                                                            <div
-                                                                className="bg-blue-500 h-2.5 rounded-full transition-all duration-1000 ease-out"
-                                                                style={{ width: `${Math.max(widthPct, 1)}%` }}
-                                                            ></div>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                            <BrainCircuit size={48} className="mb-4 opacity-20" />
-                            <p>Faça uma pergunta para iniciar a análise estratégica.</p>
-                        </div>
+                        loading ? (
+                            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100 text-center animate-pulse">
+                                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <BrainCircuit className="text-yellow-600 animate-spin-slow" size={32} />
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800">Analisando Dados Complexos...</h3>
+                                <p className="text-slate-500 mt-2">A IA está cruzando o Cronograma Mestre com o Orçamento Detalhado.</p>
+                            </div>
+                        ) : response ? (
+                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {response.kpis && response.kpis.length > 0 && (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {response.kpis.map((kpi, idx) => (
+                                            <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                                <p className="text-xs text-slate-500 font-bold uppercase">{kpi.label}</p>
+                                                <p className={`text-2xl font-bold mt-1 ${kpi.color || 'text-slate-800'}`}>{kpi.value}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                            <FileText size={18} className="text-blue-500" /> Relatório Executivo
+                                        </h3>
+                                        <div className="prose prose-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
+                                            {response.analysis}
+                                        </div>
+                                    </div>
+
+                                    {response.chart && (
+                                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                                            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+                                                {response.chart.type === 'pie' ? <PieChart size={18} className="text-purple-500" /> : <BarChart3 size={18} className="text-purple-500" />}
+                                                {response.chart.title}
+                                            </h3>
+                                            <div className="flex flex-col gap-4">
+                                                {response.chart.values.map((val, idx) => {
+                                                    // Type guard for simple number array
+                                                    if (typeof val !== 'number') return null;
+
+                                                    // Safe cast since we checked type
+                                                    const numericValues = response.chart!.values.filter((v): v is number => typeof v === 'number');
+                                                    const max = Math.max(...numericValues);
+
+                                                    // Evita divisão por zero e garante largura mínima visível
+                                                    const widthPct = max > 0 ? (val / max) * 100 : 0;
+                                                    const label = response.chart!.labels[idx];
+
+                                                    return (
+                                                        <div key={idx} className="w-full">
+                                                            <div className="flex justify-between text-xs mb-1">
+                                                                <span className="font-bold text-slate-700 truncate max-w-[70%]" title={label}>
+                                                                    {label}
+                                                                </span>
+                                                                <span className="font-mono text-slate-500">
+                                                                    {val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                                </span>
+                                                            </div>
+                                                            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                                                                <div
+                                                                    className="bg-blue-500 h-2.5 rounded-full transition-all duration-1000 ease-out"
+                                                                    style={{ width: `${Math.max(widthPct, 1)}%` }}
+                                                                ></div>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end pt-4 bg-slate-50 p-4 rounded-b-xl border-t border-slate-100">
+                                    <button
+                                        onClick={handleSaveAnalysis}
+                                        className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
+                                    >
+                                        <Save size={18} /> Salvar esta análise
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                                <BrainCircuit size={48} className="mb-4 opacity-20" />
+                                <p>Faça uma pergunta para iniciar a análise estratégica.</p>
+                            </div>
+                        )
                     )}
                 </div>
             </div>
@@ -444,6 +515,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     </button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };

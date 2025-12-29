@@ -83,14 +83,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isM
                     ))}
                 </div>
 
-                <div className="p-4 border-t border-slate-800 bg-slate-950">
+                <div className="p-4 border-t border-slate-800 bg-slate-950 flex flex-col gap-4">
+                    <button
+                        onClick={async () => {
+                            if (window.confirm("Isso apagará todos os dados atuais e gerará dados de teste. Continuar?")) {
+                                const { generateMockData } = await import('../services/mockGenerator');
+                                await generateMockData();
+                            }
+                        }}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-3 py-2 rounded text-xs font-bold uppercase transition-colors flex items-center justify-center gap-2 border border-slate-700"
+                    >
+                        ⚡ Gerar Dados de Teste
+                    </button>
+
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-slate-900 font-bold shadow-md">
-                            JD
+                            MD
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-white">João Diretor</p>
-                            <p className="text-xs text-slate-400">Superintendente</p>
+                            <p className="text-sm font-medium text-white">Marcio Donanzan</p>
+                            <p className="text-xs text-slate-400">Desenvolvedor</p>
                         </div>
                     </div>
                 </div>

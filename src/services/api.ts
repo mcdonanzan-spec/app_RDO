@@ -1,5 +1,5 @@
 import { AppData, ContractBox, RHPremise, SupplyChainBox } from '../../types';
-import { db, checkIsLoaded, setLoaded } from './db';
+import { db, checkIsLoaded, setLoaded, getVisualManagement } from './db';
 
 // Debug API Key
 console.log("API Key Status:", import.meta.env.VITE_API_KEY ? "Presente" : "Ausente");
@@ -9,7 +9,7 @@ export class ApiService {
     // Switch to LocalDB (Dexie) implementation
     static async getAppData(): Promise<AppData> {
         try {
-            const [rhPremises, contracts, orders, budget, masterPlanSheets, rdoData, isLoaded, purchaseRequests, budgetGroups] = await Promise.all([
+            const [rhPremises, contracts, orders, budget, masterPlanSheets, rdoData, isLoaded, purchaseRequests, budgetGroups, financialEntries, visualManagement] = await Promise.all([
                 db.rhPremises.toArray(),
                 db.contracts.toArray(),
                 db.orders.toArray(),
@@ -18,7 +18,9 @@ export class ApiService {
                 db.rdoData.toArray(),
                 checkIsLoaded(),
                 db.purchaseRequests.toArray(),
-                db.budgetGroups.toArray()
+                db.budgetGroups.toArray(),
+                db.financialEntries.toArray(),
+                getVisualManagement()
             ]);
 
             return {
@@ -33,7 +35,10 @@ export class ApiService {
                 budgetGroups,
                 projectionData: [],
                 rdoSheets: [],
-                budgetSheets: []
+                budgetSheets: [],
+                financialEntries,
+                visualManagement,
+                budgetTree: JSON.parse(localStorage.getItem('budgetTree') || '[]')
             };
         } catch (error) {
             console.error("Failed to fetch app data from LocalDB", error);
@@ -56,7 +61,7 @@ export class ApiService {
         // Parallel saving is safe in IndexedDB and much faster
         console.time("saveAppData");
 
-        await db.transaction('rw', [db.rhPremises, db.contracts, db.orders, db.budget, db.masterPlanSheets, db.rdoData, db.meta, db.purchaseRequests, db.budgetGroups], async () => {
+        await db.transaction('rw', [db.rhPremises, db.contracts, db.orders, db.budget, db.masterPlanSheets, db.rdoData, db.meta, db.purchaseRequests, db.budgetGroups, db.financialDocuments, db.financialEntries], async () => {
             // Clear existing data to ensure full sync (or implement smart diffing if needed)
             // For bulk loads, clear+add is often fastest in IDB unless items are very large
 
@@ -70,7 +75,8 @@ export class ApiService {
                 db.budget.clear().then(() => db.budget.bulkAdd(data.budget)),
                 db.masterPlanSheets.clear().then(() => db.masterPlanSheets.bulkAdd(data.masterPlanSheets)),
                 data.purchaseRequests ? db.purchaseRequests.clear().then(() => db.purchaseRequests.bulkAdd(data.purchaseRequests!)) : Promise.resolve(),
-                data.budgetGroups ? db.budgetGroups.clear().then(() => db.budgetGroups.bulkAdd(data.budgetGroups!)) : Promise.resolve()
+                data.budgetGroups ? db.budgetGroups.clear().then(() => db.budgetGroups.bulkAdd(data.budgetGroups!)) : Promise.resolve(),
+                data.financialEntries ? db.financialEntries.clear().then(() => db.financialEntries.bulkAdd(data.financialEntries!)) : Promise.resolve()
             ]);
 
             // Specialized handling for RDO to prevent UI freezing on massive datasets?
@@ -113,5 +119,13 @@ export class ApiService {
 
     static async updateOrder(order: SupplyChainBox): Promise<void> {
         await db.orders.put(order);
+    }
+
+    static async saveAnalysis(analysis: import('../../types').SavedAnalysis): Promise<number> {
+        return await db.savedAnalyses.add(analysis);
+    }
+
+    static async getSavedAnalyses(): Promise<import('../../types').SavedAnalysis[]> {
+        return await db.savedAnalyses.reverse().toArray();
     }
 }

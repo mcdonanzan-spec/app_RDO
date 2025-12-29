@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { RHPremise, ContractBox, SupplyChainBox, BudgetLine, SheetData, RDOItem } from '../../types';
+import { RHPremise, ContractBox, SupplyChainBox, BudgetLine, SheetData, RDOItem, FinancialEntry, SavedAnalysis } from '../../types';
 
 export class ConstructionDB extends Dexie {
     rhPremises!: Table<RHPremise, number>;
@@ -13,6 +13,8 @@ export class ConstructionDB extends Dexie {
     purchaseRequests!: Table<any, string>; // Typing 'any' for now to avoid circular deps if types not updated perfectly or PurchaseRequest
     budgetGroups!: Table<any, string>;
     financialDocuments!: Table<any, string>;
+    financialEntries!: Table<FinancialEntry, string>;
+    savedAnalyses!: Table<SavedAnalysis, number>;
 
     constructor() {
         super('ConstructionDB');
@@ -35,7 +37,13 @@ export class ConstructionDB extends Dexie {
         this.version(3).stores({
             purchaseRequests: 'id, requestId, status, budgetGroupCode',
             budgetGroups: 'id, code, type',
-            financialDocuments: 'id, supplier, purchaseRequestId'
+            financialDocuments: 'id, supplier, purchaseRequestId',
+            financialEntries: 'id, supplier, status, date'
+        });
+
+        // Version 4: Saved Analyses
+        this.version(4).stores({
+            savedAnalyses: '++id, date'
         });
     }
 }

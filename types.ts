@@ -136,6 +136,13 @@ export interface AIResponse {
     };
 }
 
+export interface SavedAnalysis {
+    id?: number;
+    date: string;
+    query: string;
+    response: AIResponse;
+}
+
 // --- Visual Management Types ---
 export interface ServiceDefinition {
     id: string;
