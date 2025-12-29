@@ -12,6 +12,7 @@ import { BudgetControlView } from './src/views/BudgetControlView';
 import { IntelligenceView } from './src/views/IntelligenceView';
 
 import { ApiService } from './src/services/api';
+import { initializeVisualManagementDefaults } from './src/services/db';
 
 // --- APP ---
 const App = () => {
@@ -35,6 +36,9 @@ const App = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      // Initialize defaults first (only runs if DB empty)
+      await initializeVisualManagementDefaults();
+
       const data = await ApiService.getAppData();
       if (data) {
         setAppData(data);
