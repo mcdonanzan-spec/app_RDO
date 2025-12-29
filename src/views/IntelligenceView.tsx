@@ -119,57 +119,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += meaningfulData;
         }
 
-        if (appData.rhPremises && appData.rhPremises.length > 0) {
-            contextText += `\n\n=== PREMISSAS DE RH ===\n`;
-            appData.rhPremises.forEach(p => {
-                const total = p.baseSalary * (1 + p.chargesPct / 100) + p.foodCost + (p.transportCost || 0) + (p.housingCost || 0);
-                contextText += `- ${p.role}: Custo Total Est. R$${total.toFixed(2)} (Qtd: ${p.quantity})\n`;
-            });
-        }
-
-        // Contracts Data
-        if (appData.contractorData?.contracts?.length > 0) {
-            contextText += `\n\n=== TABELA DE CONTRATOS (DETALHADA) ===\n`;
-            const contracts = appData.contractorData.contracts;
-
-            const totalContracts = contracts.reduce((acc, c) => acc + (c.totalValue || 0), 0);
-            const totalInitial = contracts.reduce((acc, c) => acc + (c.initialValue || 0), 0);
-            const totalAdditives = contracts.reduce((acc, c) => acc + (c.additives || 0), 0);
-            const totalMeasured = contracts.reduce((acc, c) => acc + (c.measuredTotal || 0), 0);
-            const totalBalance = contracts.reduce((acc, c) => acc + (c.balance || 0), 0);
-
-            contextText += `RESUMO GERAL CONTRATOS:\n`;
-            contextText += `Total Atualizado: R$${totalContracts.toFixed(2)}\n`;
-            contextText += `Total Inicial: R$${totalInitial.toFixed(2)}\n`;
-            contextText += `Total Aditivos: R$${totalAdditives.toFixed(2)}\n`;
-            contextText += `Total Medido (Realizado): R$${totalMeasured.toFixed(2)}\n`;
-            contextText += `Saldo a Medir: R$${totalBalance.toFixed(2)}\n\n`;
-
-            contextText += `DETALHE DOS PRINCIPAIS CONTRATOS (Top 20):\n`;
-            // Sort by total value desc
-            contracts.sort((a, b) => b.totalValue - a.totalValue).slice(0, 20).forEach(c => {
-                contextText += `- ${c.supplier} (ID: ${c.id}) | Total: R$${c.totalValue.toFixed(2)} | Inicial: R$${(c.initialValue || 0).toFixed(2)} | Adit: R$${(c.additives || 0).toFixed(2)} | Medido: R$${(c.measuredTotal || 0).toFixed(2)} | Saldo: R$${(c.balance || 0).toFixed(2)}\n`;
-            });
-        }
-
-        // Supply Chain Data
-        if (appData.supplyChainData?.orders?.length > 0) {
-            contextText += `\n\n=== ORDENS DE COMPRA (SUPRIMENTOS) ===\n`;
-            const orders = appData.supplyChainData.orders;
-
-            const totalOrders = orders.reduce((acc, o) => acc + (o.totalValue || 0), 0);
-            const totalOpen = orders.filter(o => o.status === 'programmed').reduce((acc, o) => acc + (o.totalValue || 0), 0);
-            const totalPartial = orders.filter(o => o.status === 'partial').reduce((acc, o) => acc + (o.totalValue || 0), 0);
-
-            contextText += `Total Geral Suprimentos: R$${totalOrders.toFixed(2)}\n`;
-            contextText += `Total A Receber (Programado/Aberto): R$${totalOpen.toFixed(2)}\n`;
-            contextText += `Total Parcialmente Entregue: R$${totalPartial.toFixed(2)}\n`;
-
-            orders.slice(0, 15).forEach(o => {
-                contextText += `- Fornecedor: ${o.supplier} | Desc: ${o.description} | Valor: R$${o.totalValue.toFixed(2)} | Status: ${o.status}\n`;
-            });
-        }
-
         // Financial Entries (Desembolso / NFs)
         if (appData.financialEntries && appData.financialEntries.length > 0) {
             contextText += `\n\n=== LANÇAMENTOS FINANCEIROS (DESEMBOLSO) ===\n`;
@@ -224,17 +173,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += `Próximos 3 Meses: R$${forecastNext3Months.toFixed(2)}\n`;
         }
 
-        // Monthly HR Cost
-        if (appData.rhPremises && appData.rhPremises.length > 0) {
-            const totalMonthlyCost = appData.rhPremises.reduce((acc, p) => {
-                const individualCost = p.baseSalary * (1 + p.chargesPct / 100) + p.foodCost + (p.transportCost || 0) + (p.housingCost || 0);
-                return acc + (individualCost * (p.quantity || 0));
-            }, 0);
 
-            contextText += `\n\n=== CUSTO MENSAL DE RH ESTIMADO ===\n`;
-            contextText += `Total Mensal (com encargos): R$${totalMonthlyCost.toFixed(2)}\n`;
-            contextText += `Qtd Funcionários: ${appData.rhPremises.reduce((acc, p) => acc + (p.quantity || 0), 0)}\n`;
-        }
 
         return contextText;
     };
