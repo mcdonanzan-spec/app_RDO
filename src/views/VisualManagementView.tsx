@@ -620,6 +620,19 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                     <button onClick={handleSave} disabled={isSaving} className="text-xs font-bold text-green-600 hover:text-green-700 flex items-center gap-1 bg-green-50 border border-green-100 px-2 py-1 rounded">
                         <Save size={12} /> {isSaving ? '...' : 'Salvar'}
                     </button>
+                    <button
+                        onClick={() => {
+                            if (window.confirm('⚠️ ATENÇÃO: Isso vai limpar TODOS os dados do sistema e carregar a configuração padrão (4 torres, 12 andares, 8 apts/andar). Deseja continuar?')) {
+                                indexedDB.deleteDatabase('ConstructionDB').onsuccess = () => {
+                                    alert('✅ Dados limpos! A página será recarregada...');
+                                    window.location.reload();
+                                };
+                            }
+                        }}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1 bg-red-50 border border-red-100 px-2 py-1 rounded"
+                    >
+                        <Trash2 size={12} /> Resetar Dados
+                    </button>
                     <div className="w-[1px] h-4 bg-slate-300 mx-2"></div>
                     <button onClick={() => { setIsPresentationMode(true); setIsPlaying(true); }} className="text-xs font-bold text-white hover:bg-slate-700 flex items-center gap-1 bg-slate-800 px-3 py-1 rounded shadow-sm animate-pulse">
                         <Play size={12} /> Modo Apresentação (TV)
