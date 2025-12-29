@@ -61,7 +61,7 @@ export class ApiService {
         // Parallel saving is safe in IndexedDB and much faster
         console.time("saveAppData");
 
-        await db.transaction('rw', [db.rhPremises, db.contracts, db.orders, db.budget, db.masterPlanSheets, db.rdoData, db.meta, db.purchaseRequests, db.budgetGroups, db.financialDocuments, db.financialEntries], async () => {
+        await db.transaction('rw', [db.rhPremises, db.contracts, db.orders, db.budget, db.masterPlanSheets, db.rdoData, db.meta, db.purchaseRequests, db.budgetGroups, db.financialDocuments, db.financialEntries, db.visualManagement], async () => {
             // Clear existing data to ensure full sync (or implement smart diffing if needed)
             // For bulk loads, clear+add is often fastest in IDB unless items are very large
 
@@ -76,7 +76,8 @@ export class ApiService {
                 db.masterPlanSheets.clear().then(() => db.masterPlanSheets.bulkAdd(data.masterPlanSheets)),
                 data.purchaseRequests ? db.purchaseRequests.clear().then(() => db.purchaseRequests.bulkAdd(data.purchaseRequests!)) : Promise.resolve(),
                 data.budgetGroups ? db.budgetGroups.clear().then(() => db.budgetGroups.bulkAdd(data.budgetGroups!)) : Promise.resolve(),
-                data.financialEntries ? db.financialEntries.clear().then(() => db.financialEntries.bulkAdd(data.financialEntries!)) : Promise.resolve()
+                data.financialEntries ? db.financialEntries.clear().then(() => db.financialEntries.bulkAdd(data.financialEntries!)) : Promise.resolve(),
+                data.visualManagement ? db.visualManagement.put({ id: 'main', data: data.visualManagement }) : Promise.resolve()
             ]);
 
             // Specialized handling for RDO to prevent UI freezing on massive datasets?

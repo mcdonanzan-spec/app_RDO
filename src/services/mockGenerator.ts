@@ -168,9 +168,9 @@ export async function generateMockData() {
 
     // 9. Visual Management Data (Gestão à Vista)
     const visualConfig = {
-        towers: 2,
-        floors: 8,
-        aptsPerFloor: 4
+        towers: 4,
+        floors: 12,
+        aptsPerFloor: 8
     };
 
     const visualServices = [
@@ -208,7 +208,7 @@ export async function generateMockData() {
         config: visualConfig,
         services: visualServices,
         status: visualStatus,
-        towerNames: ['Torre A (Safira)', 'Torre B (Rubi)']
+        towerNames: ['A', 'B', 'C', 'D']
     };
 
     // Transaction to Clear & Fill
