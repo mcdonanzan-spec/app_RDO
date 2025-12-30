@@ -542,6 +542,9 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     // Form State for Header
     const [supplier, setSupplier] = useState('');
     const [docNum, setDocNum] = useState('');
+    const [purchaseOrder, setPurchaseOrder] = useState('');
+    const [idMov, setIdMov] = useState('');
+    const [nMov, setNMov] = useState('');
     const [totalValue, setTotalValue] = useState(0);
     const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [installmentsCount, setInstallmentsCount] = useState(1);
@@ -593,7 +596,10 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     const filteredEntries = useMemo(() => {
         return entries.filter(e => {
             const matchesSearch = e.supplier.toUpperCase().includes(searchTerm.toUpperCase()) ||
-                e.documentNumber.includes(searchTerm);
+                e.documentNumber.includes(searchTerm) ||
+                (e.purchaseOrder && e.purchaseOrder.includes(searchTerm)) ||
+                (e.idMov && e.idMov.includes(searchTerm)) ||
+                (e.nMov && e.nMov.includes(searchTerm));
 
             let matchesDate = true;
             if (filterStart || filterEnd) {
@@ -787,7 +793,10 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             totalValue: totalValue,
             allocations,
             status: 'APPROVED',
-            installments: installments.length > 0 ? installments : [] // logic fix
+            installments: installments.length > 0 ? installments : [], // logic fix
+            purchaseOrder,
+            idMov,
+            nMov
         };
 
         // If installments empty because state lag or something, re-gen:
@@ -809,7 +818,8 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         onUpdate([...entries, newEntry]);
         setViewMode('list');
         // Reset form
-        setSupplier(''); setDocNum(''); setTotalValue(0); setAllocations([]); setInstallments([]);
+        setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov('');
+        setTotalValue(0); setAllocations([]); setInstallments([]);
         setErrors({});
     };
 
@@ -912,6 +922,46 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                     placeholder="0.00"
                                 />
                             </div>
+                        </div>
+                    </div>
+
+                    {/* New Control Fields: OC, IDMOV, NMOV */}
+                    <div className="grid grid-cols-3 gap-6 bg-white p-6 rounded-xl border border-slate-200 mb-6 shadow-sm">
+                        <div className="group">
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1 transition-colors group-focus-within:text-indigo-600">
+                                Ordem de Compra (OC)
+                            </label>
+                            <div className="relative">
+                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                                <input
+                                    className="w-full border rounded p-2 pl-8 text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                    value={purchaseOrder}
+                                    onChange={e => setPurchaseOrder(e.target.value)}
+                                    placeholder="Ex: 247/25"
+                                />
+                            </div>
+                        </div>
+                        <div className="group">
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1 transition-colors group-focus-within:text-indigo-600">
+                                IDMOV (TOTVS)
+                            </label>
+                            <input
+                                className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                value={idMov}
+                                onChange={e => setIdMov(e.target.value)}
+                                placeholder="ID Movimento"
+                            />
+                        </div>
+                        <div className="group">
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1 transition-colors group-focus-within:text-indigo-600">
+                                NMOV (TOTVS)
+                            </label>
+                            <input
+                                className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                                value={nMov}
+                                onChange={e => setNMov(e.target.value)}
+                                placeholder="Número Movimento"
+                            />
                         </div>
                     </div>
 
@@ -1100,6 +1150,22 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                     <div className="font-bold text-2xl text-indigo-700 font-mono">
                                         {viewingEntry.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                     </div>
+                                </div>
+                            </div>
+
+                            {/* Control Data Section */}
+                            <div className="grid grid-cols-3 gap-4 mb-8">
+                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
+                                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">OC (Ordem de Compra)</div>
+                                    <div className="font-bold text-slate-700">{viewingEntry.purchaseOrder || '---'}</div>
+                                </div>
+                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
+                                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">IDMOV</div>
+                                    <div className="font-bold text-slate-700">{viewingEntry.idMov || '---'}</div>
+                                </div>
+                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
+                                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">NMOV</div>
+                                    <div className="font-bold text-slate-700">{viewingEntry.nMov || '---'}</div>
                                 </div>
                             </div>
 

@@ -205,6 +205,11 @@ export interface FinancialEntry {
     // Metadata
     status: 'DRAFT' | 'APPROVED' | 'PAID' | 'PARTIAL';
     attachments?: string[];
+
+    // New Fields
+    purchaseOrder?: string; // OC
+    idMov?: string;
+    nMov?: string;
 }
 
 export interface FinancialAllocation {

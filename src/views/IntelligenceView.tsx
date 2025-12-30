@@ -141,7 +141,15 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += `Total Lançado: R$${totalNFs.toFixed(2)}\n`;
             contextText += `Total Aprovado Pendente: R$${approvedPending.toFixed(2)}\n`;
             contextText += `Total Pago: R$${paid.toFixed(2)}\n`;
-            contextText += `Qtd NFs: ${entries.length}\n\n`;
+            contextText += `Qtd NFs: ${entries.length}\n`;
+
+            // Verificação de divergência RDO vs NF
+            const rdoTotalVal = appData.rdoData.reduce((acc, r) => acc + (r.accumulatedValue || 0), 0);
+            contextText += `CONCILIAÇÃO FÍSICO x FINANCEIRO:\n`;
+            contextText += `Realizado Físico (RDO): R$${rdoTotalVal.toFixed(2)}\n`;
+            contextText += `Realizado Financeiro (NF): R$${totalNFs.toFixed(2)}\n`;
+            contextText += `Diferença: R$${(rdoTotalVal - totalNFs).toFixed(2)}\n`;
+            contextText += `(Instrução: Se a diferença for grande, deixe claro que o RDO é avanço físico medido e a NF é o lançamento de documento fiscal).\n\n`;
 
             // Payment Forecast (Next Month)
             const today = new Date();
@@ -201,9 +209,11 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         INSTRUÇÃO DE SAÍDA:
         Retorne APENAS um JSON válido (sem markdown \`\`\`json) com a seguinte estrutura:
         {
-          "analysis": "Texto explicativo direto, estilo executivo, focado em insights financeiros e riscos.",
+          "analysis": "Texto explicativo direto, estilo executivo, focado em insights financeiros e riscos. EXPLIQUE claramente a diferença entre o Realizado Físico (RDO) e o Realizado Financeiro (NFs).",
           "kpis": [
-            { "label": "Nome do Indicador", "value": "Valor R$", "trend": "up/down/neutral", "color": "text-red-500/text-green-500/text-slate-500" }
+            { "label": "Custo Realizado (RDO)", "value": "R$ ...", "trend": "neutral", "color": "text-slate-800" },
+            { "label": "Total NFs Lançadas", "value": "R$ ...", "trend": "neutral", "color": "text-blue-600" },
+            { "label": "Desembolso Pago", "value": "R$ ...", "trend": "neutral", "color": "text-green-600" }
           ],
           "chart": {
             "title": "Título do Gráfico",

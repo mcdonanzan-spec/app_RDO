@@ -133,13 +133,25 @@ export async function generateMockData() {
         { id: 3, role: 'Pedreiro', baseSalary: 3500, chargesPct: 80, foodCost: 800, transportCost: 200, housingCost: 0, quantity: 15 }
     ];
 
-    // 7. Mock RDO Data (Realized)
-    const rdoData: RDOItem[] = [
-        { id: faker.string.uuid(), service: 'TERRAPLENAGEM', group: 'INFRAESTRUTURA', accumulatedValue: 1200000, monthlyValue: 0, date: new Date().toISOString(), status: 'em_andamento' },
-        { id: faker.string.uuid(), service: 'FUNDAÇÕES', group: 'INFRAESTRUTURA', accumulatedValue: 2800000, monthlyValue: 0, date: new Date().toISOString(), status: 'concluido' },
-        { id: faker.string.uuid(), service: 'CONCRETO', group: 'ESTRUTURA', accumulatedValue: 2000000, monthlyValue: 0, date: new Date().toISOString(), status: 'em_andamento' },
-        { id: faker.string.uuid(), service: 'EQUIPE DE OBRA', group: 'CUSTOS INDIRETOS', accumulatedValue: 500000, monthlyValue: 0, date: new Date().toISOString(), status: 'em_andamento' }
-    ];
+    // 7. Mock RDO Data (Realized) - Aligned with Financial Entries to avoid confusion
+    const rdoSummary: Record<string, number> = {};
+    financialEntries.forEach(fe => {
+        fe.allocations.forEach(al => {
+            const groupName = budgetLines.find(b => b.code === al.budgetGroupCode)?.desc || 'Geral';
+            rdoSummary[groupName] = (rdoSummary[groupName] || 0) + al.value;
+        });
+    });
+
+    const rdoData: RDOItem[] = Object.entries(rdoSummary).map(([group, value]) => ({
+        id: faker.string.uuid(),
+        service: `RESUMO ${group}`,
+        group: group,
+        accumulatedValue: value, // Now matches the sum of NFs for that group
+        monthlyValue: value * 0.2,
+        date: new Date().toISOString(),
+        status: 'concluido',
+        isConstructionCost: true
+    }));
 
     // 8. Purchase Requests (Fluxo de Compras)
     const purchaseStatuses = ['Aguardando Almoxarifado', 'Em Análise Engenharia', 'Aguardando Gerente', 'Aprovado', 'No TOTVS', 'Finalizado'] as const;
