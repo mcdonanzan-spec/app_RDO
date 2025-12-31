@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AppData, PurchaseRequest, PurchaseRequestItem, BudgetNode } from '../../types';
-import { Plus, Check, X, AlertCircle, ShoppingCart, Archive, FileText } from 'lucide-react';
+import { AppData, PurchaseRequest, PurchaseRequestItem, BudgetNode, TotvsItem } from '../../types';
+import { Plus, Check, X, AlertCircle, ShoppingCart, Archive, FileText, Search, Upload } from 'lucide-react';
+import { ExcelService } from '../services/excelService';
 
 interface Props {
     appData: AppData;
@@ -72,6 +73,8 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                 {activeTab === 'create' && <CreateRequestForm
                     onSave={handleSaveRequest}
                     requests={requests}
+                    totvsItems={appData.totvsItems || []}
+                    onUpdateAppData={onUpdate}
                     onUpdateRequests={(updated) => {
                         const newReqs = requests.map(r => updated.find(u => u.id === r.id) || r);
                         setRequests(newReqs);
@@ -125,16 +128,16 @@ const TabButton = ({ active, onClick, icon, label, count }: any) => (
 );
 
 // --- MOCK TOTVS ITENS ---
-const TOTVS_ITEMS = [
-    { code: '001.002.003', desc: 'CIMENTO CP II-32 (SACO 50KG)', unit: 'SC' },
-    { code: '003.010.005', desc: 'BLOCO DE CONCRETO 14X19X39', unit: 'UN' },
-    { code: '010.020.001', desc: 'AREIA MEDIA (M3)', unit: 'M3' },
-    { code: '015.005.002', desc: 'ACO CA-50 10.0MM (BARRA 12M)', unit: 'BR' },
-    { code: '020.001.010', desc: 'TINTA LATEX ACRILICA (LATA 18L)', unit: 'UN' },
-    { code: '999.000.000', desc: 'SERVICO DE PEDREIRO (H)', unit: 'H' },
+const DEFAULT_TOTVS_ITEMS = [
+    { code: '001.002.003', description: 'CIMENTO CP II-32 (SACO 50KG)', unit: 'SC' },
+    { code: '003.010.005', description: 'BLOCO DE CONCRETO 14X19X39', unit: 'UN' },
+    { code: '010.020.001', description: 'AREIA MEDIA (M3)', unit: 'M3' },
+    { code: '015.005.002', description: 'ACO CA-50 10.0MM (BARRA 12M)', unit: 'BR' },
+    { code: '020.001.010', description: 'TINTA LATEX ACRILICA (LATA 18L)', unit: 'UN' },
+    { code: '999.000.000', description: 'SERVICO DE PEDREIRO (H)', unit: 'H' },
 ];
 
-const CreateRequestForm = ({ onSave, requests, onUpdateRequests }: { onSave: (r: PurchaseRequest) => void, requests: PurchaseRequest[], onUpdateRequests: (reqs: PurchaseRequest[]) => void }) => {
+const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUpdateRequests }: { onSave: (r: PurchaseRequest) => void, requests: PurchaseRequest[], totvsItems: TotvsItem[], onUpdateAppData: (data: Partial<AppData>) => void, onUpdateRequests: (reqs: PurchaseRequest[]) => void }) => {
     const [view, setView] = useState<'list' | 'form'>('list');
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -165,11 +168,25 @@ const CreateRequestForm = ({ onSave, requests, onUpdateRequests }: { onSave: (r:
         setView('form');
     };
 
-    const handleSelectTotvsItem = (item: typeof TOTVS_ITEMS[0]) => {
-        setNewItemDesc(item.desc);
+    const handleSelectTotvsItem = (item: TotvsItem) => {
+        setNewItemDesc(item.description);
         setNewItemCode(item.code);
         setNewItemUnit(item.unit);
         setShowSuggestions(false);
+    };
+
+    const handleProductUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const items = await ExcelService.parseTotvsItems(file);
+            onUpdateAppData({ totvsItems: items });
+            alert(`${items.length} produtos carregados com sucesso!`);
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao processar planilha de produtos.");
+        }
     };
 
     const handleAddItem = () => {
@@ -230,10 +247,19 @@ const CreateRequestForm = ({ onSave, requests, onUpdateRequests }: { onSave: (r:
         return (
             <div>
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold uppercase text-slate-700">Minhas Solicitações</h3>
-                    <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700 font-bold uppercase text-sm">
-                        <Plus size={18} /> Nova Solicitação
-                    </button>
+                    <div className="flex flex-col gap-1">
+                        <h3 className="text-xl font-bold uppercase text-slate-700">Minhas Solicitações</h3>
+                        <p className="text-xs text-slate-500 uppercase font-bold">Total de {totvsItems.length || DEFAULT_TOTVS_ITEMS.length} itens cadastrados no catálogo TOTVS</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <label className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded flex items-center gap-2 hover:bg-slate-50 font-bold uppercase text-sm cursor-pointer shadow-sm transition-all active:scale-95">
+                            <Upload size={18} /> Subir Planilha Produtos
+                            <input type="file" className="hidden" accept=".xlsx,.xls" onChange={handleProductUpload} />
+                        </label>
+                        <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700 font-bold uppercase text-sm shadow-sm transition-all active:scale-95">
+                            <Plus size={18} /> Nova Solicitação
+                        </button>
+                    </div>
                 </div>
 
                 {myRequests.length === 0 ? (
@@ -309,15 +335,15 @@ const CreateRequestForm = ({ onSave, requests, onUpdateRequests }: { onSave: (r:
                             {/* Suggestions Dropdown */}
                             {showSuggestions && newItemDesc.length > 0 && (
                                 <div className="absolute top-full left-0 w-full bg-white border border-slate-200 shadow-lg rounded-b max-h-48 overflow-auto z-50">
-                                    {TOTVS_ITEMS
-                                        .filter(i => i.desc.includes(newItemDesc) || i.code.includes(newItemDesc))
+                                    {(totvsItems.length > 0 ? totvsItems : DEFAULT_TOTVS_ITEMS)
+                                        .filter(i => i.description.includes(newItemDesc) || i.code.includes(newItemDesc))
                                         .map(item => (
                                             <button
                                                 key={item.code}
                                                 className="w-full text-left p-2 hover:bg-slate-100 text-xs border-b last:border-0"
                                                 onClick={() => handleSelectTotvsItem(item)}
                                             >
-                                                <div className="font-bold text-slate-700">{item.desc}</div>
+                                                <div className="font-bold text-slate-700">{item.description}</div>
                                                 <div className="text-slate-400 flex justify-between">
                                                     <span>COD: {item.code}</span>
                                                     <span>UN: {item.unit}</span>
@@ -689,6 +715,14 @@ const ManagerApprovalView = ({ requests, onUpdateRequests }: { requests: Purchas
 const TotvsIntegrationView = ({ requests, onUpdateRequests }: { requests: PurchaseRequest[], onUpdateRequests?: (req: PurchaseRequest[]) => void }) => {
     const [expanded, setExpanded] = useState<string | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Filter requests by search query (Search by OC or Description)
+    const filteredRequests = requests.filter(req =>
+        req.requestId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (req.totvsOrderNumber && req.totvsOrderNumber.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
 
     // Edit State
     const [editDesc, setEditDesc] = useState('');
@@ -725,10 +759,30 @@ const TotvsIntegrationView = ({ requests, onUpdateRequests }: { requests: Purcha
 
     return (
         <div>
-            <h3 className="text-xl font-bold mb-4 uppercase text-slate-700">Painel de Integração TOTVS</h3>
-            {requests.length === 0 ? <p className="text-slate-500">Nenhum pedido aguardando integração.</p> : (
+            <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold uppercase text-slate-700">Painel de Integração TOTVS</h3>
+                <div className="relative w-72">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search size={16} className="text-slate-400" />
+                    </div>
+                    <input
+                        type="text"
+                        className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg bg-slate-50 text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase"
+                        placeholder="Pesquisar OC ou Pedido..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+            </div>
+
+            {filteredRequests.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                    <Search size={40} className="mx-auto text-slate-300 mb-3" />
+                    <p className="text-slate-500 uppercase text-sm font-bold">Nenhum pedido encontrado para "{searchQuery}"</p>
+                </div>
+            ) : (
                 <div className="space-y-4">
-                    {requests.map((req) => (
+                    {filteredRequests.map((req) => (
                         <div key={req.id} className={`border rounded-xl transition-all ${expanded === req.id ? 'bg-white shadow-md border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
                             {/* Header */}
                             <div className="p-4 flex justify-between items-center cursor-pointer" onClick={() => !editingId && setExpanded(expanded === req.id ? null : req.id)}>

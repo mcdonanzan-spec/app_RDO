@@ -144,6 +144,12 @@ export interface SavedAnalysis {
 }
 
 // --- Visual Management Types ---
+export interface TotvsItem {
+    code: string;
+    description: string;
+    unit: string;
+}
+
 export interface ServiceDefinition {
     id: string;
     name: string;
@@ -326,6 +332,7 @@ export interface AppData {
     };
     purchaseRequests?: PurchaseRequest[];
     budgetGroups?: BudgetGroup[];
+    totvsItems?: TotvsItem[];
 
     // New Financial Control
     financialEntries?: FinancialEntry[]; // New store for NFs

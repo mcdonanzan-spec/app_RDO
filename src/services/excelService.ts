@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { ContractBox, SupplyChainBox, BudgetLine, RDOItem, CostSummaryItem } from '../../types';
+import { ContractBox, SupplyChainBox, BudgetLine, RDOItem, CostSummaryItem, TotvsItem } from '../../types';
 import { parseMoney } from '../utils';
 
 export class ExcelService {
@@ -823,6 +823,55 @@ export class ExcelService {
         return services;
     }
 
+    static async parseTotvsItems(fileOrWb: File | XLSX.WorkBook): Promise<TotvsItem[]> {
+        const wb = await this.ensureWorkbook(fileOrWb);
+        const allItems: TotvsItem[] = [];
+
+        for (const sheetName of wb.SheetNames) {
+            const ws = wb.Sheets[sheetName];
+            if (!ws || !ws['!ref']) continue;
+
+            const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            if (json.length < 2) continue;
+
+            let headerRow = -1;
+            const headers: any = {};
+
+            for (let i = 0; i < Math.min(json.length, 20); i++) {
+                const row = json[i] as any[];
+                if (!row || !Array.isArray(row)) continue;
+
+                row.forEach((cell, idx) => {
+                    const val = String(cell || '').toUpperCase().trim();
+                    if (val.includes('COD') || val === 'ID' || val === 'IDPRODUTO') headers.code = idx;
+                    if (val.includes('DESC') || val.includes('NOME') || val === 'PRODUTO') headers.desc = idx;
+                    if (val.includes('UN') || val.includes('UNID')) headers.unit = idx;
+                });
+
+                if (headers.desc !== undefined && (headers.code !== undefined || headers.unit !== undefined)) {
+                    headerRow = i;
+                    break;
+                }
+            }
+
+            if (headerRow !== -1) {
+                for (let i = headerRow + 1; i < json.length; i++) {
+                    const row = json[i] as any[];
+                    if (!row || !row[headers.desc]) continue;
+
+                    const code = headers.code !== undefined ? String(row[headers.code] || '').trim() : '';
+                    const desc = String(row[headers.desc] || '').trim().toUpperCase();
+                    const unit = headers.unit !== undefined ? String(row[headers.unit] || 'UN').trim().toUpperCase() : 'UN';
+
+                    if (desc.length > 1) {
+                        allItems.push({ code, description: desc, unit });
+                    }
+                }
+            }
+        }
+        return allItems;
+    }
+
     static exportBudget(tree: import('../../types').BudgetNode[]) {
         const flat: any[] = [];
         const traverse = (nodes: import('../../types').BudgetNode[], parentCode = '') => {
@@ -874,3 +923,4 @@ export class ExcelService {
         XLSX.writeFile(workbook, `Relatorio_Financeiro_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
 }
+

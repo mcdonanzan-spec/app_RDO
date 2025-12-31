@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { Settings, TrendingUp, Printer, Upload, Plus, Trash2, ArrowUp, ArrowDown, Save, CheckCircle, XCircle, Hammer, AlertTriangle, Play, Pause, Monitor, StopCircle } from 'lucide-react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { Settings, TrendingUp, Printer, Trash2, ArrowUp, ArrowDown, Save, CheckCircle, Play, Pause, Monitor, StopCircle } from 'lucide-react';
 import { AppData, ProductionConfig, ServiceDefinition, ProductionStatus } from '../../types';
 import { ApiService } from '../services/api';
 import { ExcelService } from '../services/excelService';
@@ -20,7 +20,6 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
     const [services, setServices] = useState<ServiceDefinition[]>(appData.visualManagement?.services || DEFAULT_SERVICES);
     const [status, setStatus] = useState<ProductionStatus>(appData.visualManagement?.status || {});
 
-    // New State for Enhancements
     const [foundationData, setFoundationData] = useState<Record<string, { total: number, realized: number }>>(appData.visualManagement?.foundationData || {});
     const [progressData, setProgressData] = useState<Record<string, Record<string, number>>>(appData.visualManagement?.unitProgress || {});
     const [isPresentationMode, setIsPresentationMode] = useState(false);
@@ -35,39 +34,13 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [pipelineTab, setPipelineTab] = useState<'pending' | 'executing' | 'completed'>('executing');
 
-    const selectedService = services.find(s => s.id === selectedServiceId) || services[0];
-
-    // --- Derived State for Pipeline ---
-    const pipelineData = useMemo(() => {
-        const execution: any[] = [];
-
-        for (let t = 1; t <= config.towers; t++) {
-            for (let f = 1; f <= config.floors; f++) {
-                for (let a = 1; a <= config.aptsPerFloor; a++) {
-                    const unitId = `T${t}-F${f}-A${a}`;
-                    services.forEach(svc => {
-                        const st = status[unitId]?.[svc.id];
-                        if (st === 'started') {
-                            execution.push({ unitId, service: svc, tower: t, floor: f, apt: a });
-                        }
-                    });
-                }
-            }
-        }
-        return { execution };
-    }, [status, config, services]);
+    const selectedService = useMemo(() => services.find(s => s.id === selectedServiceId) || services[0], [services, selectedServiceId]);
 
     // --- Presentation Mode Logic ---
-    React.useEffect(() => {
+    useEffect(() => {
         let interval: any;
         if (isPresentationMode && isPlaying) {
             interval = setInterval(() => {
-                setServices(prev => {
-                    // Logic: Cycle selected service
-                    // Or cycle active service ID
-                    return prev;
-                });
-                // Actually easier to just change selectedServiceId
                 setSelectedServiceId(prev => {
                     const idx = services.findIndex(s => s.id === prev);
                     const nextIdx = (idx + 1) % services.length;
@@ -78,10 +51,9 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
         return () => clearInterval(interval);
     }, [isPresentationMode, isPlaying, services]);
 
-
     // --- Actions ---
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         setIsSaving(true);
         const newData = {
             ...appData,
@@ -90,9 +62,9 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
         await ApiService.saveAppData(newData);
         setIsSaving(false);
         alert('Dados salvos com sucesso!');
-    };
+    }, [appData, config, services, status, foundationData, progressData, towerNames, legendColors, serviceStatus]);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;
         const file = e.target.files[0];
         try {
@@ -110,9 +82,9 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
             alert('Erro ao processar planilha.');
         }
         e.target.value = '';
-    };
+    }, []);
 
-    const updateProgress = (unitId: string, serviceId: string, percent: number) => {
+    const updateProgress = useCallback((unitId: string, serviceId: string, percent: number) => {
         setProgressData(prev => ({
             ...prev,
             [unitId]: {
@@ -120,7 +92,7 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                 [serviceId]: percent
             }
         }));
-    };
+    }, []);
 
     const updateFoundation = useCallback((towerIdx: number, field: 'total' | 'realized', val: string) => {
         const numVal = val === '' ? 0 : parseInt(val, 10) || 0;
@@ -133,7 +105,7 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
         }));
     }, []);
 
-    const toggleStatus = (unitId: string, serviceId: string) => {
+    const toggleStatus = useCallback((unitId: string, serviceId: string) => {
         setStatus(prev => {
             const current = prev[unitId]?.[serviceId] || 'pending';
             const next = current === 'pending' ? 'started' : (current === 'started' ? 'completed' : 'pending');
@@ -146,41 +118,40 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                 }
             };
         });
-    };
+    }, []);
 
-    const getStatusStyle = (st: string | undefined, serviceColor: string) => {
+    const getStatusStyle = useCallback((st: string | undefined, serviceColor: string) => {
         if (st === 'completed') return { backgroundColor: legendColors.completed, borderColor: 'transparent' };
         if (st === 'started') return { backgroundColor: serviceColor, borderColor: 'transparent' };
         return { backgroundColor: legendColors.pending, borderColor: '#cbd5e1' };
-    };
+    }, [legendColors.completed, legendColors.pending]);
 
-    const moveService = (serviceId: string, newStatus: 'pending' | 'executing' | 'completed') => {
+    const moveService = useCallback((serviceId: string, newStatus: 'pending' | 'executing' | 'completed') => {
         setServiceStatus(prev => ({ ...prev, [serviceId]: newStatus }));
-    };
+    }, []);
 
-    const reorderService = (serviceId: string, direction: 'up' | 'down') => {
-        const idx = services.findIndex(s => s.id === serviceId);
-        if (idx === -1) return;
-        if (direction === 'up' && idx === 0) return;
-        if (direction === 'down' && idx === services.length - 1) return;
+    const reorderService = useCallback((serviceId: string, direction: 'up' | 'down') => {
+        setServices(prev => {
+            const idx = prev.findIndex(s => s.id === serviceId);
+            if (idx === -1) return prev;
+            if (direction === 'up' && idx === 0) return prev;
+            if (direction === 'down' && idx === prev.length - 1) return prev;
 
-        const newServices = [...services];
-        const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-        [newServices[idx], newServices[targetIdx]] = [newServices[targetIdx], newServices[idx]];
+            const newServices = [...prev];
+            const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+            [newServices[idx], newServices[targetIdx]] = [newServices[targetIdx], newServices[idx]];
 
-        // Update order property for all services to match their new positions
-        newServices.forEach((svc, i) => {
-            svc.order = i + 1;
+            newServices.forEach((svc, i) => {
+                svc.order = i + 1;
+            });
+            return newServices;
         });
+    }, []);
 
-        setServices(newServices);
-    };
-
-    const getServiceCompletion = (serviceId: string) => {
+    const getServiceCompletion = useCallback((serviceId: string) => {
         const totalUnits = config.towers * config.floors * config.aptsPerFloor;
         if (totalUnits === 0) return 0;
         let completed = 0;
-        // Iterate all
         for (let t = 1; t <= config.towers; t++) {
             for (let f = 1; f <= config.floors; f++) {
                 for (let a = 1; a <= config.aptsPerFloor; a++) {
@@ -191,9 +162,9 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
             }
         }
         return Math.round((completed / totalUnits) * 100);
-    };
+    }, [config, status]);
 
-    const getTowerServiceCompletion = (towerIdx: number, serviceId: string) => {
+    const getTowerServiceCompletion = useCallback((towerIdx: number, serviceId: string) => {
         const totalUnits = config.floors * config.aptsPerFloor;
         if (totalUnits === 0) return 0;
         let completed = 0;
@@ -207,340 +178,11 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
             }
         }
         return Math.round((completed / totalUnits) * 100);
-    };
-
-    // --- Components ---
-
-    // Memoized Tower Card to prevent re-renders on other tower inputs
-    const TowerCard = React.memo(({
-        tIdx,
-        towerNum,
-        config,
-        towerNames,
-        selectedServiceId,
-        selectedService,
-        getTowerServiceCompletion,
-        status,
-        toggleStatus,
-        getStatusStyle,
-        foundationData,
-        updateFoundation,
-        isPresentationMode,
-        legendColors
-    }: any) => (
-        <div key={towerNum} className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col h-full min-w-0">
-            {/* Tower Header */}
-            <div className="flex justify-between items-center mb-4 shrink-0">
-                <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold text-slate-800">Torre {towerNames[tIdx] || String.fromCharCode(65 + tIdx)}</h3>
-                    {(() => {
-                        const towerPercent = getTowerServiceCompletion(tIdx, selectedServiceId);
-                        const isDone = towerPercent === 100;
-                        return (
-                            <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${isDone ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                                }`}>
-                                {isDone && <CheckCircle size={10} />}
-                                {towerPercent}%
-                            </div>
-                        );
-                    })()}
-                </div>
-                <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded">{config.floors} Pav</span>
-            </div>
-
-            {/* Matrix Grid */}
-            <div className="flex-1 flex flex-col gap-[1px] overflow-hidden">
-                {[...Array(config.floors)].map((_, fIdx) => {
-                    const floorNum = config.floors - fIdx;
-                    return (
-                        <div key={floorNum} className="flex-1 flex gap-2 items-center">
-                            <div className="w-4 text-[10px] font-bold text-slate-300 text-right shrink-0">{floorNum}</div>
-                            <div className="flex-1 grid gap-[1px] h-full" style={{ gridTemplateColumns: `repeat(${config.aptsPerFloor}, 1fr)` }}>
-                                {[...Array(config.aptsPerFloor)].map((_, aIdx) => {
-                                    const aptNum = aIdx + 1;
-                                    const unitId = `T${towerNum}-F${floorNum}-A${aptNum}`;
-                                    const st = status[unitId]?.[selectedServiceId];
-                                    const style = getStatusStyle(st, selectedService?.color || '#3b82f6');
-
-                                    return (
-                                        <div
-                                            key={unitId}
-                                            onClick={() => toggleStatus(unitId, selectedServiceId)}
-                                            className="w-full h-full rounded-[1px] cursor-pointer hover:brightness-95 transition-colors"
-                                            style={style}
-                                            title={`T${towerNum} F${floorNum} A${aptNum}: ${st || 'Pendente'}`}
-                                        ></div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
-
-            {/* Foundation Footer */}
-            <div className="mt-auto pt-3 border-t border-slate-100">
-                <div className="flex justify-between items-center text-[10px] uppercase font-bold text-slate-500 mb-1">
-                    <span>Fundação (Estacas)</span>
-                    <span>{Math.round(((foundationData[tIdx]?.realized || 0) / (foundationData[tIdx]?.total || 1)) * 100)}%</span>
-                </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-2">
-                    <div
-                        className="h-full bg-green-500 transition-all duration-500"
-                        style={{ width: `${Math.min(100, ((foundationData[tIdx]?.realized || 0) / (foundationData[tIdx]?.total || 1)) * 100)}%` }}
-                    ></div>
-                </div>
-                {!isPresentationMode && (
-                    <div className="flex gap-2 text-[10px]">
-                        <div className="flex-1">
-                            <label className="text-[8px] text-slate-400 block">Total</label>
-                            <input
-                                className="w-full border rounded px-1 py-0.5"
-                                type="number"
-                                value={foundationData[tIdx]?.total || ''}
-                                placeholder="Qtd"
-                                onChange={(e) => updateFoundation(tIdx, 'total', e.target.value)}
-                            />
-                        </div>
-                        <div className="flex-1">
-                            <label className="text-[8px] text-slate-400 block">Realizado</label>
-                            <input
-                                className="w-full border rounded px-1 py-0.5"
-                                type="number"
-                                value={foundationData[tIdx]?.realized || ''}
-                                placeholder="Qtd"
-                                onChange={(e) => updateFoundation(tIdx, 'realized', e.target.value)}
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Legend Bottom */}
-            <div
-                className="mt-2 pt-2 border-t border-slate-100 flex justify-between text-[10px] text-slate-400 shrink-0 cursor-pointer hover:bg-slate-50 rounded px-2 py-1 -mx-2 transition-colors"
-                onClick={() => !isPresentationMode && setViewMode('legend')}
-                title="Clique para editar cores"
-            >
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: legendColors.pending }}></div> A Iniciar</div>
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: selectedService?.color }}></div> Andamento</div>
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: legendColors.completed }}></div> Concluído</div>
-            </div>
-        </div>
-    ));
-
-    const MatrixView = () => (
-        <div className="flex h-full bg-slate-50 overflow-hidden">
-
-            {/* Main Content - Towers Area */}
-            <div className="flex-1 flex flex-col overflow-hidden p-6 pb-2">
-
-                {/* Towers Container - Fit to screen (flex-1) */}
-                <div className="flex-1 w-full h-full">
-                    <div className="flex h-full gap-4 w-full">
-                        {[...Array(config.towers)].map((_, tIdx) => {
-                            const towerNum = tIdx + 1;
-                            return (
-                                <TowerCard
-                                    key={towerNum}
-                                    tIdx={tIdx}
-                                    towerNum={towerNum}
-                                    config={config}
-                                    towerNames={towerNames}
-                                    selectedServiceId={selectedServiceId}
-                                    selectedService={selectedService}
-                                    getTowerServiceCompletion={getTowerServiceCompletion}
-                                    status={status}
-                                    toggleStatus={toggleStatus}
-                                    getStatusStyle={getStatusStyle}
-                                    foundationData={foundationData}
-                                    updateFoundation={updateFoundation}
-                                    isPresentationMode={isPresentationMode}
-                                    legendColors={legendColors}
-                                />
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-
-            {/* Right Sidebar - Pipeline - Hide in Presentation Mode? The user said "navigation continuous", maybe full screen matrix is better. Let's hide sidebar in presentation mode to maximize matrix. */}
-            {!isPresentationMode && (
-                <div className="w-[340px] bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0">
-                    <div className="p-5 border-b border-slate-100 pb-0">
-                        <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 text-base">
-                            <TrendingUp size={18} className="text-slate-600" />
-                            Pipeline de Produção
-                        </h3>
-
-                        <div className="flex text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            <button onClick={() => setPipelineTab('pending')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'pending' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>A INICIAR</button>
-                            <button onClick={() => setPipelineTab('executing')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'executing' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>EM EXECUÇÃO</button>
-                            <button onClick={() => setPipelineTab('completed')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'completed' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>CONCLUÍDO</button>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 overflow-auto p-5 space-y-3 bg-slate-50/50">
-                        {/* EM EXECUÇÃO: Full cards with controls */}
-                        {pipelineTab === 'executing' && (
-                            <>
-                                {services.filter(s => (serviceStatus[s.id] || 'pending') === 'executing').map((svc, idx, arr) => (
-                                    <div key={svc.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: svc.color }}></div>
-                                                <div className="font-bold text-sm text-slate-800">{svc.name}</div>
-                                            </div>
-                                            <div className="flex gap-1">
-                                                <button
-                                                    onClick={() => reorderService(svc.id, 'up')}
-                                                    disabled={idx === 0}
-                                                    className="p-1 hover:bg-slate-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                                                    title="Mover para cima"
-                                                >
-                                                    <ArrowUp size={12} className="text-slate-600" />
-                                                </button>
-                                                <button
-                                                    onClick={() => reorderService(svc.id, 'down')}
-                                                    disabled={idx === arr.length - 1}
-                                                    className="p-1 hover:bg-slate-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
-                                                    title="Mover para baixo"
-                                                >
-                                                    <ArrowDown size={12} className="text-slate-600" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="text-[10px] text-slate-500 mb-3">Posição na sequência: #{idx + 1}</div>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => moveService(svc.id, 'pending')}
-                                                className="flex-1 py-1.5 rounded-lg bg-slate-50 text-slate-700 text-[10px] font-bold border border-slate-200 hover:bg-slate-100 transition-colors"
-                                            >
-                                                ← Parar
-                                            </button>
-                                            <button
-                                                onClick={() => moveService(svc.id, 'completed')}
-                                                className="flex-1 py-1.5 rounded-lg bg-green-50 text-green-700 text-[10px] font-bold border border-green-200 hover:bg-green-100 transition-colors"
-                                            >
-                                                Concluir →
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                                {services.filter(s => (serviceStatus[s.id] || 'pending') === 'executing').length === 0 && (
-                                    <div className="text-center py-10 text-slate-400 text-sm">Nenhum serviço em execução.</div>
-                                )}
-                            </>
-                        )}
-
-                        {/* A INICIAR: Simple list */}
-                        {pipelineTab === 'pending' && (
-                            <>
-                                {services.filter(s => (serviceStatus[s.id] || 'pending') === 'pending').map((svc, idx) => (
-                                    <div key={svc.id} className="bg-white p-3 rounded-lg border border-slate-100 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: svc.color }}></div>
-                                            <div className="text-sm font-medium text-slate-700">{svc.name}</div>
-                                            <div className="text-[10px] text-slate-400">#{idx + 1}</div>
-                                        </div>
-                                        <button
-                                            onClick={() => moveService(svc.id, 'executing')}
-                                            className="px-3 py-1 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
-                                        >
-                                            Iniciar →
-                                        </button>
-                                    </div>
-                                ))}
-                                {services.filter(s => (serviceStatus[s.id] || 'pending') === 'pending').length === 0 && (
-                                    <div className="text-center py-10 text-slate-400 text-sm">Todos os serviços já foram iniciados!</div>
-                                )}
-                            </>
-                        )}
-
-                        {/* CONCLUÍDO: Simple list */}
-                        {pipelineTab === 'completed' && (
-                            <>
-                                {services.filter(s => (serviceStatus[s.id] || 'pending') === 'completed').map((svc, idx) => (
-                                    <div key={svc.id} className="bg-white p-3 rounded-lg border border-green-100 bg-green-50/30 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <CheckCircle size={14} className="text-green-600" />
-                                            <div className="text-sm font-medium text-slate-700">{svc.name}</div>
-                                            <div className="text-[10px] text-slate-400">Finalizado</div>
-                                        </div>
-                                        <button
-                                            onClick={() => moveService(svc.id, 'executing')}
-                                            className="px-3 py-1 rounded text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 transition-colors"
-                                        >
-                                            ← Reabrir
-                                        </button>
-                                    </div>
-                                ))}
-                                {services.filter(s => (serviceStatus[s.id] || 'pending') === 'completed').length === 0 && (
-                                    <div className="text-center py-10 text-slate-400 text-sm">Nenhum serviço concluído ainda.</div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-
-    const PrintView = () => (
-        <div className="print-section hidden">
-            <style>{`
-                @media print {
-                    @page { size: landscape; margin: 5mm; }
-                    body * { visibility: hidden; }
-                    .print-section, .print-section * { visibility: visible; }
-                    .print-section { position: absolute; left: 0; top: 0; width: 100%; }
-                    .no-print { display: none !important; }
-                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                }
-            `}</style>
-            <div className="p-4 bg-white min-h-screen">
-                <div className="flex justify-between items-center mb-6 border-b-2 border-black pb-2">
-                    <h1 className="text-2xl font-bold uppercase">Mapa de Produção - {selectedService?.name || 'Geral'}</h1>
-                    <div className="text-sm font-mono">Data: {new Date().toLocaleDateString()}</div>
-                </div>
-
-                <div className="flex flex-wrap gap-4 justify-center">
-                    {[...Array(config.towers)].map((_, tIdx) => (
-                        <div key={tIdx} className="border border-black p-2 bg-white break-inside-avoid">
-                            <h2 className="text-center font-bold border-b border-black mb-2">Torre {String.fromCharCode(65 + tIdx)}</h2>
-                            <div className="flex flex-col gap-1">
-                                {[...Array(config.floors)].map((_, fIdx) => {
-                                    const floor = config.floors - fIdx;
-                                    return (
-                                        <div key={floor} className="flex gap-1 h-4">
-                                            <div className="w-4 text-[8px] font-bold text-right pr-1">{floor}</div>
-                                            {[...Array(config.aptsPerFloor)].map((_, aIdx) => {
-                                                const unitId = `T${tIdx + 1}-F${floor}-A${aIdx + 1}`;
-                                                const st = status[unitId]?.[selectedServiceId];
-                                                const isDone = st === 'completed';
-                                                const isStarted = st === 'started';
-                                                return (
-                                                    <div key={aIdx} className="w-6 h-4 border border-black/30 flex items-center justify-center text-[8px]"
-                                                        style={{ backgroundColor: isDone ? '#10b981' : (isStarted ? selectedService?.color : '#e2e8f0') }}
-                                                    >
-                                                        {isDone ? '●' : (isStarted ? '/' : '')}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
+    }, [config.floors, config.aptsPerFloor, status]);
 
     return (
         <div className="h-full flex flex-col bg-slate-50 relative">
-            <PrintView />
+            <PrintView selectedService={selectedService} config={config} status={status} selectedServiceId={selectedServiceId} />
 
             {/* Header Area */}
             {isPresentationMode ? (
@@ -568,7 +210,6 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                         <p className="text-xs text-slate-500">Gestão Visual das {config.towers} Torres e Controle de Gargalos</p>
                     </div>
 
-                    {/* Service Filters */}
                     <div className="flex gap-2">
                         {services.filter(s => s.name !== 'Fundação' && (serviceStatus[s.id] || 'pending') === 'executing').sort((a, b) => a.order - b.order).map(s => {
                             const percent = getServiceCompletion(s.id);
@@ -599,7 +240,6 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                 </div>
             )}
 
-            {/* Utility Bar */}
             {!isPresentationMode && (
                 <div className="bg-white px-6 py-2 border-b border-slate-100 flex justify-end gap-2 shrink-0">
                     <button onClick={() => setViewMode('config')} className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
@@ -771,8 +411,264 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
             )}
 
             {/* Main Content Render */}
-            {viewMode === 'matrix' && <MatrixView />}
+            {viewMode === 'matrix' && (
+                <div className="flex h-full bg-slate-50 overflow-hidden">
+                    <div className="flex-1 flex flex-col overflow-hidden p-6 pb-2">
+                        <div className="flex-1 w-full h-full">
+                            <div className="flex h-full gap-4 w-full">
+                                {[...Array(config.towers)].map((_, tIdx) => {
+                                    const towerNum = tIdx + 1;
+                                    return (
+                                        <TowerCard
+                                            key={towerNum}
+                                            tIdx={tIdx}
+                                            towerNum={towerNum}
+                                            config={config}
+                                            towerNames={towerNames}
+                                            selectedServiceId={selectedServiceId}
+                                            selectedService={selectedService}
+                                            getTowerServiceCompletion={getTowerServiceCompletion}
+                                            status={status}
+                                            toggleStatus={toggleStatus}
+                                            getStatusStyle={getStatusStyle}
+                                            foundationData={foundationData}
+                                            updateFoundation={updateFoundation}
+                                            isPresentationMode={isPresentationMode}
+                                            legendColors={legendColors}
+                                            setViewMode={setViewMode}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
 
+                    {!isPresentationMode && (
+                        <div className="w-[340px] bg-white border-l border-slate-200 flex flex-col shadow-xl z-20 shrink-0">
+                            <div className="p-5 border-b border-slate-100 pb-0">
+                                <h3 className="font-bold text-slate-800 flex items-center gap-2 mb-4 text-base">
+                                    <TrendingUp size={18} className="text-slate-600" />
+                                    Pipeline de Produção
+                                </h3>
+                                <div className="flex text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                    <button onClick={() => setPipelineTab('pending')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'pending' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>A INICIAR</button>
+                                    <button onClick={() => setPipelineTab('executing')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'executing' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>EM EXECUÇÃO</button>
+                                    <button onClick={() => setPipelineTab('completed')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'completed' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>CONCLUÍDO</button>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-auto p-5 space-y-3 bg-slate-50/50">
+                                {pipelineTab === 'executing' && services.filter(s => (serviceStatus[s.id] || 'pending') === 'executing').map((svc, idx, arr) => (
+                                    <div key={svc.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: svc.color }}></div>
+                                                <div className="font-bold text-sm text-slate-800">{svc.name}</div>
+                                            </div>
+                                            <div className="flex gap-1">
+                                                <button onClick={() => reorderService(svc.id, 'up')} disabled={idx === 0} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ArrowUp size={12} /></button>
+                                                <button onClick={() => reorderService(svc.id, 'down')} disabled={idx === arr.length - 1} className="p-1 hover:bg-slate-100 rounded disabled:opacity-30"><ArrowDown size={12} /></button>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => moveService(svc.id, 'pending')} className="flex-1 py-1.5 rounded-lg bg-slate-50 text-[10px] font-bold border hover:bg-slate-100">← Parar</button>
+                                            <button onClick={() => moveService(svc.id, 'completed')} className="flex-1 py-1.5 rounded-lg bg-green-50 text-green-700 text-[10px] font-bold border border-green-200 hover:bg-green-100">Concluir →</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {pipelineTab === 'pending' && services.filter(s => (serviceStatus[s.id] || 'pending') === 'pending').map(svc => (
+                                    <div key={svc.id} className="bg-white p-3 rounded-lg border flex items-center justify-between">
+                                        <div className="flex items-center gap-3"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: svc.color }}></div><div className="text-sm font-medium">{svc.name}</div></div>
+                                        <button onClick={() => moveService(svc.id, 'executing')} className="px-3 py-1 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border">Iniciar →</button>
+                                    </div>
+                                ))}
+                                {pipelineTab === 'completed' && services.filter(s => (serviceStatus[s.id] || 'pending') === 'completed').map(svc => (
+                                    <div key={svc.id} className="bg-white p-3 rounded-lg border border-green-100 bg-green-50/30 flex items-center justify-between">
+                                        <div className="flex items-center gap-3"><CheckCircle size={14} className="text-green-600" /><div className="text-sm font-medium">{svc.name}</div></div>
+                                        <button onClick={() => moveService(svc.id, 'executing')} className="px-3 py-1 rounded text-[10px] font-bold bg-slate-50 border">← Reabrir</button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };
+
+interface TowerCardProps {
+    tIdx: number;
+    towerNum: number;
+    config: ProductionConfig;
+    towerNames: string[];
+    selectedServiceId: string;
+    selectedService: ServiceDefinition;
+    getTowerServiceCompletion: (tIdx: number, svcId: string) => number;
+    status: ProductionStatus;
+    toggleStatus: (unitId: string, svcId: string) => void;
+    getStatusStyle: (st: string | undefined, color: string) => any;
+    foundationData: Record<string, { total: number, realized: number }>;
+    updateFoundation: (tIdx: number, field: 'total' | 'realized', val: string) => void;
+    isPresentationMode: boolean;
+    legendColors: { pending: string, completed: string };
+    setViewMode: (mode: any) => void;
+}
+
+const TowerCard = React.memo(({
+    tIdx,
+    towerNum,
+    config,
+    towerNames,
+    selectedServiceId,
+    selectedService,
+    getTowerServiceCompletion,
+    status,
+    toggleStatus,
+    getStatusStyle,
+    foundationData,
+    updateFoundation,
+    isPresentationMode,
+    legendColors,
+    setViewMode
+}: TowerCardProps) => (
+    <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex flex-col h-full min-w-0">
+        <div className="flex justify-between items-center mb-4 shrink-0">
+            <div className="flex items-center gap-2">
+                <h3 className="text-xl font-bold text-slate-800">Torre {towerNames[tIdx] || String.fromCharCode(65 + tIdx)}</h3>
+                {(() => {
+                    const towerPercent = getTowerServiceCompletion(tIdx, selectedServiceId);
+                    const isDone = towerPercent === 100;
+                    return (
+                        <div className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 ${isDone ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {isDone && <CheckCircle size={10} />}
+                            {towerPercent}%
+                        </div>
+                    );
+                })()}
+            </div>
+            <span className="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded">{config.floors} Pav</span>
+        </div>
+
+        <div className="flex-1 flex flex-col gap-[1px] overflow-hidden">
+            {[...Array(config.floors)].map((_, fIdx) => {
+                const floorNum = config.floors - fIdx;
+                return (
+                    <div key={floorNum} className="flex-1 flex gap-2 items-center">
+                        <div className="w-4 text-[10px] font-bold text-slate-300 text-right shrink-0">{floorNum}</div>
+                        <div className="flex-1 grid gap-[1px] h-full" style={{ gridTemplateColumns: `repeat(${config.aptsPerFloor}, 1fr)` }}>
+                            {[...Array(config.aptsPerFloor)].map((_, aIdx) => {
+                                const aptNum = aIdx + 1;
+                                const unitId = `T${towerNum}-F${floorNum}-A${aptNum}`;
+                                const st = status[unitId]?.[selectedServiceId];
+                                const style = getStatusStyle(st, selectedService?.color || '#3b82f6');
+
+                                return (
+                                    <div
+                                        key={unitId}
+                                        onClick={() => toggleStatus(unitId, selectedServiceId)}
+                                        className="w-full h-full rounded-[1px] cursor-pointer hover:brightness-95 transition-colors"
+                                        style={style}
+                                        title={`T${towerNum} F${floorNum} A${aptNum}: ${st || 'Pendente'}`}
+                                    ></div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+
+        <div className="mt-auto pt-3 border-t border-slate-100">
+            <div className="flex justify-between items-center text-[10px] uppercase font-bold text-slate-500 mb-1">
+                <span>Fundação (Estacas)</span>
+                <span>{Math.round(((foundationData[tIdx]?.realized || 0) / (foundationData[tIdx]?.total || 1)) * 100)}%</span>
+            </div>
+            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-2">
+                <div
+                    className="h-full bg-green-500 transition-all duration-500"
+                    style={{ width: `${Math.min(100, ((foundationData[tIdx]?.realized || 0) / (foundationData[tIdx]?.total || 1)) * 100)}%` }}
+                ></div>
+            </div>
+            {!isPresentationMode && (
+                <div className="flex gap-2 text-[10px]">
+                    <div className="flex-1">
+                        <label className="text-[8px] text-slate-400 block">Total</label>
+                        <input
+                            className="w-full border rounded px-1 py-0.5"
+                            type="number"
+                            value={foundationData[tIdx]?.total || ''}
+                            placeholder="Qtd"
+                            onChange={(e) => updateFoundation(tIdx, 'total', e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-1">
+                        <label className="text-[8px] text-slate-400 block">Realizado</label>
+                        <input
+                            className="w-full border rounded px-1 py-0.5"
+                            type="number"
+                            value={foundationData[tIdx]?.realized || ''}
+                            placeholder="Qtd"
+                            onChange={(e) => updateFoundation(tIdx, 'realized', e.target.value)}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+
+        <div
+            className="mt-2 pt-2 border-t border-slate-100 flex justify-between text-[10px] text-slate-400 shrink-0 cursor-pointer hover:bg-slate-50 rounded px-2 py-1 -mx-2 transition-colors"
+            onClick={() => !isPresentationMode && setViewMode('legend')}
+        >
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: legendColors.pending }}></div> A Iniciar</div>
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: selectedService?.color }}></div> Andamento</div>
+            <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: legendColors.completed }}></div> Concluído</div>
+        </div>
+    </div>
+));
+
+const PrintView = ({ selectedService, config, status, selectedServiceId }: any) => (
+    <div className="print-section hidden">
+        <style>{`
+            @media print {
+                @page { size: landscape; margin: 5mm; }
+                body * { visibility: hidden; }
+                .print-section, .print-section * { visibility: visible; }
+                .print-section { position: absolute; left: 0; top: 0; width: 100%; }
+                .no-print { display: none !important; }
+                * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            }
+        `}</style>
+        <div className="p-4 bg-white min-h-screen">
+            <div className="flex justify-between items-center mb-6 border-b-2 border-black pb-2">
+                <h1 className="text-2xl font-bold uppercase">Mapa de Produção - {selectedService?.name || 'Geral'}</h1>
+                <div className="text-sm font-mono">Data: {new Date().toLocaleDateString()}</div>
+            </div>
+            <div className="flex flex-wrap gap-4 justify-center">
+                {[...Array(config.towers)].map((_, tIdx) => (
+                    <div key={tIdx} className="border border-black p-2 bg-white break-inside-avoid">
+                        <h2 className="text-center font-bold border-b border-black mb-2">Torre {String.fromCharCode(65 + tIdx)}</h2>
+                        <div className="flex flex-col gap-1">
+                            {[...Array(config.floors)].map((_, fIdx) => {
+                                const floor = config.floors - fIdx;
+                                return (
+                                    <div key={floor} className="flex gap-1 h-4">
+                                        <div className="w-4 text-[8px] font-bold text-right pr-1">{floor}</div>
+                                        {[...Array(config.aptsPerFloor)].map((_, aIdx) => {
+                                            const unitId = `T${tIdx + 1}-F${floor}-A${aIdx + 1}`;
+                                            const st = status[unitId]?.[selectedServiceId];
+                                            return (
+                                                <div key={aIdx} className="w-6 h-4 border border-black/30 flex items-center justify-center"
+                                                    style={{ backgroundColor: st === 'completed' ? '#10b981' : (st === 'started' ? selectedService?.color : '#e2e8f0') }}
+                                                ></div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
