@@ -599,7 +599,11 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                 e.documentNumber.includes(searchTerm) ||
                 (e.purchaseOrder && e.purchaseOrder.includes(searchTerm)) ||
                 (e.idMov && e.idMov.includes(searchTerm)) ||
-                (e.nMov && e.nMov.includes(searchTerm));
+                (e.nMov && e.nMov.includes(searchTerm)) ||
+                e.allocations?.some(a =>
+                    a.budgetGroupCode.includes(searchTerm) ||
+                    (a.description && a.description.toUpperCase().includes(searchTerm.toUpperCase()))
+                );
 
             let matchesDate = true;
             if (filterStart || filterEnd) {
@@ -1397,11 +1401,18 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                 <td className="p-3">{entry.documentNumber}</td>
                                 <td className="p-3 text-center">
                                     <div className="flex justify-center flex-col items-center gap-1">
-                                        {entry.allocations?.length > 1 ?
+                                        {entry.allocations?.length > 1 ? (
                                             <span className="bg-purple-100 text-purple-800 px-2 py-0.5 rounded text-[10px] font-bold">RATEIO: {entry.allocations.length} G.O.s</span>
-                                            : <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-mono">{entry.allocations?.[0]?.budgetGroupCode}</span>
-                                        }
-                                        <span className="text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">De: {entry.allocations?.[0]?.description?.substring(0, 15)}...</span>
+                                        ) : (
+                                            <div className="flex flex-col items-center">
+                                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-tight">
+                                                    {entry.allocations?.[0]?.budgetGroupCode}
+                                                </span>
+                                                <span className="text-[9px] text-slate-500 font-medium uppercase mt-0.5 max-w-[120px] truncate">
+                                                    {entry.allocations?.[0]?.description}
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </td>
                                 <td className="p-3 text-right font-bold text-slate-800">{entry.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>

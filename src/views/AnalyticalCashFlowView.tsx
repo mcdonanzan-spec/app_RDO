@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { AppData, BudgetNode, FinancialEntry, Installment } from '../../types';
 import {
     Calendar,
@@ -337,7 +338,63 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                             />
                         </div>
 
-                        <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all border border-slate-700">
+                        <button
+                            onClick={() => {
+                                const monthsHeaders = futureMonths.map(m => getMonthLabel(m));
+                                const headersOrder = [
+                                    'CÓDIGO', 'DESCRIÇÃO', 'ORÇAMENTO (PREV. DESEMBOLSO)', 'RDO (CONSOLIDADO)', 'RMO (REALIZADO MÊS)',
+                                    ...monthsHeaders,
+                                    'TOTAL DESEMBOLSADO', 'COMPROMETIMENTO', 'REALIZADO + COMP.', '% CONSUMIDA', 'DIFERENÇA'
+                                ];
+
+                                const rows: any[] = [];
+                                const flatten = (nodes: BudgetNode[], level = 0) => {
+                                    nodes.forEach(node => {
+                                        const v = getNodeValues(node);
+                                        const commitment = commitmentValues[node.code] || 0;
+                                        const realPlusComp = v.rmo + commitment;
+                                        const consumed = v.budget > 0 ? (realPlusComp / v.budget) : 0;
+                                        const diff = v.budget - realPlusComp;
+                                        const totalProjected = v.rmo + futureMonths.reduce((acc, m) => acc + (v.monthly[m] || 0), 0);
+
+                                        const row: any = {
+                                            'CÓDIGO': node.code,
+                                            'DESCRIÇÃO': '  '.repeat(level) + node.description,
+                                            'ORÇAMENTO (PREV. DESEMBOLSO)': v.budget,
+                                            'RDO (CONSOLIDADO)': v.rdoTotal,
+                                            'RMO (REALIZADO MÊS)': v.rmo
+                                        };
+
+                                        futureMonths.forEach(m => {
+                                            row[getMonthLabel(m)] = v.monthly[m] || 0;
+                                        });
+
+                                        row['TOTAL DESEMBOLSADO'] = totalProjected;
+                                        row['COMPROMETIMENTO'] = commitment;
+                                        row['REALIZADO + COMP.'] = realPlusComp;
+                                        row['% CONSUMIDA'] = (consumed * 100).toFixed(2) + '%';
+                                        row['DIFERENÇA'] = diff;
+
+                                        rows.push(row);
+                                        if (node.children) flatten(node.children, level + 1);
+                                    });
+                                };
+                                flatten(budgetTree);
+
+                                // Use json_to_sheet but we could use aoa_to_sheet for header ordering if needed
+                                const worksheet = XLSX.utils.json_to_sheet(rows, { header: headersOrder });
+                                worksheet['!cols'] = [
+                                    { wch: 15 }, { wch: 45 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+                                    ...futureMonths.map(() => ({ wch: 15 })),
+                                    { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 20 }
+                                ];
+
+                                const workbook = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(workbook, worksheet, "Fluxo de Caixa");
+                                XLSX.writeFile(workbook, `Acompanhamento_Financeiro_${new Date().toISOString().split('T')[0]}.xlsx`);
+                            }}
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all border border-slate-700 active:scale-95 shadow-lg"
+                        >
                             <Download size={18} />
                             <span>Exportar Excel</span>
                         </button>
