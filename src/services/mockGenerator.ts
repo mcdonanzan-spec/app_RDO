@@ -24,81 +24,90 @@ export async function generateMockData() {
 
     // 2. Budget Data (Flat & Tree)
     // We need flat lines for the 'budget' table and tree for 'budgetTree'
+    // 2. Budget Data (Deep Nesting as per Excel)
     const budgetLines: BudgetLine[] = [
-        // Groups
-        { id: '1', code: '01', desc: 'CUSTOS DIRETOS', unit: '', qty: 1, unitPrice: 0, total: 12500000, type: 'mt', originSheet: 'Master', isGroup: true },
-        { id: '11', code: '01.01', desc: 'INFRAESTRUTURA', unit: '', qty: 1, unitPrice: 0, total: 4500000, type: 'mt', originSheet: 'Master', isGroup: true },
-        { id: '111', code: '01.01.01', desc: 'TERRAPLENAGEM', unit: 'VB', qty: 1, unitPrice: 1500000, total: 1500000, type: 'st', originSheet: 'Master', isGroup: false },
-        { id: '112', code: '01.01.02', desc: 'FUNDAÇÕES', unit: 'UN', qty: 100, unitPrice: 30000, total: 3000000, type: 'mt', originSheet: 'Master', isGroup: false },
+        { id: 'b01', code: '01', desc: 'CUSTOS DE CONSTRUÇÃO', unit: '', qty: 0, unitPrice: 0, total: 53670434.74, type: 'mt', originSheet: 'Master', isGroup: true },
 
-        { id: '12', code: '01.02', desc: 'ESTRUTURA', unit: '', qty: 1, unitPrice: 0, total: 8000000, type: 'mt', originSheet: 'Master', isGroup: true },
-        { id: '121', code: '01.02.01', desc: 'CONCRETO', unit: 'M3', qty: 5000, unitPrice: 1000, total: 5000000, type: 'mt', originSheet: 'Master', isGroup: false },
-        { id: '122', code: '01.02.02', desc: 'AÇO', unit: 'KG', qty: 300000, unitPrice: 10, total: 3000000, type: 'mt', originSheet: 'Master', isGroup: false },
+        { id: 'b01.01', code: '01.01', desc: 'FUNDAÇÃO', unit: '', qty: 0, unitPrice: 0, total: 2897999.08, type: 'mt', originSheet: 'Master', isGroup: true },
+        { id: 'b01.01.01', code: '01.01.01', desc: 'SERVIÇOS PRELIMINARES', unit: '', qty: 0, unitPrice: 0, total: 980221.99, type: 'mt', originSheet: 'Master', isGroup: true },
+        { id: 'b01.01.01.MT', code: '01.01.01.MT', desc: 'MATERIAL', unit: 'VB', qty: 1, unitPrice: 129463.08, total: 129463.08, type: 'mt', originSheet: 'Master', isGroup: false },
+        { id: 'b01.01.01.ST', code: '01.01.01.ST', desc: 'SERVIÇO DE TERCEIROS', unit: 'VB', qty: 1, unitPrice: 850758.91, total: 850758.91, type: 'st', originSheet: 'Master', isGroup: false },
 
-        { id: '2', code: '02', desc: 'CUSTOS INDIRETOS', unit: '', qty: 1, unitPrice: 0, total: 2500000, type: 'st', originSheet: 'Master', isGroup: true },
-        { id: '21', code: '02.01', desc: 'EQUIPE DE OBRA', unit: 'VB', qty: 1, unitPrice: 1500000, total: 1500000, type: 'st', originSheet: 'Master', isGroup: false },
+        { id: 'b01.01.02', code: '01.01.02', desc: 'ESTACAS / TRADO / TUBULÃO', unit: '', qty: 0, unitPrice: 0, total: 911671.62, type: 'mt', originSheet: 'Master', isGroup: true },
+        { id: 'b01.01.02.MT', code: '01.01.02.MT', desc: 'MATERIAL', unit: 'VB', qty: 1, unitPrice: 634806.62, total: 634806.62, type: 'mt', originSheet: 'Master', isGroup: false },
+        { id: 'b01.01.02.ST', code: '01.01.02.ST', desc: 'SERVIÇO DE TERCEIROS', unit: 'VB', qty: 1, unitPrice: 236491.00, total: 236491.00, type: 'st', originSheet: 'Master', isGroup: false },
+        { id: 'b01.01.02.EQ', code: '01.01.02.EQ', desc: 'EQUIPAMENTOS', unit: 'VB', qty: 1, unitPrice: 40374.00, total: 40374.00, type: 'mt', originSheet: 'Master', isGroup: false },
+
+        { id: 'b01.01.03', code: '01.01.03', desc: 'BLOCOS / CINTAMENTOS / LAJE', unit: 'VB', qty: 1, unitPrice: 1006105.47, total: 1006105.47, type: 'st', originSheet: 'Master', isGroup: false },
+
+        { id: 'b01.02', code: '01.02', desc: 'BLOCOS / TORRES', unit: '', qty: 0, unitPrice: 0, total: 32932089.30, type: 'mt', originSheet: 'Master', isGroup: true },
+        { id: 'b01.02.01', code: '01.02.01', desc: 'ALVENARIA', unit: '', qty: 0, unitPrice: 0, total: 5108282.34, type: 'mt', originSheet: 'Master', isGroup: true },
+        { id: 'b01.02.01.MT', code: '01.02.01.MT', desc: 'MATERIAL', unit: 'VB', qty: 1, unitPrice: 3708685.31, total: 3708685.31, type: 'mt', originSheet: 'Master', isGroup: false },
+        { id: 'b01.02.01.ST', code: '01.02.01.ST', desc: 'SERVIÇO DE TERCEIROS', unit: 'VB', qty: 1, unitPrice: 1399597.03, total: 1399597.03, type: 'st', originSheet: 'Master', isGroup: false },
+
+        { id: 'b01.02.02', code: '01.02.02', desc: 'ESTRUTURAS / ESCADAS', unit: 'VB', qty: 1, unitPrice: 3336280.87, total: 3336280.87, type: 'st', originSheet: 'Master', isGroup: false },
+
+        { id: 'b01.02.04', code: '01.02.04', desc: 'INSTALAÇÕES PREDIAIS - ÁGUA / ESGOTO / GÁS / ELÉTRICA / TEL', unit: 'VB', qty: 1, unitPrice: 4188256.74, total: 4188256.74, type: 'mt', originSheet: 'Master', isGroup: false },
+
+        { id: 'b01.02.05', code: '01.02.05', desc: 'OUTROS ITENS DE TORRES', unit: 'VB', qty: 1, unitPrice: 20299269.35, total: 20299269.35, type: 'mt', originSheet: 'Master', isGroup: false },
+
+        { id: 'b01.03', code: '01.03', desc: 'OUTROS CUSTOS DE CONSTRUÇÃO', unit: 'VB', qty: 1, unitPrice: 17840346.36, total: 17840346.36, type: 'mt', originSheet: 'Master', isGroup: false },
+
+        { id: 'b02', code: '02', desc: 'CUSTOS DE INFRA-ESTRUTURA', unit: 'VB', qty: 1, unitPrice: 3500000, total: 3500000, type: 'mt', originSheet: 'Master', isGroup: false },
     ];
 
-    // Budget Tree Structure for Financial View
-    const budgetTree: BudgetNode[] = [
-        {
-            id: '1', code: '01', description: 'CUSTOS DIRETOS', level: 1, type: 'GROUP', totalValue: 0, budgetInitial: 12500000, budgetCurrent: 12500000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
-                {
-                    id: '11', code: '01.01', description: 'INFRAESTRUTURA', level: 2, type: 'GROUP', totalValue: 0, budgetInitial: 4500000, budgetCurrent: 4500000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
-                        { id: '111', code: '01.01.01', description: 'TERRAPLENAGEM', level: 3, type: 'ITEM', itemType: 'ST', totalValue: 1500000, budgetInitial: 1500000, budgetCurrent: 1500000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
-                        { id: '112', code: '01.01.02', description: 'FUNDAÇÕES', level: 3, type: 'ITEM', itemType: 'MT', totalValue: 3000000, budgetInitial: 3000000, budgetCurrent: 3000000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] }
-                    ]
-                },
-                {
-                    id: '12', code: '01.02', description: 'ESTRUTURA', level: 2, type: 'GROUP', totalValue: 0, budgetInitial: 8000000, budgetCurrent: 8000000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
-                        { id: '121', code: '01.02.01', description: 'CONCRETO', level: 3, type: 'ITEM', itemType: 'MT', totalValue: 5000000, budgetInitial: 5000000, budgetCurrent: 5000000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
-                        { id: '122', code: '01.02.02', description: 'AÇO', level: 3, type: 'ITEM', itemType: 'MT', totalValue: 3000000, budgetInitial: 3000000, budgetCurrent: 3000000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] }
-                    ]
-                }
-            ]
-        },
-        {
-            id: '2', code: '02', description: 'CUSTOS INDIRETOS', level: 1, type: 'GROUP', totalValue: 0, budgetInitial: 2500000, budgetCurrent: 2500000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
-                { id: '21', code: '02.01', description: 'EQUIPE DE OBRA', level: 2, type: 'ITEM', itemType: 'ST', totalValue: 1500000, budgetInitial: 1500000, budgetCurrent: 1500000, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] }
-            ]
-        }
-    ];
+    // Budget Tree - simplified but mirroring budgetLines for views that use tree
+    const budgetTree: BudgetNode[] = []; // We can build this if needed, but the view now builds it dynamically from budgetLines
 
     // 3. Financial Entries (NFs)
-    const financialEntries: FinancialEntry[] = Array.from({ length: 45 }).map(() => {
+    const financialEntries: FinancialEntry[] = Array.from({ length: 80 }).map(() => {
         const supplier = suppliers[Math.floor(Math.random() * suppliers.length)];
-        const totalValue = parseFloat(faker.finance.amount({ min: 5000, max: 150000, dec: 2 }));
-        const issueDate = faker.date.recent({ days: 90 }).toISOString().split('T')[0];
 
-        // Pick an item to allocate to
-        const possibleItems = ['01.01.01', '01.01.02', '01.02.01', '01.02.02', '02.01'];
-        const wbs = faker.helpers.arrayElement(possibleItems);
-        const wbsDesc = budgetLines.find(b => b.code === wbs)?.desc || 'Item';
+        // Pick an item to allocate to (only leaf items)
+        const leafItems = budgetLines.filter(b => !b.isGroup);
+        const selectedBudget = faker.helpers.arrayElement(leafItems);
+
+        // Random amount relative to the budget item
+        const maxAmount = selectedBudget.total * 0.15;
+        const totalValue = parseFloat(faker.finance.amount({ min: 1000, max: maxAmount, dec: 2 }));
+
+        // Random date range from 6 months ago to 6 months in the future
+        const date = faker.date.between({
+            from: new Date(2025, 0, 1),
+            to: new Date(2025, 11, 31)
+        });
+        const issueDate = date.toISOString().split('T')[0];
+
+        // Create 1-3 installments
+        const instCount = faker.number.int({ min: 1, max: 3 });
+        const installments = Array.from({ length: instCount }).map((_, i) => {
+            const dueDate = new Date(date);
+            dueDate.setMonth(dueDate.getMonth() + i);
+            return {
+                id: faker.string.uuid(),
+                number: i + 1,
+                dueDate: dueDate.toISOString().split('T')[0],
+                value: totalValue / instCount,
+                status: (dueDate < new Date() ? 'PAID' : 'PENDING') as 'PAID' | 'PENDING'
+            };
+        });
 
         return {
             id: faker.string.uuid(),
             documentNumber: faker.string.numeric(6),
             supplier: supplier.razaoSocial,
-            description: `NF MATERIAL - ${faker.commerce.productMaterial()}`,
+            description: `${selectedBudget.type === 'mt' ? 'NF MATERIAL' : 'NF SERVIÇO'} - ${faker.commerce.productName()}`,
             issueDate: issueDate,
             totalValue: totalValue,
             status: faker.helpers.arrayElement(['APPROVED', 'PAID', 'DRAFT']),
             allocations: [{
                 id: faker.string.uuid(),
-                budgetGroupCode: wbs,
-                costType: 'MT',
+                budgetGroupCode: selectedBudget.code,
+                costType: (selectedBudget.type?.toUpperCase() as any) || 'MT',
                 value: totalValue,
-                description: wbsDesc
+                description: selectedBudget.desc
             }],
-            installments: [
-                {
-                    id: faker.string.uuid(),
-                    number: 1,
-                    dueDate: faker.date.future({ years: 0.1, refDate: issueDate }).toISOString().split('T')[0],
-                    value: totalValue,
-                    status: 'PENDING'
-                }
-            ]
+            installments: installments
         };
     });
 

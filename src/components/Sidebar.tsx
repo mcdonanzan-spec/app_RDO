@@ -4,7 +4,8 @@ import {
     CircleDollarSign,
     Building2,
     Settings,
-    BrainCircuit
+    BrainCircuit,
+    Table as TableIcon
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -18,6 +19,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isM
     const menuItems = [
         { id: 'purchase_flow', label: 'Fluxo de Compras', icon: <ShoppingCart size={20} />, section: 'SUPPLY CHAIN' },
         { id: 'budget_control', label: 'Controle Orçamentário', icon: <CircleDollarSign size={20} />, section: 'FINANCEIRO' },
+        { id: 'analytical_cash_flow', label: 'Fluxo de Caixa Analítico', icon: <TableIcon size={20} />, section: 'FINANCEIRO' },
         { id: 'visual_management', label: 'Gestão à Vista', icon: <Building2 size={20} />, section: 'PRODUÇÃO' },
         { id: 'intelligence', label: 'IA Estratégica', icon: <BrainCircuit size={20} />, section: 'ANÁLISE' },
     ];
