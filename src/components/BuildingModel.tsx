@@ -26,39 +26,53 @@ export const BuildingModel: React.FC<BuildingModelProps> = ({
     };
 
     return (
-        <div className="flex flex-wrap gap-8 justify-center p-4 bg-slate-100 rounded-xl overflow-x-auto">
-            {Array.from({ length: numTowers }).map((_, tIdx) => (
-                <div key={tIdx} className="flex flex-col items-center">
-                    <h4 className="font-bold text-slate-700 mb-2">Torre {tIdx + 1}</h4>
-                    <div className="flex flex-col-reverse gap-1 bg-white p-2 rounded shadow-sm border border-slate-200">
-                        {Array.from({ length: numFloors }).map((_, fIdx) => (
-                            <div key={fIdx} className="flex gap-1">
-                                <div className="w-6 text-[10px] text-slate-400 flex items-center justify-end pr-1">
-                                    {fIdx + 1}º
+        <div className="flex flex-col w-full">
+            {/* Containers das Torres */}
+            <div className="flex flex-nowrap gap-12 overflow-x-auto custom-scrollbar p-10 bg-slate-100 rounded-xl min-h-[420px] items-start justify-start">
+                {Array.from({ length: numTowers }).map((_, tIdx) => (
+                    <div key={tIdx} className="flex flex-col items-center flex-shrink-0">
+                        <h4 className="font-bold text-slate-700 mb-3 bg-white px-4 py-1 rounded-full shadow-sm border border-slate-200 text-sm">
+                            Torre {tIdx + 1}
+                        </h4>
+                        <div className="flex flex-col-reverse gap-1 bg-white p-3 rounded-lg shadow-md border border-slate-200">
+                            {Array.from({ length: numFloors }).map((_, fIdx) => (
+                                <div key={fIdx} className="flex gap-1.5">
+                                    <div className="w-7 text-[10px] font-bold text-slate-400 flex items-center justify-end pr-1.5">
+                                        {fIdx + 1}º
+                                    </div>
+                                    {Array.from({ length: aptsPerFloor }).map((_, aIdx) => {
+                                        const key = `T${tIdx + 1}-F${fIdx + 1}-A${aIdx + 1}`;
+                                        const status = statusMap[key] || 'nao_iniciado';
+                                        return (
+                                            <div
+                                                key={aIdx}
+                                                title={`Apto ${aIdx + 1} - ${status}`}
+                                                className={`w-7 h-5 rounded-sm border ${getStatusColor(status)} transition-all hover:scale-110 hover:shadow-md cursor-help`}
+                                            ></div>
+                                        );
+                                    })}
                                 </div>
-                                {Array.from({ length: aptsPerFloor }).map((_, aIdx) => {
-                                    const key = `T${tIdx + 1}-F${fIdx + 1}-A${aIdx + 1}`;
-                                    const status = statusMap[key] || 'nao_iniciado';
-                                    return (
-                                        <div
-                                            key={aIdx}
-                                            title={`Apto ${aIdx + 1} - ${status}`}
-                                            className={`w-6 h-4 rounded-sm border ${getStatusColor(status)} transition-colors hover:opacity-80 cursor-pointer`}
-                                        ></div>
-                                    );
-                                })}
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+                        <div className="w-full h-2.5 bg-slate-300 mt-2 rounded-full shadow-inner"></div>
                     </div>
-                    <div className="w-full h-2 bg-slate-300 mt-1 rounded-full"></div>
-                </div>
-            ))}
+                ))}
+            </div>
 
-            <div className="w-full flex justify-center gap-4 mt-4 text-xs text-slate-600">
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-green-500 rounded-sm"></div> Concluído</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-yellow-400 rounded-sm"></div> Em Andamento</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-red-500 rounded-sm"></div> Atrasado</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 bg-slate-200 rounded-sm"></div> A Executar</div>
+            {/* Legenda na parte inferior */}
+            <div className="flex flex-wrap justify-center gap-6 mt-6 px-4 py-3 bg-white border border-slate-100 rounded-lg shadow-sm w-fit mx-auto">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="w-4 h-4 bg-green-500 rounded shadow-sm"></div> Concluído
+                </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="w-4 h-4 bg-yellow-400 rounded shadow-sm"></div> Em Andamento
+                </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="w-4 h-4 bg-red-500 rounded shadow-sm"></div> Atrasado
+                </div>
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="w-4 h-4 bg-slate-200 rounded shadow-sm"></div> A Executar (Orçado)
+                </div>
             </div>
         </div>
     );

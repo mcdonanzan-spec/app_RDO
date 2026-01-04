@@ -96,6 +96,7 @@ export interface RDOItem {
     status?: 'concluido' | 'em_andamento' | 'nao_iniciado';
     isConstructionCost?: boolean;
     sigla?: string;
+    code?: string;
     // New linking fields
     originalBudgetId?: string; // Link to BudgetLine.code or BudgetLine.id
     documentNumber?: string;
@@ -157,6 +158,7 @@ export interface ServiceDefinition {
     color: string; // Hex code
     order: number;
     group?: string;
+    budgetCode?: string;
 }
 
 export interface ProductionConfig {
@@ -350,4 +352,19 @@ export interface BudgetSnapshot {
     description: string;
     tree: BudgetNode[];
     totalValue: number;
+}
+
+export interface StrategySnapshot {
+    id?: number;
+    date: string;
+    description: string;
+    data: {
+        months: string[];
+        standardCurve: number[];
+        realizedCurve: (number | null)[];
+        projectedCurve: (number | null)[];
+        totalBudget: number;
+        totalRealized: number;
+        poc: number;
+    };
 }

@@ -12,6 +12,7 @@ import { BudgetControlView } from './src/views/BudgetControlView';
 import { IntelligenceView } from './src/views/IntelligenceView';
 import { AnalyticalCashFlowView } from './src/views/AnalyticalCashFlowView';
 import { DisbursementForecastView } from './src/views/DisbursementForecastView';
+import { AIStrategyView } from './src/views/AIStrategyView';
 import { SystemBlueprintView } from './src/views/SystemBlueprintView';
 
 import { ApiService } from './src/services/api';
@@ -65,6 +66,7 @@ const App = () => {
       case 'budget_control': return <BudgetControlView appData={appData} onUpdate={handleDataLoaded} />;
       case 'visual_management': return <VisualManagementView appData={appData} />;
       case 'intelligence': return <IntelligenceView appData={appData} />;
+      case 'strategy_bi': return <AIStrategyView appData={appData} />;
       case 'analytical_cash_flow': return <AnalyticalCashFlowView appData={appData} />;
       case 'disbursement_forecast': return <DisbursementForecastView appData={appData} onUpdate={handleDataLoaded} />;
       case 'system_summary': return <SystemBlueprintView />;

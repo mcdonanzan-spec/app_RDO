@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot } from 'lucide-react';
+import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2 } from 'lucide-react';
 import { AppData, AIResponse, SavedAnalysis } from '../../types';
 import { ApiService } from '../services/api';
-import { Save, History, Clock, Trash2 } from 'lucide-react';
 
 interface IntelligenceViewProps {
     appData: AppData;
@@ -52,7 +51,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         alert("Análise salva com sucesso!");
     };
 
-    // Tenta pegar do env, mas permite override manual
     const apiKey = manualApiKey || import.meta.env.VITE_API_KEY || "";
 
     const getContextData = () => {
@@ -61,7 +59,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         // RDO Data
         if (appData.rdoData && appData.rdoData.length > 0) {
             contextText += "=== DADOS RDO (REALIZADO) ===\n";
-            // Group by 'group' (Column I)
             const groupedRDO: Record<string, number> = {};
             appData.rdoData.forEach(item => {
                 const group = item.group || "Outros";
@@ -73,7 +70,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                 contextText += `- ${group}: R$${val.toFixed(2)}\n`;
             });
 
-            // Top items
             const topItems = [...appData.rdoData].sort((a, b) => (b.accumulatedValue || 0) - (a.accumulatedValue || 0)).slice(0, 20);
             contextText += "\nTOP 20 ITENS MAIS CAROS (RDO):\n";
             topItems.forEach(item => {
@@ -84,11 +80,9 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         // Budget Data
         if (appData.budget && appData.budget.length > 0) {
             contextText += "\n=== DADOS ORÇAMENTO (META) ===\n";
-            // Group by 'desc' (Column D)
             const groupedBudget: Record<string, number> = {};
             appData.budget.forEach(item => {
-                if (item.isGroup) return; // Skip groups
-
+                if (item.isGroup) return;
                 const group = item.desc || "Outros";
                 groupedBudget[group] = (groupedBudget[group] || 0) + (item.total || 0);
             });
@@ -103,7 +97,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         if (appData.rdoData && appData.budget) {
             const rdoItems = appData.rdoData;
             const budgetItems = appData.budget.filter(i => !i.isGroup);
-
             const totalRDO = rdoItems.reduce((acc, i) => acc + (i.accumulatedValue || 0), 0);
             const totalBudget = budgetItems.reduce((acc, i) => acc + (i.total || 0), 0);
             const poc = totalBudget > 0 ? (totalRDO / totalBudget) * 100 : 0;
@@ -112,15 +105,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += `Total Realizado (RDO): R$${totalRDO.toFixed(2)}\n`;
             contextText += `Total Orçado (Meta): R$${totalBudget.toFixed(2)}\n`;
             contextText += `POC Financeiro: ${poc.toFixed(2)}%\n`;
-        }
-
-        // Cost Summary (Timeline)
-        if (appData.costSummary && appData.costSummary.length > 0) {
-            contextText += "\n=== RESUMO DE CUSTO (TIMELINE) ===\n";
-            contextText += "Period | Material | Service | Equipment | Indirect | Total\n";
-            appData.costSummary.forEach(item => {
-                contextText += `${item.period} | R$${item.materials.toFixed(2)} | R$${item.services.toFixed(2)} | R$${item.equipment.toFixed(2)} | R$${item.indirect.toFixed(2)} | R$${item.total.toFixed(2)}\n`;
-            });
         }
 
         // Master Plan
@@ -133,46 +117,46 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += meaningfulData;
         }
 
-        // Financial Entries (Desembolso / NFs)
+        // Production / Visual Management (Physical Status)
+        if (appData.visualManagement) {
+            contextText += `\n\n=== STATUS DE PRODUÇÃO FÍSICA (GESTÃO À VISTA) ===\n`;
+            const { services, status, config } = appData.visualManagement;
+            const totalUnits = config.towers * config.floors * config.aptsPerFloor;
+            services.forEach(svc => {
+                let completed = 0;
+                Object.values(status).forEach(unitServices => {
+                    if (unitServices[svc.id] === 'completed') completed++;
+                });
+                const percent = totalUnits > 0 ? (completed / totalUnits) * 100 : 0;
+                contextText += `- Serviço: ${svc.name} [Vínculo G.O: ${svc.budgetCode || 'N/A'}] | Progresso: ${percent.toFixed(1)}% (${completed}/${totalUnits} unidades)\n`;
+            });
+        }
+
+        // Financial Entries
         if (appData.financialEntries && appData.financialEntries.length > 0) {
             contextText += `\n\n=== LANÇAMENTOS FINANCEIROS (DESEMBOLSO) ===\n`;
-
             const entries = appData.financialEntries;
-            const totalEntries = entries.reduce((acc, e) => acc + e.totalValue, 0);
-            const paidEntries = entries.filter(e => e.status === 'PAID').reduce((acc, e) => acc + e.totalValue, 0);
-            const approvedEntries = entries.filter(e => e.status === 'APPROVED').reduce((acc, e) => acc + e.totalValue, 0);
-
-            contextText += `Total Lançado: R$${totalEntries.toFixed(2)}\n`;
-            contextText += `Total Aprovado: R$${approvedEntries.toFixed(2)}\n`;
-            contextText += `Total Pago: R$${paidEntries.toFixed(2)}\n\n`;
-
-
             const totalNFs = entries.reduce((acc, e) => acc + e.totalValue, 0);
-            const approvedPending = entries.filter(e => e.status === 'APPROVED').reduce((acc, e) => acc + e.totalValue, 0);
             const paid = entries.filter(e => e.status === 'PAID').reduce((acc, e) => acc + e.totalValue, 0);
+            const approvedPending = entries.filter(e => e.status === 'APPROVED').reduce((acc, e) => acc + e.totalValue, 0);
 
-            contextText += `RESUMO GERAL NFs:\n`;
             contextText += `Total Lançado: R$${totalNFs.toFixed(2)}\n`;
             contextText += `Total Aprovado Pendente: R$${approvedPending.toFixed(2)}\n`;
             contextText += `Total Pago: R$${paid.toFixed(2)}\n`;
             contextText += `Qtd NFs: ${entries.length}\n`;
 
-            // Verificação de divergência RDO vs NF
             const rdoTotalVal = appData.rdoData.reduce((acc, r) => acc + (r.accumulatedValue || 0), 0);
             contextText += `CONCILIAÇÃO FÍSICO x FINANCEIRO:\n`;
             contextText += `Realizado Físico (RDO): R$${rdoTotalVal.toFixed(2)}\n`;
             contextText += `Realizado Financeiro (NF): R$${totalNFs.toFixed(2)}\n`;
-            contextText += `Diferença: R$${(rdoTotalVal - totalNFs).toFixed(2)}\n`;
-            contextText += `(Instrução: Se a diferença for grande, deixe claro que o RDO é avanço físico medido e a NF é o lançamento de documento fiscal).\n\n`;
+            contextText += `Diferença: R$${(rdoTotalVal - totalNFs).toFixed(2)}\n\n`;
 
-            // Payment Forecast (Next Month)
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-            const endNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0);
-
             let forecastNextMonth = 0;
             let forecastNext3Months = 0;
+            const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const nextMonthEnd = new Date(today.getFullYear(), today.getMonth() + 2, 0);
             const threeMonthsOut = new Date(today);
             threeMonthsOut.setMonth(threeMonthsOut.getMonth() + 3);
 
@@ -180,12 +164,8 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                 entry.installments?.forEach(inst => {
                     const dueDate = new Date(inst.dueDate + 'T12:00:00');
                     if (inst.status === 'PENDING') {
-                        if (dueDate >= nextMonth && dueDate <= endNextMonth) {
-                            forecastNextMonth += inst.value;
-                        }
-                        if (dueDate >= today && dueDate <= threeMonthsOut) {
-                            forecastNext3Months += inst.value;
-                        }
+                        if (dueDate >= nextMonthStart && dueDate <= nextMonthEnd) forecastNextMonth += inst.value;
+                        if (dueDate >= today && dueDate <= threeMonthsOut) forecastNext3Months += inst.value;
                     }
                 });
             });
@@ -195,28 +175,18 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += `Próximos 3 Meses: R$${forecastNext3Months.toFixed(2)}\n`;
         }
 
-        // Forecast Scenarios (Manual Data)
+        // Forecast Scenarios
         if (forecastData) {
             contextText += `\n=== CENÁRIOS DE PROJEÇÃO (MANUAL/FORECAST VIEW) ===\n`;
-            contextText += `Estes dados foram editados manualmente pelo usuário para simular cenários futuros:\n`;
-
             Object.entries(forecastData).forEach(([code, months]: [string, any]) => {
                 const desc = descriptionOverrides?.[code] || code;
                 const budgetActual = budgetOverrides?.[code] || 0;
                 const totalProj = Object.values(months).reduce((a: any, b: any) => a + b, 0) as number;
-
                 if (totalProj > 0 || budgetActual > 0) {
                     contextText += `- G.O ${code} (${desc}): Budget Simulado: R$${budgetActual.toFixed(2)} | Total Projetado: R$${totalProj.toFixed(2)}\n`;
-                    // Brief monthly breakdown
-                    const sortedMonths = Object.keys(months).sort();
-                    if (sortedMonths.length > 0) {
-                        contextText += `  Detail: ${sortedMonths.map(m => `${m}: R$${months[m].toFixed(0)}`).join(', ')}\n`;
-                    }
                 }
             });
         }
-
-
 
         return contextText;
     };
@@ -224,138 +194,39 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const handleAskAI = async () => {
         if (!query) return;
         setLoading(true);
-
         try {
-            if (!apiKey) {
-                throw new Error("Chave API não configurada. Por favor, insira a chave API nas configurações ou no código.");
-            }
-
-            const ai = new GoogleGenAI({ apiKey: apiKey });
+            if (!apiKey) throw new Error("Chave API não configurada.");
+            const ai = new GoogleGenAI({ apiKey });
             const context = getContextData();
             const prompt = `
-        Atue como um Diretor de Engenharia e Analista de BI da BRZ Empreendimentos.
-        Analise os dados financeiros da obra abaixo e responda à pergunta do usuário.
-        
-        Você possui duas vertentes de análise agora:
-        1. OFICIAL/SISTEMA: Baseado em NFs, RDO físico e orçamento estático do Excel.
-        2. CENÁRIOS/PROJEÇÃO: Baseado em campos editáveis manualmente pelo usuário na tela de Previsão.
-        
-        Sempre cruze essas informações. Se o usuário editou um orçamento na projeção, ele está criando um CENÁRIO.
-        Identifique se a pergunta refere-se ao estado ATUAL (Oficial) ou ao CENÁRIO FUTURO (Projeção).
+            Atue como um Diretor de Engenharia e Analista de BI da BRZ Empreendimentos.
+            Analise os dados financeiros da obra e responda à pergunta do usuário.
+            VERTENTES:
+            1. OFICIAL: NFs, RDO físico, Orçamento.
+            2. CENÁRIOS: Projeções mensais manuais.
+            3. FÍSICO: Progresso real de torres (Gestão à Vista) e vínculo com Orçamento.
+            CROSS-CHECK: Se um serviço físico está atrasado, alerte sobre o impacto no desembolso futuro (G.O vinculado).
+            CONTEXTO:\n${context}\nPERGUNTA: "${query}"
+            SAÍDA JSON: { "analysis": "texto", "kpis": [{ "label": "...", "value": "..." }], "chart": { ... } }`;
 
-        CONTEXTO DOS DADOS:
-        ${context}
+            const result = await ai.models.generateContent({
+                model: "gemini-2.0-flash", // Using a stable version
+                contents: prompt
+            });
 
-        PERGUNTA DO USUÁRIO: "${query}"
-
-        INSTRUÇÃO DE SAÍDA:
-        Retorne APENAS um JSON válido (sem markdown \`\`\`json) com a seguinte estrutura:
-        {
-          "analysis": "Texto explicativo direto, estilo executivo. Compare o Oficial com a Projeção se houver divergência relevante. EXPLIQUE claramente a diferença entre o Realizado Físico (RDO) e o Realizado Financeiro (NFs).",
-          "kpis": [
-            { "label": "Custo Realizado (RDO)", "value": "R$ ...", "trend": "neutral", "color": "text-slate-800" },
-            { "label": "Total NFs Lançadas", "value": "R$ ...", "trend": "neutral", "color": "text-blue-600" },
-            { "label": "Desembolso Pago", "value": "R$ ...", "trend": "neutral", "color": "text-green-600" }
-          ],
-          "chart": {
-            "title": "Título do Gráfico",
-            "type": "bar",
-            "unit": "percent ou currency",
-            "labels": ["Label1", "Label2"],
-            "values": [10, 20]
-          }
-        }
-        Se a pergunta não puder ser respondida com os dados, diga isso na analysis.
-      `;
-
-            // Retry logic for 503 errors
-            let attempts = 0;
-            const maxAttempts = 3;
-            let result: any = null;
-            let lastError: any = null;
-
-            while (attempts < maxAttempts) {
-                try {
-                    result = await ai.models.generateContent({
-                        model: "gemini-2.5-flash",
-                        contents: prompt
-                    });
-                    break; // Success
-                } catch (e: any) {
-                    lastError = e;
-                    if (e.message?.includes('503') || e.message?.includes('overloaded')) {
-                        attempts++;
-                        if (attempts < maxAttempts) {
-                            // Wait 2 seconds before retrying
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                            continue;
-                        }
-                    }
-                    throw e; // Throw other errors or if max attempts reached
-                }
-            }
-
-            const text = result?.text || "";
+            const text = result?.text || "{}";
             const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            let parsed;
-            try {
-                parsed = JSON.parse(jsonString);
-            } catch (e) {
-                console.error("JSON Parse Error:", e);
-                // Fallback if AI returns plain text instead of JSON
-                parsed = {
-                    analysis: text,
-                    kpis: []
-                };
-            }
-
-            // Validação de Tipos para evitar Crash na Renderização
-            if (!parsed || typeof parsed !== 'object') {
-                throw new Error("Resposta da IA inválida (não é um objeto JSON).");
-            }
-
-            // Garantir que arrays sejam arrays
-            if (parsed.kpis && !Array.isArray(parsed.kpis)) {
-                parsed.kpis = [];
-            }
-
-            if (parsed.chart) {
-                if (!parsed.chart.values || !Array.isArray(parsed.chart.values)) {
-                    parsed.chart = null; // Descarta gráfico inválido
-                } else if (!parsed.chart.labels || !Array.isArray(parsed.chart.labels)) {
-                    parsed.chart = null;
-                }
-            }
-
+            let parsed = JSON.parse(jsonString);
             setResponse(parsed);
         } catch (error: any) {
-            console.error("AI Error:", error);
-            let errorMessage = `Erro ao consultar a IA: ${error.message || error}.`;
-
-            // Tratamento de Erros Específicos
-            const errStr = String(error.message || error);
-
-            if (errStr.includes('503') || errStr.includes('overloaded')) {
-                errorMessage = "O modelo de IA está sobrecarregado no momento. Por favor, aguarde alguns instantes e tente novamente.";
-            } else if (errStr.includes('API key')) {
-                errorMessage = "Chave API inválida ou não configurada. Verifique suas configurações.";
-            } else if (errStr.includes('429') || errStr.includes('Quota') || errStr.includes('RESOURCE_EXHAUSTED')) {
-                errorMessage = "⚠️ Limite de requisições da versão gratuita atingido. O sistema de IA precisa de uma pausa de ~30 segundos. Por favor, tente novamente em breve.";
-            }
-
-            setResponse({
-                analysis: errorMessage,
-                kpis: [],
-            });
+            console.error(error);
+            setResponse({ analysis: "Erro ao processar consulta IA.", kpis: [] });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleQuickPrompt = (q: string) => {
-        setQuery(q);
-    };
+    const handleQuickPrompt = (q: string) => setQuery(q);
 
     return (
         <div className="h-full flex flex-col bg-slate-50">
@@ -367,28 +238,11 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     <p className="text-sm text-slate-500">Inteligência Artificial Generativa aplicada ao Controle de Obras</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => setShowHistory(!showHistory)}
-                        className={`p-2 rounded-lg border transition-all flex items-center gap-2 ${showHistory ? 'bg-slate-200 border-slate-300 text-slate-800' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-700'}`}
-                        title="Ver Histórico de Análises"
-                    >
-                        <History size={20} />
-                        <span className="text-sm font-medium">Histórico</span>
+                    <button onClick={() => setShowHistory(!showHistory)} className={`p-2 rounded-lg border flex items-center gap-2 ${showHistory ? 'bg-slate-200 text-slate-800' : 'bg-white text-slate-500'}`}>
+                        <History size={20} /> Histórico
                     </button>
-
                     {!apiKey && (
-                        <div className="flex items-center gap-2">
-                            <div className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded border border-red-200">
-                                ⚠️ API_KEY ausente
-                            </div>
-                            <input
-                                type="password"
-                                placeholder="Cole sua API Key aqui..."
-                                className="text-xs border border-slate-300 rounded px-2 py-1 w-48"
-                                value={manualApiKey}
-                                onChange={(e) => setManualApiKey(e.target.value)}
-                            />
-                        </div>
+                        <input type="password" placeholder="API Key..." className="text-xs border rounded px-2 py-1 w-48" value={manualApiKey} onChange={(e) => setManualApiKey(e.target.value)} />
                     )}
                 </div>
             </div>
@@ -397,166 +251,63 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                 <div className="max-w-5xl mx-auto space-y-6">
                     {!response && !loading && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                            {[
-                                "Qual o resumo financeiro atual da obra?",
-                                "Existem riscos de estouro orçamentário?",
-                                "Qual a previsão de desembolso para o próximo mês?"
-                            ].map((q, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => handleQuickPrompt(q)}
-                                    className="p-4 bg-white rounded-xl border border-slate-200 hover:border-yellow-400 hover:shadow-md transition-all text-left text-sm text-slate-700 flex items-center justify-between group"
-                                >
-                                    <span>{q}</span>
-                                    <Send size={16} className="text-slate-300 group-hover:text-yellow-500" />
+                            {["Qual o resumo financeiro?", "Riscos de estouro?", "Previsão para o próximo mês?"].map((q, i) => (
+                                <button key={i} onClick={() => handleQuickPrompt(q)} className="p-4 bg-white rounded-xl border hover:border-yellow-400 text-left text-sm flex items-center justify-between group">
+                                    <span>{q}</span><Send size={16} className="text-slate-300 group-hover:text-yellow-500" />
                                 </button>
                             ))}
                         </div>
                     )}
 
                     {showHistory ? (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <History size={20} /> Histórico de Análises Salvas
-                            </h3>
-                            {savedAnalyses.length === 0 ? (
-                                <p className="text-slate-400 italic">Nenhuma análise salva ainda.</p>
-                            ) : (
-                                <div className="grid gap-4">
-                                    {savedAnalyses.map((item) => (
-                                        <div key={item.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => {
-                                            setQuery(item.query);
-                                            setResponse(item.response);
-                                            setShowHistory(false);
-                                        }}>
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-slate-800 line-clamp-1">"{item.query}"</h4>
-                                                <span className="text-xs text-slate-400 flex items-center gap-1">
-                                                    <Clock size={12} /> {new Date(item.date).toLocaleString()}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs text-slate-500 line-clamp-2">{item.response.analysis}</p>
-                                        </div>
-                                    ))}
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold flex items-center gap-2"><History size={20} /> Histórico</h3>
+                            {savedAnalyses.map((item) => (
+                                <div key={item.id} className="bg-white p-4 rounded-xl border cursor-pointer" onClick={() => { setQuery(item.query); setResponse(item.response); setShowHistory(false); }}>
+                                    <h4 className="font-bold">"{item.query}"</h4>
+                                    <p className="text-xs text-slate-500">{new Date(item.date).toLocaleString()}</p>
                                 </div>
-                            )}
+                            ))}
                         </div>
                     ) : (
                         loading ? (
-                            <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-100 text-center animate-pulse">
-                                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <BrainCircuit className="text-yellow-600 animate-spin-slow" size={32} />
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-800">Analisando Dados Complexos...</h3>
-                                <p className="text-slate-500 mt-2">A IA está cruzando o Cronograma Mestre com o Orçamento Detalhado.</p>
+                            <div className="text-center p-8 animate-pulse">
+                                <BrainCircuit className="text-yellow-600 animate-spin-slow mx-auto mb-4" size={48} />
+                                <h3>Analisando Dados Complexos...</h3>
                             </div>
                         ) : response ? (
-                            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {response.kpis && response.kpis.length > 0 && (
+                            <div className="space-y-6">
+                                {response.kpis && (
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                         {response.kpis.map((kpi, idx) => (
-                                            <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                                <p className="text-xs text-slate-500 font-bold uppercase">{kpi.label}</p>
-                                                <p className={`text-2xl font-bold mt-1 ${kpi.color || 'text-slate-800'}`}>{kpi.value}</p>
+                                            <div key={idx} className="bg-white p-4 rounded-xl border">
+                                                <p className="text-xs text-slate-500 uppercase">{kpi.label}</p>
+                                                <p className="text-2xl font-bold">{kpi.value}</p>
                                             </div>
                                         ))}
                                     </div>
                                 )}
-
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                        <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                            <FileText size={18} className="text-blue-500" /> Relatório Executivo
-                                        </h3>
-                                        <div className="prose prose-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                            {response.analysis}
-                                        </div>
-                                    </div>
-
-                                    {response.chart && (
-                                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
-                                            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                                                {response.chart.type === 'pie' ? <PieChart size={18} className="text-purple-500" /> : <BarChart3 size={18} className="text-purple-500" />}
-                                                {response.chart.title}
-                                            </h3>
-                                            <div className="flex flex-col gap-4">
-                                                {response.chart.values.map((val, idx) => {
-                                                    // Type guard for simple number array
-                                                    if (typeof val !== 'number') return null;
-
-                                                    // Safe cast since we checked type
-                                                    const numericValues = response.chart!.values.filter((v): v is number => typeof v === 'number');
-                                                    const max = Math.max(...numericValues);
-
-                                                    // Evita divisão por zero e garante largura mínima visível
-                                                    const widthPct = max > 0 ? (val / max) * 100 : 0;
-                                                    const label = response.chart!.labels[idx];
-
-                                                    return (
-                                                        <div key={idx} className="w-full">
-                                                            <div className="flex justify-between text-xs mb-1">
-                                                                <span className="font-bold text-slate-700 truncate max-w-[70%]" title={label}>
-                                                                    {label}
-                                                                </span>
-                                                                <span className="font-mono text-slate-500">
-                                                                    {response.chart?.unit === 'percent' || response.chart?.title.includes('%')
-                                                                        ? `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
-                                                                        : val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                                                                    }
-                                                                </span>
-                                                            </div>
-                                                            <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                                                                <div
-                                                                    className="bg-blue-500 h-2.5 rounded-full transition-all duration-1000 ease-out"
-                                                                    style={{ width: `${Math.max(widthPct, 1)}%` }}
-                                                                ></div>
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        </div>
-                                    )}
+                                <div className="bg-white p-6 rounded-xl border">
+                                    <h3 className="font-bold mb-4 flex items-center gap-2"><FileText size={18} /> Relatório</h3>
+                                    <div className="prose prose-sm whitespace-pre-wrap">{response.analysis}</div>
                                 </div>
-
-                                <div className="flex justify-end pt-4 bg-slate-50 p-4 rounded-b-xl border-t border-slate-100">
-                                    <button
-                                        onClick={handleSaveAnalysis}
-                                        className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
-                                    >
-                                        <Save size={18} /> Salvar esta análise
-                                    </button>
-                                </div>
+                                <button onClick={handleSaveAnalysis} className="flex items-center gap-2 bg-white border p-2 rounded-lg text-sm font-medium">
+                                    <Save size={18} /> Salvar análise
+                                </button>
                             </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-                                <BrainCircuit size={48} className="mb-4 opacity-20" />
-                                <p>Faça uma pergunta para iniciar a análise estratégica.</p>
-                            </div>
-                        )
+                        ) : null
                     )}
                 </div>
             </div>
 
-            <div className="p-4 bg-white border-t border-slate-200">
+            <div className="p-4 bg-white border-t">
                 <div className="max-w-5xl mx-auto flex gap-2">
-                    <input
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAskAI()}
-                        placeholder="Pergunte sobre custos, prazos ou riscos..."
-                        className="flex-1 px-4 py-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 outline-none transition-all"
-                    />
-                    <button
-                        onClick={handleAskAI}
-                        disabled={loading || !query}
-                        className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center gap-2"
-                    >
-                        {loading ? <span>Processando...</span> : <><Send size={18} /> <span>Analisar</span></>}
+                    <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAskAI()} placeholder="Pergunte algo..." className="flex-1 px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-yellow-400" />
+                    <button onClick={handleAskAI} disabled={loading || !query} className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50">
+                        {loading ? "Processando..." : "Analisar"}
                     </button>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };

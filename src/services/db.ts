@@ -15,6 +15,7 @@ export class ConstructionDB extends Dexie {
     financialDocuments!: Table<any, string>;
     financialEntries!: Table<FinancialEntry, string>;
     savedAnalyses!: Table<SavedAnalysis, number>;
+    strategySnapshots!: Table<any, number>;
 
     constructor() {
         super('ConstructionDB');
@@ -44,6 +45,11 @@ export class ConstructionDB extends Dexie {
         // Version 4: Saved Analyses
         this.version(4).stores({
             savedAnalyses: '++id, date'
+        });
+
+        // Version 5: Strategy Snapshots
+        this.version(5).stores({
+            strategySnapshots: '++id, date'
         });
     }
 }

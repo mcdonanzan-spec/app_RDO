@@ -129,4 +129,12 @@ export class ApiService {
     static async getSavedAnalyses(): Promise<import('../../types').SavedAnalysis[]> {
         return await db.savedAnalyses.reverse().toArray();
     }
+
+    static async saveStrategySnapshot(snapshot: import('../../types').StrategySnapshot): Promise<number> {
+        return await db.strategySnapshots.add(snapshot);
+    }
+
+    static async getStrategySnapshots(): Promise<import('../../types').StrategySnapshot[]> {
+        return await db.strategySnapshots.reverse().toArray();
+    }
 }

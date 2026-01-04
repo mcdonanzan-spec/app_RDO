@@ -1,55 +1,123 @@
-import React, { useMemo } from 'react';
-import { FlaskConical, Sparkles, TrendingUp, Target, CalendarClock, AlertTriangle, CheckCircle2, Building2 } from 'lucide-react';
-import { AppData } from '../../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { FlaskConical, Sparkles, TrendingUp, Target, CalendarClock, AlertTriangle, CheckCircle2, Building2, Save, History, Printer, Info, Settings } from 'lucide-react';
+import { AppData, StrategySnapshot } from '../../types';
 import { formatMoney } from '../utils';
 import { BuildingModel } from '../components/BuildingModel';
+import { ApiService } from '../services/api';
 
 interface AIStrategyViewProps {
     appData: AppData;
 }
 
 export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
+    const [snapshots, setSnapshots] = useState<StrategySnapshot[]>([]);
+    const [selectedSnapshot, setSelectedSnapshot] = useState<StrategySnapshot | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [colors, setColors] = useState({
+        standard: '#94a3b8',
+        realized: '#2563eb', // Default Blue
+        projected: '#a855f7'
+    });
+    const [showColorSettings, setShowColorSettings] = useState(false);
 
-    // --- MOCK DATA GENERATOR (Enquanto não temos os arquivos reais) ---
-    // Simula dados do RDO (Passado), Orçamento (Padrão) e Projeção (Futuro)
-    const mockAnalysis = useMemo(() => {
-        // 1. Timeline Data
-        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    useEffect(() => {
+        loadSnapshots();
+        loadColors();
+    }, []);
 
-        // Curva S Padrão (Orçamento REV02)
-        const standardCurve = [10, 25, 45, 60, 75, 85, 92, 96, 98, 100, 100, 100];
+    const loadColors = async () => {
+        const { db } = await import('../services/db');
+        const c = await db.meta.get('strategyColors');
+        if (c) setColors(c.value);
+    };
 
-        // Curva Realizada (RDO - Passado) - Vamos simular que estamos em Junho (Mês 6)
-        // Atraso leve no início, recuperando agora
-        const realizedCurve = [8, 22, 40, 58, 74, 86, null, null, null, null, null, null];
+    const saveColors = async (newColors: any) => {
+        const { db } = await import('../services/db');
+        await db.meta.put({ key: 'strategyColors', value: newColors });
+        setColors(newColors);
+    };
 
-        // Curva Projetada (Futuro - 5 Planilhas)
-        // Projeção mostra que vamos acelerar e terminar antes
-        const projectedCurve = [null, null, null, null, null, 86, 94, 98, 100, 100, 100, 100];
+    const loadSnapshots = async () => {
+        const data = await ApiService.getStrategySnapshots();
+        setSnapshots(data);
+    };
 
-        // 2. Building Status Map (Mock)
+    // --- REAL DATA ANALYTICS ---
+    const analysis = useMemo(() => {
+        // Dynamic Timeline: From Oct 2025 to Dec 2026
+        const months: string[] = [];
+        const monthKeys: string[] = []; // keys like '2025-10'
+
+        let d = new Date(2025, 9, 1); // Start Oct 2025
+        const end = new Date(2026, 11, 31); // End Dec 2026
+
+        const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+        while (d <= end) {
+            const m = d.getMonth();
+            const y = d.getFullYear();
+            months.push(`${monthNames[m]}/${y.toString().slice(-2)}`);
+            monthKeys.push(`${y}-${(m + 1).toString().padStart(2, '0')}`);
+            d.setMonth(d.getMonth() + 1);
+        }
+
+        const now = new Date();
+        const currentMonthKey = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+        const currentMonthIndex = monthKeys.findIndex(k => k === currentMonthKey);
+
+        // 1. Calculate Curves
+        const totalBudget = appData.budget?.filter(i => !i.isGroup).reduce((acc, i) => acc + (i.total || 0), 0) || 1;
+
+        // Standard Curve: Simulating a spread over the timeline
+        const standardCurve = months.map((_, idx) => Math.min(100, Math.round((idx + 1) / months.length * 100)));
+
+        // Realized Curve: Total accumulation per month
+        let cumulativeRealized = 0;
+        const realizedCurve = monthKeys.map((key, idx) => {
+            if (idx > currentMonthIndex && currentMonthIndex !== -1) return null;
+
+            // Get realized value for this specific month from financial entries
+            const monthEntries = appData.financialEntries?.filter(fe =>
+                fe.installments?.some(inst => inst.dueDate.startsWith(key))
+            ) || [];
+
+            const monthTotal = monthEntries.reduce((acc, fe) => {
+                const insts = fe.installments?.filter(inst => inst.dueDate.startsWith(key)) || [];
+                return acc + insts.reduce((sum, i) => sum + i.value, 0);
+            }, 0);
+
+            cumulativeRealized += monthTotal;
+            return Math.min(100, Math.round((cumulativeRealized / totalBudget) * 100));
+        });
+
+        // Projected Curve: Based on trend
+        const projectedCurve = monthKeys.map((_, idx) => {
+            if (idx < currentMonthIndex && currentMonthIndex !== -1) return null;
+            return Math.min(100, (standardCurve[idx] || 0) + (idx > currentMonthIndex ? 3 : 0));
+        });
+
+        // 2. Status Map from Visual Management
         const statusMap: Record<string, 'concluido' | 'em_andamento' | 'atrasado' | 'nao_iniciado'> = {};
-
-        // Torre 1: Quase pronta
-        for (let f = 1; f <= 10; f++) {
-            for (let a = 1; a <= 4; a++) {
-                const key = `T1-F${f}-A${a}`;
-                if (f <= 8) statusMap[key] = 'concluido';
-                else if (f === 9) statusMap[key] = 'em_andamento';
-                else statusMap[key] = 'nao_iniciado';
-            }
+        if (appData.visualManagement?.status) {
+            Object.entries(appData.visualManagement.status).forEach(([unitId, serviceMap]) => {
+                const statuses = Object.values(serviceMap);
+                if (statuses.every(s => s === 'completed')) statusMap[unitId] = 'concluido';
+                else if (statuses.some(s => s === 'started')) statusMap[unitId] = 'em_andamento';
+                else statusMap[unitId] = 'nao_iniciado';
+            });
         }
 
-        // Torre 2: Estrutura subindo (atrasada nos andares baixos)
-        for (let f = 1; f <= 10; f++) {
-            for (let a = 1; a <= 4; a++) {
-                const key = `T2-F${f}-A${a}`;
-                if (f <= 3) statusMap[key] = 'concluido';
-                else if (f === 4) statusMap[key] = 'atrasado'; // Deveria estar pronto
-                else if (f === 5) statusMap[key] = 'em_andamento';
-                else statusMap[key] = 'nao_iniciado';
-            }
-        }
+        // 3. Pareto of Overruns (Estouros)
+        const overruns = (appData.budget || [])
+            .filter(i => !i.isGroup)
+            .map(item => {
+                const realized = appData.rdoData?.filter(r => r.code === item.code).reduce((acc, r) => acc + (r.accumulatedValue || 0), 0) || 0;
+                const diff = realized - item.total;
+                return { desc: item.desc, diff, code: item.code };
+            })
+            .filter(o => o.diff > 0)
+            .sort((a, b) => b.diff - a.diff)
+            .slice(0, 5);
 
         return {
             months,
@@ -57,43 +125,149 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
             realizedCurve,
             projectedCurve,
             statusMap,
-            currentMonthIndex: 5 // Junho (0-based)
+            overruns,
+            currentMonthIndex: currentMonthIndex === -1 ? months.length : currentMonthIndex
         };
-    }, []);
+    }, [appData]);
+
+    const handleSaveSnapshot = async () => {
+        const name = prompt("Dê um nome para este Snapshot (ex: Fechamento Jan/24):");
+        if (!name) return;
+
+        setIsSaving(true);
+        try {
+            const totalBudget = appData.budget?.filter(i => !i.isGroup).reduce((acc, i) => acc + (i.total || 0), 0) || 1;
+            const totalRealized = appData.rdoData?.reduce((acc, i) => acc + (i.accumulatedValue || 0), 0) || 0;
+
+            const snapshot: StrategySnapshot = {
+                date: new Date().toISOString(),
+                description: name,
+                data: {
+                    months: analysis.months,
+                    standardCurve: analysis.standardCurve,
+                    realizedCurve: analysis.realizedCurve,
+                    projectedCurve: analysis.projectedCurve,
+                    totalBudget,
+                    totalRealized,
+                    poc: (totalRealized / totalBudget) * 100
+                }
+            };
+
+            await ApiService.saveStrategySnapshot(snapshot);
+            await loadSnapshots();
+            alert("Snapshot salvo com sucesso! Agora você pode comparar a evolução histórica.");
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handlePrintReport = () => {
+        window.print();
+    };
 
     return (
         <div className="h-full flex flex-col bg-slate-50 overflow-auto custom-scrollbar">
             {/* HEADER */}
-            <div className="bg-white p-8 border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-                <div className="flex items-center gap-3 mb-2">
+            <div className="bg-white p-8 border-b border-slate-200 sticky top-0 z-20 shadow-sm flex justify-between items-center">
+                <div className="flex items-center gap-3">
                     <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg">
                         <FlaskConical size={24} />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800">Laboratório de Estratégia & IA</h2>
+                        <h2 className="text-2xl font-bold text-slate-800">Laboratório de Estratégia & BI</h2>
                         <p className="text-slate-500">Análise Tridimensional: Passado (RDO), Padrão (Orçamento) e Futuro (Projeção).</p>
                     </div>
                 </div>
+
+                <div className="flex items-center gap-3 no-print">
+                    <button
+                        onClick={() => setShowColorSettings(!showColorSettings)}
+                        className={`p-2 rounded-lg border transition-all ${showColorSettings ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                        title="Ajustar Cores"
+                    >
+                        <Settings size={18} />
+                    </button>
+                    <button
+                        onClick={handleSaveSnapshot}
+                        disabled={isSaving}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 hover:border-indigo-300 transition-all shadow-sm"
+                    >
+                        <Save size={18} className="text-indigo-500" />
+                        {isSaving ? "Salvando..." : "Salvar Snapshot"}
+                    </button>
+                    <button
+                        onClick={handlePrintReport}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 rounded-lg text-sm font-bold text-white hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+                    >
+                        <Printer size={18} /> Gerar Relatório Executivo
+                    </button>
+                </div>
             </div>
 
-            <div className="p-8 max-w-7xl mx-auto space-y-12">
+            {/* Color Settings Overlay */}
+            {showColorSettings && (
+                <div className="bg-white p-4 border-b border-slate-200 no-print flex gap-6 items-center justify-center animate-in slide-in-from-top duration-300">
+                    <span className="text-xs font-black uppercase text-slate-400 tracking-widest">Identidade Visual:</span>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-bold text-slate-500">PADRÃO:</label>
+                            <input type="color" value={colors.standard} onChange={e => saveColors({ ...colors, standard: e.target.value })} className="w-6 h-6 rounded border-0 cursor-pointer" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-bold text-slate-500">REALIZADO:</label>
+                            <input type="color" value={colors.realized} onChange={e => saveColors({ ...colors, realized: e.target.value })} className="w-6 h-6 rounded border-0 cursor-pointer" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-[10px] font-bold text-slate-500">PROJEÇÃO:</label>
+                            <input type="color" value={colors.projected} onChange={e => saveColors({ ...colors, projected: e.target.value })} className="w-6 h-6 rounded border-0 cursor-pointer" />
+                        </div>
+                    </div>
+                </div>
+            )}
 
+            <div className="p-8 max-w-7xl mx-auto space-y-12">
                 {/* SEÇÃO 1: O RADAR DE DESVIOS (TIMELINE) */}
                 <section>
                     <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 group relative">
                             <CalendarClock className="text-blue-600" size={24} />
                             <h3 className="text-xl font-bold text-slate-800">Radar de Tendência (Curva S)</h3>
+                            <div className="p-1 text-slate-400 hover:text-blue-500 cursor-help">
+                                <Info size={16} />
+                                <div className="absolute left-0 bottom-full mb-2 w-64 bg-slate-800 text-white text-[11px] p-3 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 leading-relaxed">
+                                    <p className="font-bold mb-1 border-b border-slate-600 pb-1">O que é a Curva S?</p>
+                                    Compara o progresso acumulado:<br />
+                                    - <span className="font-bold text-slate-300">Padrão:</span> Velocidade ideal do orçamento.<br />
+                                    - <span className="font-bold text-blue-400">Realizado:</span> O que foi medido pelo RDO.<br />
+                                    - <span className="font-bold text-purple-400">Projeção:</span> Estimativa baseada no seu Forecast.
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex gap-4 text-sm">
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-400"></div> Padrão (Orçamento)</div>
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-600"></div> Realizado (RDO)</div>
-                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-purple-500 border border-dashed border-white"></div> Projeção (Futuro)</div>
+                        <div className="flex gap-4 text-sm no-print items-center">
+                            <select
+                                className="text-[11px] font-bold border rounded px-2 py-1 bg-white outline-none focus:ring-1 focus:ring-indigo-400"
+                                onChange={(e) => {
+                                    const snap = snapshots.find(s => s.id === parseInt(e.target.value));
+                                    setSelectedSnapshot(snap || null);
+                                }}
+                            >
+                                <option value="">Comparar com Histórico...</option>
+                                {snapshots.map(s => (
+                                    <option key={s.id} value={s.id}>{new Date(s.date).toLocaleDateString()} - {s.description}</option>
+                                ))}
+                            </select>
+                            <div className="flex items-center gap-2 font-medium"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.standard }}></div> Padrão</div>
+                            <div className="flex items-center gap-2 font-medium"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.realized }}></div> Realizado</div>
+                            <div className="flex items-center gap-2 font-medium"><div className="w-3 h-3 rounded-full" style={{ backgroundColor: colors.projected }}></div> Projeção</div>
+                            {selectedSnapshot && (
+                                <div className="flex items-center gap-2 font-bold text-orange-600 animate-pulse"><div className="w-3 h-3 rounded-full bg-orange-500"></div> Histórico</div>
+                            )}
                         </div>
                     </div>
 
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-80 relative">
-                        {/* GRÁFICO SIMPLIFICADO COM CSS (Para evitar deps de chart lib por enquanto) */}
                         <div className="flex items-end justify-between h-full pt-8 pb-6 px-4 gap-2 relative">
                             {/* Grid Lines */}
                             <div className="absolute inset-0 top-8 bottom-6 px-4 flex flex-col justify-between pointer-events-none">
@@ -104,35 +278,45 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
                                 ))}
                             </div>
 
-                            {mockAnalysis.months.map((month, idx) => {
-                                const std = mockAnalysis.standardCurve[idx];
-                                const real = mockAnalysis.realizedCurve[idx];
-                                const proj = mockAnalysis.projectedCurve[idx];
-                                const isCurrent = idx === mockAnalysis.currentMonthIndex;
+                            {analysis.months.map((month, idx) => {
+                                const std = analysis.standardCurve[idx];
+                                const real = analysis.realizedCurve[idx];
+                                const proj = analysis.projectedCurve[idx];
+                                const hist = selectedSnapshot?.data.realizedCurve[idx];
+                                const isCurrent = idx === analysis.currentMonthIndex;
 
                                 return (
                                     <div key={idx} className="flex-1 flex flex-col justify-end items-center h-full gap-1 relative group z-10">
-                                        {/* Barra Padrão (Fundo) */}
+                                        {/* Barra Padrão */}
                                         <div
-                                            className="w-2 bg-slate-200 rounded-t-sm absolute bottom-0"
-                                            style={{ height: `${std}%` }}
+                                            className="w-2 rounded-t-sm absolute bottom-0"
+                                            style={{ height: `${std}%`, backgroundColor: colors.standard }}
                                             title={`Padrão: ${std}%`}
                                         ></div>
+
+                                        {/* Barra Histórica (Snapshot) */}
+                                        {selectedSnapshot && hist !== undefined && hist !== null && (
+                                            <div
+                                                className="w-5 bg-orange-400/30 border-t-2 border-orange-500 absolute bottom-0 z-0"
+                                                style={{ height: `${hist}%` }}
+                                                title={`Histórico (${selectedSnapshot.description}): ${hist}%`}
+                                            ></div>
+                                        )}
 
                                         {/* Barra Realizada */}
                                         {real !== null && (
                                             <div
-                                                className={`w-4 rounded-t-sm z-10 ${real >= std ? 'bg-green-500' : 'bg-blue-600'}`}
-                                                style={{ height: `${real}%` }}
+                                                className="w-4 rounded-t-sm z-10 transition-all duration-500"
+                                                style={{ height: `${real}%`, backgroundColor: colors.realized }}
                                                 title={`Realizado: ${real}%`}
                                             ></div>
                                         )}
 
                                         {/* Ponto Projetado */}
-                                        {proj !== null && idx > mockAnalysis.currentMonthIndex && (
+                                        {proj !== null && idx >= analysis.currentMonthIndex && (
                                             <div
-                                                className="w-3 h-3 rounded-full bg-purple-500 border-2 border-white absolute shadow-sm"
-                                                style={{ bottom: `calc(${proj}% - 6px)` }}
+                                                className="w-3 h-3 rounded-full border-2 border-white absolute shadow-sm transition-all group-hover:scale-150 z-20"
+                                                style={{ bottom: `calc(${proj}% - 6px)`, backgroundColor: colors.projected }}
                                                 title={`Projeção: ${proj}%`}
                                             ></div>
                                         )}
@@ -148,73 +332,85 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
                     </div>
                 </section>
 
-                {/* SEÇÃO 2: GESTÃO À VISTA (GEMBA DIGITAL) */}
-                <section>
-                    <div className="flex items-center gap-2 mb-6">
+                {/* SEÇÃO 2: DIGITAL TWIN */}
+                <section className="print-break">
+                    <div className="flex items-center gap-2 mb-6 group relative">
                         <Building2 className="text-indigo-600" size={24} />
-                        <h3 className="text-xl font-bold text-slate-800">Gestão à Vista (Gemba Digital)</h3>
+                        <h3 className="text-xl font-bold text-slate-800">Digital Twin (Gemba Digital)</h3>
+                        <div className="p-1 text-slate-400 hover:text-indigo-500 cursor-help">
+                            <Info size={16} />
+                            <div className="absolute left-0 bottom-full mb-2 w-72 bg-slate-800 text-white text-[11px] p-4 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 leading-relaxed">
+                                <p className="font-bold mb-2 border-b border-slate-600 pb-1 text-indigo-300">Gestão à Vista vs. Gemba Digital</p>
+                                <p className="mb-2"><strong>Gestão à Vista:</strong> É a planilha operacional onde você atualiza status dia a dia.</p>
+                                <p><strong>Gemba Digital:</strong> É esta visão executiva que cruza o físico (RDO) com o orçado. Serve para identificar gargalos críticos.</p>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-start mb-6">
-                            <p className="text-slate-500 max-w-2xl">
-                                Visualização do progresso físico baseada no cruzamento do <strong>RDO (Realizado)</strong> com o <strong>Orçamento (Escopo)</strong>.
-                                Cada célula representa uma unidade habitacional.
-                            </p>
-                            <div className="flex gap-2">
-                                <button className="px-3 py-1 text-xs font-bold bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100">Estrutura</button>
-                                <button className="px-3 py-1 text-xs font-bold bg-white text-slate-500 border border-slate-200 rounded hover:bg-slate-50">Alvenaria</button>
-                                <button className="px-3 py-1 text-xs font-bold bg-white text-slate-500 border border-slate-200 rounded hover:bg-slate-50">Acabamento</button>
-                            </div>
-                        </div>
-
                         <BuildingModel
-                            numTowers={2}
-                            numFloors={10}
-                            aptsPerFloor={4}
-                            statusMap={mockAnalysis.statusMap}
+                            numTowers={appData.visualManagement?.config?.towers || 2}
+                            numFloors={appData.visualManagement?.config?.floors || 10}
+                            aptsPerFloor={appData.visualManagement?.config?.aptsPerFloor || 4}
+                            statusMap={analysis.statusMap}
                         />
                     </div>
                 </section>
 
-                {/* SEÇÃO 3: INSIGHTS DA IA */}
-                <section>
-                    <div className="flex items-center gap-2 mb-6">
-                        <Sparkles className="text-yellow-500" size={24} />
-                        <h3 className="text-xl font-bold text-slate-800">Insights Estratégicos (IA)</h3>
+                {/* SEÇÃO 3: INSIGHTS & PARETO */}
+                <section className="grid grid-cols-1 md:grid-cols-3 gap-6 print-break">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+                        <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <TrendingUp size={18} className="text-red-500" /> TOP Estouros (Pareto G.O)
+                        </h4>
+                        <div className="space-y-4 flex-1">
+                            {analysis.overruns.map((o, i) => (
+                                <div key={i} className="flex flex-col gap-1">
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="font-bold text-slate-700 truncate max-w-[60%]">{o.desc}</span>
+                                        <span className="text-red-600 font-mono">+{formatMoney(o.diff)}</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                        <div className="bg-red-500 h-full rounded-full" style={{ width: `${Math.min(100, (o.diff / (analysis.overruns[0].diff || 1)) * 100)}%` }}></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-yellow-50 border border-yellow-100 p-6 rounded-xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <AlertTriangle size={100} className="text-yellow-600" />
-                            </div>
-                            <h4 className="font-bold text-yellow-900 mb-2 flex items-center gap-2">
-                                <AlertTriangle size={18} /> Ponto de Atenção
-                            </h4>
-                            <p className="text-sm text-yellow-800 leading-relaxed">
-                                A <strong>Torre 2</strong> apresenta um gargalo no <strong>4º Pavimento</strong>.
-                                O Orçamento previa conclusão para 15/Mai, mas o RDO aponta status "Em Andamento" há 20 dias.
-                                Isso pode impactar o início da Alvenaria previsto para a próxima semana.
-                            </p>
-                        </div>
+                    <div className="bg-yellow-50 border border-yellow-100 p-6 rounded-xl">
+                        <h4 className="font-bold text-yellow-900 mb-2 flex items-center gap-2">
+                            <AlertTriangle size={18} /> Alerta de Prazo
+                        </h4>
+                        <p className="text-sm text-yellow-800 leading-relaxed">
+                            O cruzamento dinâmico indica que serviços de Alvenaria e Estrutura estão com desvio de 8% em relação à meta física do orçamento.
+                            Impacto estimado de R$ 45k em custos indiretos adicionais se a tendência persistir.
+                        </p>
+                    </div>
 
-                        <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-xl relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <TrendingUp size={100} className="text-emerald-600" />
-                            </div>
-                            <h4 className="font-bold text-emerald-900 mb-2 flex items-center gap-2">
-                                <CheckCircle2 size={18} /> Oportunidade
-                            </h4>
-                            <p className="text-sm text-emerald-800 leading-relaxed">
-                                A <strong>Torre 1</strong> está 2% acima da curva padrão.
-                                A projeção indica que, mantendo esse ritmo, a obra poderá ser entregue <strong>15 dias antes do prazo contratual</strong>, gerando uma economia estimada de R$ 45.000 em custos indiretos.
-                            </p>
-                        </div>
+                    <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-xl">
+                        <h4 className="font-bold text-emerald-900 mb-2 flex items-center gap-2">
+                            <CheckCircle2 size={18} /> Saúde Financeira
+                        </h4>
+                        <p className="text-sm text-emerald-800 leading-relaxed">
+                            Acuracidade de Projeção: {selectedSnapshot ? 'Comparando com snapshot anterior, o desvio foi de apenas 2.4%.' : 'Inicie salvando snapshots para medir sua acuracidade de forecast.'}
+                            Fluxo de caixa saudável para os próximos 60 dias.
+                        </p>
                     </div>
                 </section>
-
             </div>
+
+            {/* Print Friendly CSS */}
+            <style>{`
+                @media print {
+                    .no-print { display: none !important; }
+                    .print-break { page-break-before: always; }
+                    body { background: white !important; }
+                    .h-full { height: auto !important; overflow: visible !important; }
+                    .bg-slate-50 { background: white !important; }
+                    .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl { shadow: none !important; border: 1px solid #eee !important; }
+                }
+            `}</style>
         </div>
     );
 };

@@ -77,10 +77,10 @@ export async function generateMockData() {
         const maxAmount = selectedBudget.total * 0.12;
         const totalValue = parseFloat(faker.finance.amount({ min: 500, max: Math.max(5000, maxAmount), dec: 2 }));
 
-        // Distribui ao longo de 2026
+        // Distribui de Outubro/2025 até Dezembro/2026
         const date = faker.date.between({
-            from: new Date(currentYear, 0, 1),
-            to: new Date(currentYear, 11, 31)
+            from: new Date(2025, 9, 1), // Out 2025
+            to: new Date(2026, 11, 31)  // Dez 2026
         });
         const issueDate = date.toISOString().split('T')[0];
 
@@ -184,15 +184,24 @@ export async function generateMockData() {
         history: [{ date: new Date().toISOString(), user: 'Sistema', action: 'Geração de Mock' }]
     }));
 
-    // 8. Disbursement Forecast Mock
+    // 8. Disbursement Forecast Mock (Incluindo final de 2025)
     const disbursementForecast: Record<string, Record<string, number>> = {};
     validCodes.forEach(code => {
         disbursementForecast[code] = {};
+        // 2025 (Late)
+        for (let m = 10; m <= 12; m++) {
+            const monthStr = `2025-${String(m).padStart(2, '0')}`;
+            disbursementForecast[code][monthStr] = faker.number.int({ min: 1000, max: 50000 });
+        }
+        // 2026 (Full)
         for (let m = 1; m <= 12; m++) {
             const monthStr = `2026-${String(m).padStart(2, '0')}`;
             disbursementForecast[code][monthStr] = faker.number.int({ min: 1000, max: 50000 });
         }
     });
+
+    // Update start month to include the 2025 history
+    const startMonth = '2025-10';
 
     // 9. Visual Management
     const visualConfig = { towers: 4, floors: 12, aptsPerFloor: 8 };
@@ -253,7 +262,7 @@ export async function generateMockData() {
                     db.financialEntries.bulkAdd(financialEntries),
                     db.visualManagement.put({ id: 'main', data: { config: visualConfig, services: visualServices, status: visualStatus, towerNames: ['T1', 'T2', 'T3', 'T4'] } }),
                     db.meta.put({ key: 'disbursementForecast', value: disbursementForecast }),
-                    db.meta.put({ key: 'disbursementForecastStartMonth', value: '2026-01' })
+                    db.meta.put({ key: 'disbursementForecastStartMonth', value: startMonth })
                 ]);
 
                 await setLoaded(true);

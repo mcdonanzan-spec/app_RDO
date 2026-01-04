@@ -11,7 +11,8 @@ import {
     Zap,
     Users,
     MessageSquare,
-    Target
+    Target,
+    TrendingUp
 } from 'lucide-react';
 
 const FeatureCard = ({ icon: Icon, title, description, color }: { icon: any, title: string, description: string, color: string }) => (
@@ -96,22 +97,22 @@ export const SystemBlueprintView: React.FC = () => {
                         color="bg-slate-900"
                     />
                     <FeatureCard
-                        icon={Layout}
-                        title="Gestão à Vista"
-                        description="Visualização física da produção (Torres/Pavimentos). Cada unidade é monitorada em relação ao seu percentual de conclusão e status operacional."
-                        color="bg-blue-600"
+                        icon={TrendingUp}
+                        title="Estratégia & BI"
+                        description="Nosso Painel Executivo (Digital Twin) que analisa a Curva S Tridimensional: Orçado vs. Realizado vs. Projetado, com Pareto automático de estouros."
+                        color="bg-indigo-600"
                     />
                     <FeatureCard
                         icon={BrainCircuit}
-                        title="IA Estratégica"
-                        description="Nosso núcleo de IA analisa desvios, prevê estoiros de orçamento e sugere ações corretivas baseadas no histórico de compras e medições."
+                        title="IA Generativa"
+                        description="O 'Construction Brain' que entende o contexto da obra, cruza atrasos físicos com impactos financeiros e responde perguntas complexas em tempo real."
                         color="bg-purple-600"
                     />
                     <FeatureCard
-                        icon={ArrowRightCircle}
-                        title="Fluxo de Compras"
-                        description="Controle total do ciclo de suprimentos: da Requisição de Compra no canteiro até o lançamento da NF e programação financeira."
-                        color="bg-emerald-600"
+                        icon={Boxes}
+                        title="Sincronização Físico-Fin."
+                        description="Vínculo direto entre serviços do canteiro e grupos orçamentários (G.O). Um atraso na torre é automaticamente traduzido em impacto no fluxo de caixa."
+                        color="bg-amber-600"
                     />
                     <FeatureCard
                         icon={GitBranch}
@@ -144,12 +145,12 @@ export const SystemBlueprintView: React.FC = () => {
                                     insight="A IA detecta que o preço do aço subiu 15% acima da média histórica e alerta o gestor para renegociar lotes futuros ou ajustar a projeção de custo final."
                                 />
                                 <CaseStudy
-                                    title="Gargalos de Produção"
-                                    insight="Se a impermeabilização do 5º pavimento não foi concluída, o sistema trava liberações de acabamento, evitando retrabalho e custos extras."
+                                    title="Sincronização Físico-Financeira"
+                                    insight="Se a Alvenaria (vinculada ao G.O 01.02) atrasa na Torre 1, a IA sugere o deslocamento da verba de materiais para o mês seguinte, mantendo o saldo de caixa equilibrado."
                                 />
                                 <CaseStudy
-                                    title="Fluxo de Caixa Crítico"
-                                    insight="Ao simular desembolsos futuros na tela de Forecast, você identifica meses com pico de gasto e pode reprogramar compras de materiais não críticos."
+                                    title="Pareto de Desvios"
+                                    insight="O Dashboard de BI identifica instantaneamente que 80% do estouro de orçamento está concentrado em apenas 2 grupos de custo secundários."
                                 />
                             </div>
                         </div>

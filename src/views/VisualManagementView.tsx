@@ -319,18 +319,37 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                         </div>
                         <div className="flex-1 overflow-auto space-y-2 pr-2">
                             {services.map((svc, idx) => (
-                                <div key={svc.id} className="flex items-center gap-3 p-3 border border-slate-100 rounded bg-slate-50">
-                                    <input type="color" value={svc.color} onChange={e => {
-                                        const ns = [...services];
-                                        ns[idx].color = e.target.value;
-                                        setServices(ns);
-                                    }} className="w-6 h-6 rounded cursor-pointer border-0" />
-                                    <input value={svc.name} onChange={e => {
-                                        const ns = [...services];
-                                        ns[idx].name = e.target.value;
-                                        setServices(ns);
-                                    }} className="flex-1 bg-transparent font-medium text-sm outline-none" />
-                                    <button onClick={() => setServices(services.filter(s => s.id !== svc.id))}><Trash2 size={14} className="text-red-400" /></button>
+                                <div key={svc.id} className="flex flex-col gap-2 p-3 border border-slate-100 rounded bg-slate-50">
+                                    <div className="flex items-center gap-3">
+                                        <input type="color" value={svc.color} onChange={e => {
+                                            const ns = [...services];
+                                            ns[idx].color = e.target.value;
+                                            setServices(ns);
+                                        }} className="w-6 h-6 rounded cursor-pointer border-0" />
+                                        <input value={svc.name} onChange={e => {
+                                            const ns = [...services];
+                                            ns[idx].name = e.target.value;
+                                            setServices(ns);
+                                        }} className="flex-1 bg-transparent font-medium text-sm outline-none" />
+                                        <button onClick={() => setServices(services.filter(s => s.id !== svc.id))}><Trash2 size={14} className="text-red-400" /></button>
+                                    </div>
+                                    <div className="flex items-center gap-2 pl-9">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Vincular Orçado (G.O):</label>
+                                        <select
+                                            className="flex-1 text-[11px] p-1 border rounded bg-white"
+                                            value={svc.budgetCode || ''}
+                                            onChange={(e) => {
+                                                const ns = [...services];
+                                                ns[idx].budgetCode = e.target.value;
+                                                setServices(ns);
+                                            }}
+                                        >
+                                            <option value="">Não vinculado</option>
+                                            {appData.budget?.filter(b => b.isGroup).map(b => (
+                                                <option key={b.code} value={b.code}>{b.code} - {b.desc}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             ))}
                             <button onClick={() => setServices([...services, { id: `S${Date.now()}`, name: 'Novo', color: '#000000', order: services.length + 1 }])} className="w-full py-2 border border-dashed border-slate-300 text-slate-500 font-bold text-xs rounded">+ Adicionar</button>
