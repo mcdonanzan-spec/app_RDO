@@ -131,8 +131,9 @@ export interface AIResponse {
     chart?: {
         title: string;
         type: 'bar' | 'pie' | 'line';
+        unit?: 'percent' | 'currency';
         labels: string[];
-        values: number[] | { label: string, data: number[] }[]; // Suporte a múltiplas séries
+        values: number[]; // For simplicity in this view
     };
 }
 

@@ -16,10 +16,24 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [manualApiKey, setManualApiKey] = useState('');
     const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
     const [showHistory, setShowHistory] = useState(false);
+    const [forecastData, setForecastData] = useState<any>(null);
+    const [budgetOverrides, setBudgetOverrides] = useState<any>(null);
+    const [descriptionOverrides, setDescriptionOverrides] = useState<any>(null);
 
     React.useEffect(() => {
         loadHistory();
+        loadForecastData();
     }, []);
+
+    const loadForecastData = async () => {
+        const { db } = await import('../services/db');
+        const fd = await db.meta.get('disbursementForecast');
+        const bo = await db.meta.get('disbursementBudgetOverrides');
+        const d_o = await db.meta.get('disbursementDescOverrides');
+        if (fd) setForecastData(fd.value);
+        if (bo) setBudgetOverrides(bo.value);
+        if (d_o) setDescriptionOverrides(d_o.value);
+    };
 
     const loadHistory = async () => {
         const history = await ApiService.getSavedAnalyses();
@@ -176,9 +190,30 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                 });
             });
 
-            contextText += `PREVISÃO DE DESEMBOLSO:\n`;
+            contextText += `PREVISÃO DE DESEMBOLSO (SISTEMA):\n`;
             contextText += `Próximo Mês: R$${forecastNextMonth.toFixed(2)}\n`;
             contextText += `Próximos 3 Meses: R$${forecastNext3Months.toFixed(2)}\n`;
+        }
+
+        // Forecast Scenarios (Manual Data)
+        if (forecastData) {
+            contextText += `\n=== CENÁRIOS DE PROJEÇÃO (MANUAL/FORECAST VIEW) ===\n`;
+            contextText += `Estes dados foram editados manualmente pelo usuário para simular cenários futuros:\n`;
+
+            Object.entries(forecastData).forEach(([code, months]: [string, any]) => {
+                const desc = descriptionOverrides?.[code] || code;
+                const budgetActual = budgetOverrides?.[code] || 0;
+                const totalProj = Object.values(months).reduce((a: any, b: any) => a + b, 0) as number;
+
+                if (totalProj > 0 || budgetActual > 0) {
+                    contextText += `- G.O ${code} (${desc}): Budget Simulado: R$${budgetActual.toFixed(2)} | Total Projetado: R$${totalProj.toFixed(2)}\n`;
+                    // Brief monthly breakdown
+                    const sortedMonths = Object.keys(months).sort();
+                    if (sortedMonths.length > 0) {
+                        contextText += `  Detail: ${sortedMonths.map(m => `${m}: R$${months[m].toFixed(0)}`).join(', ')}\n`;
+                    }
+                }
+            });
         }
 
 
@@ -201,7 +236,14 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         Atue como um Diretor de Engenharia e Analista de BI da BRZ Empreendimentos.
         Analise os dados financeiros da obra abaixo e responda à pergunta do usuário.
         
-        CONTEXTO DOS DADOS (Excel):
+        Você possui duas vertentes de análise agora:
+        1. OFICIAL/SISTEMA: Baseado em NFs, RDO físico e orçamento estático do Excel.
+        2. CENÁRIOS/PROJEÇÃO: Baseado em campos editáveis manualmente pelo usuário na tela de Previsão.
+        
+        Sempre cruze essas informações. Se o usuário editou um orçamento na projeção, ele está criando um CENÁRIO.
+        Identifique se a pergunta refere-se ao estado ATUAL (Oficial) ou ao CENÁRIO FUTURO (Projeção).
+
+        CONTEXTO DOS DADOS:
         ${context}
 
         PERGUNTA DO USUÁRIO: "${query}"
@@ -209,7 +251,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         INSTRUÇÃO DE SAÍDA:
         Retorne APENAS um JSON válido (sem markdown \`\`\`json) com a seguinte estrutura:
         {
-          "analysis": "Texto explicativo direto, estilo executivo, focado em insights financeiros e riscos. EXPLIQUE claramente a diferença entre o Realizado Físico (RDO) e o Realizado Financeiro (NFs).",
+          "analysis": "Texto explicativo direto, estilo executivo. Compare o Oficial com a Projeção se houver divergência relevante. EXPLIQUE claramente a diferença entre o Realizado Físico (RDO) e o Realizado Financeiro (NFs).",
           "kpis": [
             { "label": "Custo Realizado (RDO)", "value": "R$ ...", "trend": "neutral", "color": "text-slate-800" },
             { "label": "Total NFs Lançadas", "value": "R$ ...", "trend": "neutral", "color": "text-blue-600" },
@@ -218,8 +260,9 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
           "chart": {
             "title": "Título do Gráfico",
             "type": "bar",
+            "unit": "percent ou currency",
             "labels": ["Label1", "Label2"],
-            "values": [100, 200]
+            "values": [10, 20]
           }
         }
         Se a pergunta não puder ser respondida com os dados, diga isso na analysis.
@@ -456,7 +499,10 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                                                     {label}
                                                                 </span>
                                                                 <span className="font-mono text-slate-500">
-                                                                    {val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                                    {response.chart?.unit === 'percent' || response.chart?.title.includes('%')
+                                                                        ? `${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                                                                        : val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                                                                    }
                                                                 </span>
                                                             </div>
                                                             <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">

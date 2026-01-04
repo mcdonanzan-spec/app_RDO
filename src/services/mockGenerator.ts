@@ -1,4 +1,3 @@
-
 import { db, setLoaded } from './db';
 import { faker } from '@faker-js/faker';
 import {
@@ -9,11 +8,14 @@ import {
     SupplyChainBox,
     BudgetLine,
     RHPremise,
-    RDOItem
+    RDOItem,
+    BudgetGroup
 } from '../../types';
 
 export async function generateMockData() {
-    console.log("Starting mock data generation...");
+    console.log("Starting mock data generation for 2026...");
+
+    const currentYear = new Date().getFullYear(); // 2026
 
     // 1. Suppliers
     const suppliers: Supplier[] = Array.from({ length: 15 }).map(() => ({
@@ -23,8 +25,6 @@ export async function generateMockData() {
     }));
 
     // 2. Budget Data (Flat & Tree)
-    // We need flat lines for the 'budget' table and tree for 'budgetTree'
-    // 2. Budget Data (Deep Nesting as per Excel)
     const budgetLines: BudgetLine[] = [
         { id: 'b01', code: '01', desc: 'CUSTOS DE CONSTRUÇÃO', unit: '', qty: 0, unitPrice: 0, total: 53670434.74, type: 'mt', originSheet: 'Master', isGroup: true },
 
@@ -56,30 +56,35 @@ export async function generateMockData() {
         { id: 'b02', code: '02', desc: 'CUSTOS DE INFRA-ESTRUTURA', unit: 'VB', qty: 1, unitPrice: 3500000, total: 3500000, type: 'mt', originSheet: 'Master', isGroup: false },
     ];
 
-    // Budget Tree - simplified but mirroring budgetLines for views that use tree
-    const budgetTree: BudgetNode[] = []; // We can build this if needed, but the view now builds it dynamically from budgetLines
+    // Popula BudgetGroups explicitamente
+    const budgetGroups: BudgetGroup[] = budgetLines.map(line => ({
+        id: line.id!,
+        code: line.code,
+        description: line.desc,
+        totalBudget: line.total,
+        type: line.type.toUpperCase() as any,
+        parentCode: line.code.includes('.') ? line.code.substring(0, line.code.lastIndexOf('.')) : undefined,
+        breakdown: { st: line.type === 'st' ? line.total : 0, mt: line.type === 'mt' ? line.total : 0, eq: 0 },
+        monthlyProjection: {}
+    }));
 
-    // 3. Financial Entries (NFs)
-    const financialEntries: FinancialEntry[] = Array.from({ length: 80 }).map(() => {
+    // 3. Financial Entries (NFs) em 2026
+    const financialEntries: FinancialEntry[] = Array.from({ length: 120 }).map(() => {
         const supplier = suppliers[Math.floor(Math.random() * suppliers.length)];
-
-        // Pick an item to allocate to (only leaf items)
         const leafItems = budgetLines.filter(b => !b.isGroup);
         const selectedBudget = faker.helpers.arrayElement(leafItems);
 
-        // Random amount relative to the budget item
-        const maxAmount = selectedBudget.total * 0.15;
-        const totalValue = parseFloat(faker.finance.amount({ min: 1000, max: maxAmount, dec: 2 }));
+        const maxAmount = selectedBudget.total * 0.12;
+        const totalValue = parseFloat(faker.finance.amount({ min: 500, max: Math.max(5000, maxAmount), dec: 2 }));
 
-        // Random date range from 6 months ago to 6 months in the future
+        // Distribui ao longo de 2026
         const date = faker.date.between({
-            from: new Date(2025, 0, 1),
-            to: new Date(2025, 11, 31)
+            from: new Date(currentYear, 0, 1),
+            to: new Date(currentYear, 11, 31)
         });
         const issueDate = date.toISOString().split('T')[0];
 
-        // Create 1-3 installments
-        const instCount = faker.number.int({ min: 1, max: 3 });
+        const instCount = faker.number.int({ min: 1, max: 2 });
         const installments = Array.from({ length: instCount }).map((_, i) => {
             const dueDate = new Date(date);
             dueDate.setMonth(dueDate.getMonth() + i);
@@ -99,7 +104,7 @@ export async function generateMockData() {
             description: `${selectedBudget.type === 'mt' ? 'NF MATERIAL' : 'NF SERVIÇO'} - ${faker.commerce.productName()}`,
             issueDate: issueDate,
             totalValue: totalValue,
-            status: faker.helpers.arrayElement(['APPROVED', 'PAID', 'DRAFT']),
+            status: faker.helpers.arrayElement(['APPROVED', 'PAID', 'APPROVED']),
             allocations: [{
                 id: faker.string.uuid(),
                 budgetGroupCode: selectedBudget.code,
@@ -115,11 +120,11 @@ export async function generateMockData() {
     const contracts: ContractBox[] = suppliers.slice(0, 5).map(sup => ({
         id: faker.string.uuid(),
         supplier: sup.razaoSocial,
-        totalValue: 500000,
-        initialValue: 500000,
-        additives: 0,
-        measuredTotal: 120000,
-        balance: 380000,
+        totalValue: 1200000,
+        initialValue: 1000000,
+        additives: 200000,
+        measuredTotal: 450000,
+        balance: 750000,
         budgetGroup: '01.02.01',
         measurements: []
     }));
@@ -130,107 +135,86 @@ export async function generateMockData() {
         supplier: sup.razaoSocial,
         description: `Pedido de Compra - ${faker.commerce.productName()}`,
         status: faker.helpers.arrayElement(['total', 'partial', 'programmed']),
-        totalValue: 25000,
+        totalValue: 45000,
         budgetGroup: '01.02.02',
         invoices: []
     }));
 
-    // 6. RH Premises
-    const rhPremises: RHPremise[] = [
-        { id: 1, role: 'Engenheiro Civil', baseSalary: 12000, chargesPct: 80, foodCost: 800, transportCost: 400, housingCost: 0, quantity: 1 },
-        { id: 2, role: 'Mestre de Obras', baseSalary: 8000, chargesPct: 80, foodCost: 800, transportCost: 400, housingCost: 0, quantity: 2 },
-        { id: 3, role: 'Pedreiro', baseSalary: 3500, chargesPct: 80, foodCost: 800, transportCost: 200, housingCost: 0, quantity: 15 }
-    ];
-
-    // 7. Mock RDO Data (Realized) - Aligned with Financial Entries to avoid confusion
+    // 6. RDO Data
     const rdoSummary: Record<string, number> = {};
     financialEntries.forEach(fe => {
         fe.allocations.forEach(al => {
-            const groupName = budgetLines.find(b => b.code === al.budgetGroupCode)?.desc || 'Geral';
-            rdoSummary[groupName] = (rdoSummary[groupName] || 0) + al.value;
+            const b = budgetLines.find(x => x.code === al.budgetGroupCode);
+            const key = b ? b.desc : 'GERAL';
+            rdoSummary[key] = (rdoSummary[key] || 0) + al.value;
         });
     });
 
     const rdoData: RDOItem[] = Object.entries(rdoSummary).map(([group, value]) => ({
         id: faker.string.uuid(),
-        service: `RESUMO ${group}`,
+        service: `PRODUÇÃO ${group}`,
         group: group,
-        accumulatedValue: value, // Now matches the sum of NFs for that group
-        monthlyValue: value * 0.2,
+        accumulatedValue: value * 1.05, // Slightly more than financial for delta
+        monthlyValue: value * 0.1,
         date: new Date().toISOString(),
         status: 'concluido',
         isConstructionCost: true
     }));
 
-    // 8. Purchase Requests (Fluxo de Compras)
-    const purchaseStatuses = ['Aguardando Almoxarifado', 'Em Análise Engenharia', 'Aguardando Gerente', 'Aprovado', 'No TOTVS', 'Finalizado'] as const;
-    const priorities = ['Normal', 'Urgente'] as const;
-
-    const purchaseRequests = Array.from({ length: 25 }).map((_, i) => ({
+    // 7. Purchase Requests vinculados a códigos reais
+    const validCodes = budgetLines.filter(b => !b.isGroup).map(b => b.code);
+    const purchaseRequests = Array.from({ length: 30 }).map((_, i) => ({
         id: faker.string.uuid(),
-        requestId: `RPC-${2024000 + i}`,
-        description: `Aquisição de ${faker.commerce.productName()}`,
-        date: faker.date.recent({ days: 30 }).toISOString().split('T')[0],
+        requestId: `RPC-2026-${String(i + 1).padStart(3, '0')}`,
+        description: `SOLICITAÇÃO DE ${faker.commerce.productName()}`,
+        date: faker.date.between({ from: new Date(2026, 0, 1), to: new Date() }).toISOString().split('T')[0],
         requester: faker.person.fullName(),
-        priority: faker.helpers.arrayElement(priorities),
-        status: faker.helpers.arrayElement(purchaseStatuses),
-        budgetGroupCode: faker.helpers.arrayElement(['01.01.01', '01.01.02', '01.02.01', '02.01']),
+        priority: faker.helpers.arrayElement(['Normal', 'Urgente'] as const),
+        status: faker.helpers.arrayElement(['Aguardando Almoxarifado', 'Em Análise Engenharia', 'Aguardando Gerente', 'Aprovado'] as const),
+        budgetGroupCode: faker.helpers.arrayElement(validCodes),
         items: [
             {
                 id: faker.string.uuid(),
                 description: faker.commerce.productMaterial(),
-                quantityRequested: faker.number.int({ min: 10, max: 1000 }),
-                unit: faker.helpers.arrayElement(['UN', 'M3', 'KG', 'M']),
+                quantityRequested: faker.number.int({ min: 5, max: 200 }),
+                unit: faker.helpers.arrayElement(['UN', 'M3', 'KG', 'M', 'SC']),
                 observation: faker.lorem.sentence()
             }
         ],
-        history: []
+        history: [{ date: new Date().toISOString(), user: 'Sistema', action: 'Geração de Mock' }]
     }));
 
-    // 9. Visual Management Data (Gestão à Vista)
-    const visualConfig = {
-        towers: 4,
-        floors: 12,
-        aptsPerFloor: 8
-    };
+    // 8. Disbursement Forecast Mock
+    const disbursementForecast: Record<string, Record<string, number>> = {};
+    validCodes.forEach(code => {
+        disbursementForecast[code] = {};
+        for (let m = 1; m <= 12; m++) {
+            const monthStr = `2026-${String(m).padStart(2, '0')}`;
+            disbursementForecast[code][monthStr] = faker.number.int({ min: 1000, max: 50000 });
+        }
+    });
 
+    // 9. Visual Management
+    const visualConfig = { towers: 4, floors: 12, aptsPerFloor: 8 };
     const visualServices = [
         { id: 's1', name: 'Alvenaria', color: '#ef4444', order: 1 },
         { id: 's2', name: 'Reboco', color: '#f97316', order: 2 },
-        { id: 's3', name: 'Contrapiso', color: '#eab308', order: 3 },
-        { id: 's4', name: 'Cerâmica', color: '#22c55e', order: 4 },
-        { id: 's5', name: 'Pintura', color: '#3b82f6', order: 5 }
+        { id: 's3', name: 'Instalações', color: '#3b82f6', order: 3 },
+        { id: 's4', name: 'Acabamento', color: '#22c55e', order: 4 }
     ];
-
     const visualStatus: any = {};
     for (let t = 1; t <= visualConfig.towers; t++) {
-        for (let f = 0; f <= visualConfig.floors; f++) { // 0 = Térreo
+        for (let f = 0; f <= visualConfig.floors; f++) {
             for (let a = 1; a <= visualConfig.aptsPerFloor; a++) {
                 const unitId = `T${t}-F${f}-A${a}`;
                 visualStatus[unitId] = {};
                 visualServices.forEach(srv => {
-                    // Random status distribution based on service order (waterfall effect)
                     const rnd = Math.random();
-                    let status = 'pending';
-
-                    // Simulate progress: Lower services are improved
-                    const progressBias = (6 - srv.order) * 0.15; // Earlier services more likely done
-
-                    if (rnd < progressBias) status = 'completed';
-                    else if (rnd < progressBias + 0.2) status = 'started';
-
-                    visualStatus[unitId][srv.id] = status;
+                    visualStatus[unitId][srv.id] = rnd < 0.4 ? 'completed' : rnd < 0.7 ? 'started' : 'pending';
                 });
             }
         }
     }
-
-    const visualManagementData = {
-        config: visualConfig,
-        services: visualServices,
-        status: visualStatus,
-        towerNames: ['A', 'B', 'C', 'D']
-    };
 
     // Transaction to Clear & Fill
     try {
@@ -241,43 +225,46 @@ export async function generateMockData() {
                 db.budgetGroups, db.visualManagement, db.financialDocuments
             ],
             async () => {
+                await Promise.all([
+                    db.financialEntries.clear(),
+                    db.budget.clear(),
+                    db.contracts.clear(),
+                    db.orders.clear(),
+                    db.rhPremises.clear(),
+                    db.rdoData.clear(),
+                    db.masterPlanSheets.clear(),
+                    db.purchaseRequests.clear(),
+                    db.budgetGroups.clear(),
+                    db.visualManagement.clear(),
+                    db.financialDocuments.clear()
+                ]);
 
-                // Clear ALL tables to ensure no stale data remains
-                await db.financialEntries.clear();
-                await db.budget.clear();
-                await db.contracts.clear();
-                await db.orders.clear();
-                await db.rhPremises.clear();
-                await db.rdoData.clear();
-                await db.masterPlanSheets.clear();
-                await db.purchaseRequests.clear();
-                await db.budgetGroups.clear();
-                await db.visualManagement.clear();
-                await db.financialDocuments.clear();
-
-                // Bulk Add New Mock Data
-                await db.budget.bulkAdd(budgetLines);
-                await db.contracts.bulkAdd(contracts);
-                await db.orders.bulkAdd(orders);
-                await db.rhPremises.bulkAdd(rhPremises);
-                await db.rdoData.bulkAdd(rdoData);
-                await db.purchaseRequests.bulkAdd(purchaseRequests);
-                await db.visualManagement.put({ id: 'main', data: visualManagementData });
-
-                await db.table('financialEntries').bulkAdd(financialEntries).catch(err => console.warn("Table financialEntries might not exist", err));
-
-                // Save Tree to localStorage for simple persistence of the hierarchical view
-                localStorage.setItem('budgetTree', JSON.stringify(budgetTree));
+                await Promise.all([
+                    db.budget.bulkAdd(budgetLines),
+                    db.contracts.bulkAdd(contracts),
+                    db.orders.bulkAdd(orders),
+                    db.rhPremises.bulkAdd([
+                        { id: 1, role: 'ENGENHEIRO RESIDENTE', baseSalary: 15000, chargesPct: 80, foodCost: 1000, transportCost: 500, housingCost: 0, quantity: 1 },
+                        { id: 2, role: 'MESTRE GERAL', baseSalary: 9000, chargesPct: 80, foodCost: 1000, transportCost: 500, housingCost: 0, quantity: 2 }
+                    ]),
+                    db.rdoData.bulkAdd(rdoData),
+                    db.purchaseRequests.bulkAdd(purchaseRequests),
+                    db.budgetGroups.bulkAdd(budgetGroups),
+                    db.financialEntries.bulkAdd(financialEntries),
+                    db.visualManagement.put({ id: 'main', data: { config: visualConfig, services: visualServices, status: visualStatus, towerNames: ['T1', 'T2', 'T3', 'T4'] } }),
+                    db.meta.put({ key: 'disbursementForecast', value: disbursementForecast }),
+                    db.meta.put({ key: 'disbursementForecastStartMonth', value: '2026-01' })
+                ]);
 
                 await setLoaded(true);
             });
 
-        console.log("Mock data injected successfully!");
-        alert("Dados de teste gerados com sucesso! Recarregue a página.");
+        console.log("Mock data 2026 injected successfully!");
+        alert("Dados de teste 2026 gerados com sucesso!");
         window.location.reload();
 
     } catch (e) {
-        console.error("Error injecting mock data", e);
-        alert("Erro ao gerar dados: " + e);
+        console.error(e);
+        alert("Erro fatal: " + e);
     }
 }

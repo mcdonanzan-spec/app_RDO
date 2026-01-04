@@ -47,10 +47,8 @@ const addMonths = (yearMonth: string, months: number) => {
 
 export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
     const [closedMonth, setClosedMonth] = useState<string>(() => {
-        // If we have data in 2025 (mock data range), default to a month there for better demo
         const now = new Date();
         const year = now.getFullYear();
-        if (year >= 2026) return '2025-06';
         return `${year}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
     const [searchTerm, setSearchTerm] = useState('');
@@ -192,6 +190,27 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
         setExpandedNodes(next);
     };
 
+    const expandAll = () => {
+        const allIds = new Set<string>();
+        const traverse = (nodes: BudgetNode[]) => {
+            nodes.forEach(node => {
+                if (node.children.length > 0) {
+                    allIds.add(node.id);
+                    traverse(node.children);
+                }
+            });
+        };
+        traverse(budgetTree);
+        setExpandedNodes(allIds);
+    };
+
+    const collapseAll = () => {
+        setExpandedNodes(next => {
+            const empty = new Set<string>();
+            return empty;
+        });
+    };
+
     const renderRows = (nodes: BudgetNode[], level: number = 0): React.ReactNode[] => {
         let rows: React.ReactNode[] = [];
 
@@ -311,6 +330,24 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                            <button
+                                onClick={expandAll}
+                                title="Expandir todos os grupos"
+                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+                            >
+                                Expandir Tudo
+                            </button>
+                            <div className="w-px h-4 bg-slate-700 my-auto mx-1"></div>
+                            <button
+                                onClick={collapseAll}
+                                title="Recolher todos os grupos"
+                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+                            >
+                                Agrupar
+                            </button>
+                        </div>
+
                         <div className="relative group">
                             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={18} />
                             <select
@@ -347,7 +384,8 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                                     'TOTAL DESEMBOLSADO', 'COMPROMETIMENTO', 'REALIZADO + COMP.', '% CONSUMIDA', 'DIFERENÇA'
                                 ];
 
-                                const rows: any[] = [];
+                                // Prepare Data for aoa_to_sheet to handle types/formats better
+                                const data: any[][] = [headersOrder];
                                 const flatten = (nodes: BudgetNode[], level = 0) => {
                                     nodes.forEach(node => {
                                         const v = getNodeValues(node);
@@ -357,32 +395,58 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                                         const diff = v.budget - realPlusComp;
                                         const totalProjected = v.rmo + futureMonths.reduce((acc, m) => acc + (v.monthly[m] || 0), 0);
 
-                                        const row: any = {
-                                            'CÓDIGO': node.code,
-                                            'DESCRIÇÃO': '  '.repeat(level) + node.description,
-                                            'ORÇAMENTO (PREV. DESEMBOLSO)': v.budget,
-                                            'RDO (CONSOLIDADO)': v.rdoTotal,
-                                            'RMO (REALIZADO MÊS)': v.rmo
-                                        };
+                                        // Hierarchy Indicators
+                                        const prefix = node.children.length > 0 ? '➤ ' : '  ';
+                                        const desc = '  '.repeat(level) + prefix + node.description;
+
+                                        const rowArr: any[] = [
+                                            node.code,
+                                            desc,
+                                            v.budget,
+                                            v.rdoTotal,
+                                            v.rmo
+                                        ];
 
                                         futureMonths.forEach(m => {
-                                            row[getMonthLabel(m)] = v.monthly[m] || 0;
+                                            rowArr.push(v.monthly[m] || 0);
                                         });
 
-                                        row['TOTAL DESEMBOLSADO'] = totalProjected;
-                                        row['COMPROMETIMENTO'] = commitment;
-                                        row['REALIZADO + COMP.'] = realPlusComp;
-                                        row['% CONSUMIDA'] = (consumed * 100).toFixed(2) + '%';
-                                        row['DIFERENÇA'] = diff;
+                                        rowArr.push(totalProjected);
+                                        rowArr.push(commitment);
+                                        rowArr.push(realPlusComp);
+                                        rowArr.push(consumed);
+                                        rowArr.push(diff);
 
-                                        rows.push(row);
+                                        data.push(rowArr);
                                         if (node.children) flatten(node.children, level + 1);
                                     });
                                 };
                                 flatten(budgetTree);
 
                                 // Use json_to_sheet but we could use aoa_to_sheet for header ordering if needed
-                                const worksheet = XLSX.utils.json_to_sheet(rows, { header: headersOrder });
+                                const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+                                // Native Excel Formats (BRL and %)
+                                const currencyFormat = '"R$ "#,##0.00;[Red]"R$ "-#,##0.00';
+                                const percentFormat = '0.00%';
+
+                                const range = XLSX.utils.decode_range(worksheet['!ref']!);
+                                for (let R = range.s.r; R <= range.e.r; ++R) {
+                                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                                        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+                                        if (!worksheet[cellRef] || R === 0) continue;
+
+                                        const isCurrencyCol = (C >= 2 && C <= 4) || (C >= (range.e.c - 4) && C !== (range.e.c - 1)) || (C > 4 && C < (range.e.c - 4));
+                                        const isPercentCol = C === (range.e.c - 1);
+
+                                        if (isCurrencyCol && typeof worksheet[cellRef].v === 'number') {
+                                            worksheet[cellRef].z = currencyFormat;
+                                        }
+                                        if (isPercentCol && typeof worksheet[cellRef].v === 'number') {
+                                            worksheet[cellRef].z = percentFormat;
+                                        }
+                                    }
+                                }
                                 worksheet['!cols'] = [
                                     { wch: 15 }, { wch: 45 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
                                     ...futureMonths.map(() => ({ wch: 15 })),
@@ -391,12 +455,12 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
 
                                 const workbook = XLSX.utils.book_new();
                                 XLSX.utils.book_append_sheet(workbook, worksheet, "Fluxo de Caixa");
-                                XLSX.writeFile(workbook, `Acompanhamento_Financeiro_${new Date().toISOString().split('T')[0]}.xlsx`);
+                                XLSX.writeFile(workbook, `Mapa_Fluxo_Caixa_${new Date().toISOString().split('T')[0]}.xlsx`);
                             }}
-                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold transition-all border border-slate-700 active:scale-95 shadow-lg"
+                            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg active:scale-95 group"
                         >
-                            <Download size={18} />
-                            <span>Exportar Excel</span>
+                            <Download size={18} className="group-hover:bounce-subtle" />
+                            <span>Exportar Excel Pro</span>
                         </button>
                     </div>
                 </div>

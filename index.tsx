@@ -11,6 +11,8 @@ import { PurchaseFlowView } from './src/views/PurchaseFlowView';
 import { BudgetControlView } from './src/views/BudgetControlView';
 import { IntelligenceView } from './src/views/IntelligenceView';
 import { AnalyticalCashFlowView } from './src/views/AnalyticalCashFlowView';
+import { DisbursementForecastView } from './src/views/DisbursementForecastView';
+import { SystemBlueprintView } from './src/views/SystemBlueprintView';
 
 import { ApiService } from './src/services/api';
 import { initializeVisualManagementDefaults } from './src/services/db';
@@ -64,6 +66,8 @@ const App = () => {
       case 'visual_management': return <VisualManagementView appData={appData} />;
       case 'intelligence': return <IntelligenceView appData={appData} />;
       case 'analytical_cash_flow': return <AnalyticalCashFlowView appData={appData} />;
+      case 'disbursement_forecast': return <DisbursementForecastView appData={appData} onUpdate={handleDataLoaded} />;
+      case 'system_summary': return <SystemBlueprintView />;
 
       // Fallback
       default: return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;

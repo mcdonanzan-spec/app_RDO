@@ -5,7 +5,8 @@ import {
     Building2,
     Settings,
     BrainCircuit,
-    Table as TableIcon
+    Table as TableIcon,
+    TrendingUp
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -20,8 +21,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isM
         { id: 'purchase_flow', label: 'Fluxo de Compras', icon: <ShoppingCart size={20} />, section: 'SUPPLY CHAIN' },
         { id: 'budget_control', label: 'Controle Orçamentário', icon: <CircleDollarSign size={20} />, section: 'FINANCEIRO' },
         { id: 'analytical_cash_flow', label: 'Fluxo de Caixa Analítico', icon: <TableIcon size={20} />, section: 'FINANCEIRO' },
+        { id: 'disbursement_forecast', label: 'Previsão de Desembolso', icon: <TrendingUp size={20} />, section: 'FINANCEIRO' },
         { id: 'visual_management', label: 'Gestão à Vista', icon: <Building2 size={20} />, section: 'PRODUÇÃO' },
         { id: 'intelligence', label: 'IA Estratégica', icon: <BrainCircuit size={20} />, section: 'ANÁLISE' },
+        { id: 'system_summary', label: 'Guia do Sistema', icon: <Settings size={20} />, section: 'CONFIG' },
     ];
 
     const groupedMenu = menuItems.reduce((acc, item) => {
