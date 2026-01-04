@@ -12,10 +12,15 @@ import {
     RefreshCw,
     TrendingUp,
     LayoutGrid,
-    Edit3,
+    CheckCircle2,
+    Filter,
+    EyeOff,
+    AlertTriangle,
+    SortDesc,
+    ArrowUpDown,
     AlertCircle,
     ArrowRightLeft,
-    CheckCircle2
+    Edit3
 } from 'lucide-react';
 
 interface Props {
@@ -42,6 +47,69 @@ const addMonths = (yearMonth: string, months: number) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 };
 
+const EditableCurrencyCell: React.FC<{
+    value: number;
+    onChange: (val: number) => void;
+    className?: string;
+    placeholder?: string;
+    colorClass?: string;
+    isGroup?: boolean;
+}> = ({ value = 0, onChange, className, placeholder = '-', colorClass = "text-slate-700", isGroup = false }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const safeValue = typeof value === 'number' ? value : 0;
+    const [tempValue, setTempValue] = useState<string>(safeValue === 0 ? '' : safeValue.toString());
+
+    useEffect(() => {
+        if (!isEditing) {
+            setTempValue(safeValue === 0 ? '' : safeValue.toString());
+        }
+    }, [safeValue, isEditing]);
+
+    if (isGroup) {
+        return (
+            <div className={`text-right text-xs font-bold font-mono pr-2 ${colorClass}`}>
+                {value > 0 ? formatCurrency(value) : placeholder}
+            </div>
+        );
+    }
+
+    if (isEditing) {
+        return (
+            <input
+                type="number"
+                autoFocus
+                className={`w-full bg-white border-2 border-yellow-400 rounded-lg px-2 py-1 text-right text-sm font-mono outline-none shadow-lg z-50 ${className}`}
+                value={tempValue}
+                onChange={(e) => setTempValue(e.target.value)}
+                onBlur={() => {
+                    setIsEditing(false);
+                    onChange(parseFloat(tempValue) || 0);
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        setIsEditing(false);
+                        onChange(parseFloat(tempValue) || 0);
+                    }
+                    if (e.key === 'Escape') {
+                        setIsEditing(false);
+                        setTempValue(value === 0 ? '' : value.toString());
+                    }
+                }}
+            />
+        );
+    }
+
+    return (
+        <div
+            onClick={() => setIsEditing(true)}
+            className={`group/cell cursor-pointer text-right text-sm font-mono py-1.5 px-3 hover:bg-white hover:ring-1 hover:ring-yellow-400/30 rounded-lg transition-all border border-transparent ${colorClass} ${safeValue === 0 ? 'text-slate-300' : ''}`}
+        >
+            <span className="opacity-0 group-hover/cell:opacity-40 transition-opacity mr-1 text-[10px]">✎</span>
+            {safeValue !== 0 ? formatCurrency(safeValue) : <span className="opacity-40 px-2 font-sans">{placeholder}</span>}
+        </div>
+    );
+};
+
 export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate }) => {
     const [startingMonth, setStartingMonth] = useState<string>(() => {
         const now = new Date();
@@ -53,6 +121,10 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
     const [forecastData, setForecastData] = useState<Record<string, Record<string, number>>>({}); // code -> { month: value }
     const [budgetOverrides, setBudgetOverrides] = useState<Record<string, number>>({}); // code -> budget value
     const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({}); // code -> description
+    const [projectionLength, setProjectionLength] = useState<number>(18);
+    const [analysisFilter, setAnalysisFilter] = useState<'ALL' | 'OVER' | 'UNDER'>('ALL');
+    const [hideEmpty, setHideEmpty] = useState(false);
+    const [sortBy, setSortBy] = useState<'CODE' | 'VARIANCE'>('CODE');
     const [isLoading, setIsLoading] = useState(true);
 
     // Load forecast from DB
@@ -77,6 +149,10 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                 if (savedDescOverrides) {
                     setDescriptionOverrides(savedDescOverrides.value);
                 }
+                const savedProjectionLength = await db.meta.get('disbursementForecastProjectionLength');
+                if (savedProjectionLength) {
+                    setProjectionLength(savedProjectionLength.value);
+                }
             } catch (err) {
                 console.error("Failed to load forecast", err);
             } finally {
@@ -93,6 +169,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             await db.meta.put({ key: 'disbursementForecastStartMonth', value: startingMonth });
             await db.meta.put({ key: 'disbursementBudgetOverrides', value: budgetOverrides });
             await db.meta.put({ key: 'disbursementDescOverrides', value: descriptionOverrides });
+            await db.meta.put({ key: 'disbursementForecastProjectionLength', value: projectionLength });
             alert("✅ Previsão de desembolso e definições salvas com sucesso!");
         } catch (err) {
             console.error("Failed to save forecast", err);
@@ -100,10 +177,10 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         }
     };
 
-    // Generate 12 months from starting month
+    // Generate months from starting month based on projection length
     const months = useMemo(() => {
-        return Array.from({ length: 18 }, (_, i) => addMonths(startingMonth, i));
-    }, [startingMonth]);
+        return Array.from({ length: projectionLength }, (_, i) => addMonths(startingMonth, i));
+    }, [startingMonth, projectionLength]);
 
     // Build budget tree
     const budgetTree = useMemo(() => {
@@ -232,13 +309,56 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         setExpandedNodes(new Set());
     };
 
+    // Helper to determine if a node (or any of its descendants) match the current filters
+    const matchesFilters = (node: BudgetNode): boolean => {
+        const { total } = getNodeForecast(node);
+        const budget = budgetOverrides[node.code] !== undefined ? budgetOverrides[node.code] : (node.budgetInitial || 0);
+
+        // Search term check
+        const matchesSearch = !searchTerm ||
+            node.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            node.code.includes(searchTerm);
+
+        // Empty check
+        const isEmpty = total === 0 && budget === 0;
+        if (hideEmpty && isEmpty) return false;
+
+        // Status check
+        const isOver = total > budget + 0.01;
+        const isUnder = total <= budget && (total > 0 || budget > 0);
+
+        let statusMatch = true;
+        if (analysisFilter === 'OVER') statusMatch = isOver;
+        if (analysisFilter === 'UNDER') statusMatch = isUnder;
+
+        // If current node matches everything, return true
+        if (matchesSearch && statusMatch) return true;
+
+        // Or if ANY child matches everything
+        return node.children.some(child => matchesFilters(child));
+    };
+
     const renderRows = (nodes: BudgetNode[], level: number = 0): React.ReactNode[] => {
         let rows: React.ReactNode[] = [];
 
-        nodes.forEach(node => {
-            if (searchTerm && !node.description.toLowerCase().includes(searchTerm.toLowerCase()) && !node.code.includes(searchTerm)) {
-                return;
+        // Apply sorting
+        const sortedNodes = [...nodes].sort((a, b) => {
+            if (sortBy === 'VARIANCE') {
+                const { total: totalA } = getNodeForecast(a);
+                const budgetA = budgetOverrides[a.code] !== undefined ? budgetOverrides[a.code] : (a.budgetInitial || 0);
+                const diffA = budgetA - totalA;
+
+                const { total: totalB } = getNodeForecast(b);
+                const budgetB = budgetOverrides[b.code] !== undefined ? budgetOverrides[b.code] : (b.budgetInitial || 0);
+                const diffB = budgetB - totalB;
+
+                return diffA - diffB; // Ascending variance (most negative/overflow first)
             }
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+        });
+
+        sortedNodes.forEach(node => {
+            if (!matchesFilters(node)) return;
 
             const isExpanded = expandedNodes.has(node.id);
             const { monthly, total } = getNodeForecast(node);
@@ -267,38 +387,24 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             onChange={(e) => setDescriptionOverrides(prev => ({ ...prev, [node.code]: e.target.value }))}
                         />
                     </td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-blue-700 bg-blue-50/20">
-                        <div className="relative group/budget">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 font-bold opacity-0 group-hover/budget:opacity-100 transition-opacity">R$</span>
-                            <input
-                                type="number"
-                                className="w-full bg-transparent text-right border-b border-transparent hover:border-blue-200 focus:border-blue-400 outline-none transition-all placeholder-blue-300"
-                                value={budget || ''}
-                                placeholder="0"
-                                onChange={(e) => setBudgetOverrides(prev => ({ ...prev, [node.code]: parseFloat(e.target.value) || 0 }))}
-                            />
-                        </div>
+                    <td className="px-4 py-3 bg-blue-50/20 text-right">
+                        <EditableCurrencyCell
+                            value={budget}
+                            onChange={(val) => setBudgetOverrides(prev => ({ ...prev, [node.code]: val }))}
+                            colorClass="text-blue-700 font-bold"
+                            isGroup={node.children.length > 0}
+                        />
                     </td>
 
                     {/* Monthly Forecast Cells */}
                     {months.map(m => (
                         <td key={m} className={`px-2 py-2 min-w-[140px] ${node.children.length > 0 ? 'bg-slate-50/30' : ''}`}>
-                            {node.children.length > 0 ? (
-                                <div className="text-right text-xs font-semibold text-slate-600 pr-2">
-                                    {monthly[m] > 0 ? formatCurrency(monthly[m]) : '-'}
-                                </div>
-                            ) : (
-                                <div className="relative group/input">
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold opacity-0 group-hover/input:opacity-100 transition-opacity">R$</span>
-                                    <input
-                                        type="number"
-                                        className="w-full bg-transparent hover:bg-white border-transparent hover:border-slate-200 focus:bg-white focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 rounded px-2 py-1 text-right text-sm font-mono transition-all outline-none"
-                                        value={forecastData[node.code]?.[m] || ''}
-                                        placeholder="-"
-                                        onChange={(e) => handleCellChange(node.code, m, parseFloat(e.target.value) || 0)}
-                                    />
-                                </div>
-                            )}
+                            <EditableCurrencyCell
+                                value={node.children.length > 0 ? monthly[m] : (forecastData[node.code]?.[m] || 0)}
+                                onChange={(val) => handleCellChange(node.code, m, val)}
+                                isGroup={node.children.length > 0}
+                                colorClass={node.children.length > 0 ? "text-slate-600" : "text-slate-800"}
+                            />
                         </td>
                     ))}
 
@@ -374,20 +480,30 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             </button>
                         </div>
 
-                        <div className="relative group">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={18} />
-                            <select
-                                value={startingMonth}
-                                onChange={(e) => setStartingMonth(e.target.value)}
-                                className="bg-slate-800/50 border border-slate-700 text-white pl-10 pr-10 py-3 rounded-xl text-sm focus:ring-2 focus:ring-yellow-400 outline-none transition-all appearance-none backdrop-blur-sm"
-                            >
-                                {Array.from({ length: 24 }, (_, i) => {
-                                    const d = new Date(2025, i, 1);
-                                    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                                    return <option key={val} value={val}>Início em: {getMonthLabel(val)}</option>;
-                                })}
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                        <div className="flex items-center gap-3 bg-slate-800/50 rounded-xl p-1 border border-slate-700 backdrop-blur-sm">
+                            <div className="relative group px-1">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={16} />
+                                <input
+                                    type="month"
+                                    value={startingMonth}
+                                    onChange={(e) => setStartingMonth(e.target.value)}
+                                    className="bg-transparent text-white pl-10 pr-4 py-2 text-sm focus:outline-none transition-all font-bold min-w-[170px]"
+                                    title="Mês de Início"
+                                />
+                            </div>
+                            <div className="w-px h-6 bg-slate-700"></div>
+                            <div className="flex items-center gap-3 px-3 py-2">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Projetar</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="60"
+                                    value={projectionLength}
+                                    onChange={(e) => setProjectionLength(parseInt(e.target.value) || 1)}
+                                    className="w-16 bg-slate-700/50 border border-slate-600 text-white px-2 py-1 rounded text-center text-sm font-black focus:ring-2 focus:ring-yellow-400/50 outline-none transition-all"
+                                />
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Meses</span>
+                            </div>
                         </div>
 
                         <div className="flex items-center bg-slate-800/50 rounded-xl p-1 border border-slate-700 backdrop-blur-sm">
@@ -488,25 +604,73 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             {/* Main Table Content */}
             <div className="flex-1 overflow-auto bg-slate-100 p-6">
                 <div className="bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-200 overflow-hidden">
-                    <div className="px-8 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                        <div className="relative w-96">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Filtrar por código ou descrição..."
-                                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-yellow-400/20 focus:border-yellow-400 outline-none transition-all"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                <span>Orçamento</span>
+                    <div className="px-8 py-6 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-6">
+                        <div className="flex items-center gap-4 flex-1 min-w-[300px]">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input
+                                    type="text"
+                                    placeholder="Filtrar por código ou descrição..."
+                                    className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-yellow-400/20 focus:border-yellow-400 outline-none transition-all"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                                <span>Projeção (Editável)</span>
+
+                            <div className="flex bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                                <button
+                                    onClick={() => setAnalysisFilter('ALL')}
+                                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${analysisFilter === 'ALL' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                                >
+                                    Todos
+                                </button>
+                                <button
+                                    onClick={() => setAnalysisFilter('OVER')}
+                                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center gap-1.5 ${analysisFilter === 'OVER' ? 'bg-red-600 text-white shadow-md' : 'text-red-500/60 hover:text-red-600 hover:bg-red-50'}`}
+                                >
+                                    <AlertTriangle size={12} />
+                                    Estouros
+                                </button>
+                                <button
+                                    onClick={() => setAnalysisFilter('UNDER')}
+                                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all flex items-center gap-1.5 ${analysisFilter === 'UNDER' ? 'bg-emerald-600 text-white shadow-md' : 'text-emerald-500/60 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                                >
+                                    <CheckCircle2 size={12} />
+                                    Ok
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={() => setHideEmpty(!hideEmpty)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${hideEmpty ? 'bg-indigo-50 border-indigo-200 text-indigo-600' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                title="Ocultar linhas que não possuem orçamento nem projeção"
+                            >
+                                <EyeOff size={14} />
+                                {hideEmpty ? 'Mostrando Relevantes' : 'Ocultar Vazios'}
+                            </button>
+
+                            <button
+                                onClick={() => setSortBy(sortBy === 'CODE' ? 'VARIANCE' : 'CODE')}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${sortBy === 'VARIANCE' ? 'bg-orange-50 border-orange-200 text-orange-600 shadow-sm' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                                title="Ordenar por variação (maiores estouros primeiro)"
+                            >
+                                <SortDesc size={14} />
+                                {sortBy === 'VARIANCE' ? 'Ordenado por Estouro' : 'Ordenar por Estouro'}
+                            </button>
+
+                            <div className="w-px h-6 bg-slate-200"></div>
+
+                            <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                    <span className="uppercase tracking-tighter">Budget</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
+                                    <span className="uppercase tracking-tighter">Projeção</span>
+                                </div>
                             </div>
                         </div>
                     </div>

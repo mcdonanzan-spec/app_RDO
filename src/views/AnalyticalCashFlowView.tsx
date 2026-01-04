@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { AppData, BudgetNode, FinancialEntry, Installment } from '../../types';
 import {
@@ -43,6 +43,69 @@ const addMonths = (yearMonth: string, months: number) => {
     const [y, m] = yearMonth.split('-').map(Number);
     const d = new Date(y, m - 1 + months, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const EditableCurrencyCell: React.FC<{
+    value: number;
+    onChange: (val: number) => void;
+    className?: string;
+    placeholder?: string;
+    colorClass?: string;
+    isGroup?: boolean;
+}> = ({ value = 0, onChange, className, placeholder = '-', colorClass = "text-slate-700", isGroup = false }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const safeValue = typeof value === 'number' ? value : 0;
+    const [tempValue, setTempValue] = useState<string>(safeValue === 0 ? '' : safeValue.toString());
+
+    useEffect(() => {
+        if (!isEditing) {
+            setTempValue(safeValue === 0 ? '' : safeValue.toString());
+        }
+    }, [safeValue, isEditing]);
+
+    if (isGroup) {
+        return (
+            <div className={`text-right text-[11px] font-bold font-mono pr-2 ${colorClass}`}>
+                {safeValue > 0 ? formatCurrency(safeValue) : <span className="opacity-30">{placeholder}</span>}
+            </div>
+        );
+    }
+
+    if (isEditing) {
+        return (
+            <input
+                type="number"
+                autoFocus
+                className={`w-full bg-white border-2 border-yellow-400 rounded-lg px-2 py-1 text-right text-sm font-mono outline-none shadow-lg z-50 ${className}`}
+                value={tempValue}
+                onChange={(e) => setTempValue(e.target.value)}
+                onBlur={() => {
+                    setIsEditing(false);
+                    onChange(parseFloat(tempValue) || 0);
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                        setIsEditing(false);
+                        onChange(parseFloat(tempValue) || 0);
+                    }
+                    if (e.key === 'Escape') {
+                        setIsEditing(false);
+                        setTempValue(safeValue === 0 ? '' : safeValue.toString());
+                    }
+                }}
+            />
+        );
+    }
+
+    return (
+        <div
+            onClick={() => setIsEditing(true)}
+            className={`group/cell cursor-pointer text-right text-xs font-mono py-1.5 px-3 hover:bg-white hover:ring-1 hover:ring-yellow-400/30 rounded-lg transition-all border border-transparent ${colorClass} ${safeValue === 0 ? 'text-slate-300' : ''}`}
+        >
+            <span className="opacity-0 group-hover/cell:opacity-40 transition-opacity mr-1 text-[10px]">✎</span>
+            {safeValue !== 0 ? formatCurrency(safeValue) : <span className="opacity-40 px-2 font-sans">{placeholder}</span>}
+        </div>
+    );
 };
 
 export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
@@ -264,17 +327,14 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                         {formatCurrency(values.rmo + (Object.values(values.monthly) as number[]).reduce((a, b) => a + b, 0))}
                     </td>
 
-                    <td className="px-2 py-2 text-sm text-right min-w-[140px]">
-                        <div className="relative group/input">
-                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">R$</span>
-                            <input
-                                type="number"
-                                className="w-full bg-white border border-slate-200 rounded-lg pl-7 pr-2 py-1.5 text-right text-xs font-semibold focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400 focus:outline-none transition-all shadow-sm group-hover/input:border-slate-300"
-                                placeholder="0,00"
-                                value={commitmentValues[node.code] || ''}
-                                onChange={(e) => setCommitmentValues(prev => ({ ...prev, [node.code]: parseFloat(e.target.value) || 0 }))}
-                            />
-                        </div>
+                    <td className="px-2 py-2 text-right min-w-[140px]">
+                        <EditableCurrencyCell
+                            value={commitment}
+                            onChange={(val) => setCommitmentValues(prev => ({ ...prev, [node.code]: val }))}
+                            isGroup={node.type === 'GROUP'}
+                            colorClass="text-slate-700 font-bold"
+                            placeholder="0,00"
+                        />
                     </td>
 
                     <td className="px-4 py-3 text-sm text-right font-semibold bg-emerald-50/30 text-emerald-800">
