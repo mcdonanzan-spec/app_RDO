@@ -278,6 +278,7 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
                                 ))}
                             </div>
 
+                            {/* --- BARS AND DATA POINTS --- */}
                             {analysis.months.map((month, idx) => {
                                 const std = analysis.standardCurve[idx];
                                 const real = analysis.realizedCurve[idx];
@@ -286,48 +287,114 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
                                 const isCurrent = idx === analysis.currentMonthIndex;
 
                                 return (
-                                    <div key={idx} className="flex-1 flex flex-col justify-end items-center h-full gap-1 relative group z-10">
-                                        {/* Barra Padrão */}
+                                    <div key={idx} className="flex-1 flex flex-col justify-end items-center h-full gap-1 relative z-10 group">
+                                        {/* Barra Padrão (Chunky) */}
                                         <div
-                                            className="w-2 rounded-t-sm absolute bottom-0"
+                                            className="w-2 rounded-t-sm absolute bottom-0 opacity-40 shadow-sm"
                                             style={{ height: `${std}%`, backgroundColor: colors.standard }}
                                             title={`Padrão: ${std}%`}
                                         ></div>
 
-                                        {/* Barra Histórica (Snapshot) */}
-                                        {selectedSnapshot && hist !== undefined && hist !== null && (
-                                            <div
-                                                className="w-5 bg-orange-400/30 border-t-2 border-orange-500 absolute bottom-0 z-0"
-                                                style={{ height: `${hist}%` }}
-                                                title={`Histórico (${selectedSnapshot.description}): ${hist}%`}
-                                            ></div>
-                                        )}
-
-                                        {/* Barra Realizada */}
+                                        {/* Barra Realizada (Chunky) */}
                                         {real !== null && (
                                             <div
-                                                className="w-4 rounded-t-sm z-10 transition-all duration-500"
+                                                className="w-4 rounded-t-sm z-10 shadow-md transition-all duration-500"
                                                 style={{ height: `${real}%`, backgroundColor: colors.realized }}
                                                 title={`Realizado: ${real}%`}
                                             ></div>
                                         )}
 
-                                        {/* Ponto Projetado */}
-                                        {proj !== null && idx >= analysis.currentMonthIndex && (
+                                        {/* Barra Histórica (Snapshot) */}
+                                        {selectedSnapshot && hist !== undefined && hist !== null && (
                                             <div
-                                                className="w-3 h-3 rounded-full border-2 border-white absolute shadow-sm transition-all group-hover:scale-150 z-20"
+                                                className="w-6 bg-orange-400/20 border-t border-orange-500 absolute bottom-0 z-0"
+                                                style={{ height: `${hist}%` }}
+                                            ></div>
+                                        )}
+
+                                        {/* INDICADOR DE PROJEÇÃO (Somente meses futuros) */}
+                                        {idx >= analysis.currentMonthIndex && proj !== null && (
+                                            <div
+                                                className="w-3 h-3 rounded-full border-2 border-white absolute z-20 shadow-md group-hover:scale-150 transition-transform"
                                                 style={{ bottom: `calc(${proj}% - 6px)`, backgroundColor: colors.projected }}
-                                                title={`Projeção: ${proj}%`}
                                             ></div>
                                         )}
 
                                         {/* Label Mes */}
-                                        <div className={`absolute -bottom-8 text-xs font-medium ${isCurrent ? 'text-blue-700 font-bold bg-blue-50 px-2 py-1 rounded' : 'text-slate-500'}`}>
+                                        <div className={`absolute -bottom-8 text-[10px] font-bold tracking-tighter ${isCurrent ? 'text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200' : 'text-slate-400'}`}>
                                             {month}
                                         </div>
                                     </div>
                                 );
                             })}
+
+                            {/* --- SVG S-CURVE LINES OVERLAY --- */}
+                            <div className="absolute inset-0 top-8 bottom-6 px-4 pointer-events-none z-30">
+                                <svg className="w-full h-full overflow-visible" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+                                    <defs>
+                                        <linearGradient id="grad-realized" x1="0%" y1="0%" x2="0%" y2="100%">
+                                            <stop offset="0%" stopColor={colors.realized} stopOpacity="0.15" />
+                                            <stop offset="100%" stopColor={colors.realized} stopOpacity="0" />
+                                        </linearGradient>
+                                    </defs>
+                                    {(() => {
+                                        const numPoints = analysis.months.length;
+                                        // Unitless coordinates for viewBox="0 0 1000 1000"
+                                        const getX = (idx: number) => ((idx + 0.5) / (numPoints || 1)) * 1000;
+                                        const getY = (val: number) => 1000 - ((val || 0) * 10); // 0-100% mapped to 0-1000
+
+                                        // 1. Standard Path
+                                        const stdPath = analysis.standardCurve.map((v, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(v || 0)}`).join(' ');
+
+                                        // 2. Realized Path
+                                        const realizedPoints = analysis.realizedCurve
+                                            .map((v, i) => v !== null ? { x: getX(i), y: getY(v), idx: i } : null)
+                                            .filter((p): p is { x: number, y: number, idx: number } => p !== null);
+                                        const realPath = realizedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+                                        // 3. Projected Path
+                                        let projPath = "";
+                                        let lastRealIdx = -1;
+                                        for (let i = analysis.realizedCurve.length - 1; i >= 0; i--) {
+                                            if (analysis.realizedCurve[i] !== null) {
+                                                lastRealIdx = i;
+                                                break;
+                                            }
+                                        }
+
+                                        const projectedPoints = analysis.projectedCurve
+                                            .map((v, i) => v !== null ? { x: getX(i), y: getY(v) } : null)
+                                            .filter((p): p is { x: number, y: number } => p !== null);
+
+                                        if (lastRealIdx !== -1 && projectedPoints.length > 0) {
+                                            projPath = `M ${getX(lastRealIdx)} ${getY(analysis.realizedCurve[lastRealIdx]!)} ` + projectedPoints.map(p => `L ${p.x} ${p.y}`).join(' ');
+                                        } else if (projectedPoints.length > 0) {
+                                            projPath = projectedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+                                        }
+
+                                        return (
+                                            <>
+                                                {/* Area Gradient below Realized */}
+                                                {realPath && (
+                                                    <path
+                                                        d={`${realPath} L ${realizedPoints[realizedPoints.length - 1].x} 1000 L ${realizedPoints[0].x} 1000 Z`}
+                                                        fill="url(#grad-realized)"
+                                                    />
+                                                )}
+
+                                                {/* Baseline Line */}
+                                                <path d={stdPath} fill="none" stroke={colors.standard} strokeWidth="6" strokeDasharray="15 10" className="opacity-40" />
+
+                                                {/* Realized Line (Blue) */}
+                                                {realPath && <path d={realPath} fill="none" stroke={colors.realized} strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" />}
+
+                                                {/* Projected Line (Purple) */}
+                                                {projPath && <path d={projPath} fill="none" stroke={colors.projected} strokeWidth="12" strokeDasharray="20 15" strokeLinecap="round" strokeLinejoin="round" />}
+                                            </>
+                                        );
+                                    })()}
+                                </svg>
+                            </div>
                         </div>
                     </div>
                 </section>
