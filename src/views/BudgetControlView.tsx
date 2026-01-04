@@ -463,9 +463,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion }: { tree:
                                     ExcelService.exportBudget(tree);
                                 });
                             }}
-                            className="flex items-center gap-2 bg-slate-100 text-slate-600 border border-slate-300 px-3 py-1.5 rounded text-xs font-bold hover:bg-slate-200 transition-colors uppercase mr-2"
+                            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-xs font-bold transition-all shadow-lg active:scale-95 group mr-2"
                         >
-                            <Download size={14} /> Exportar Excel
+                            <Download size={16} className="group-hover:bounce-subtle" /> Exportar Excel Pro
                         </button>
 
                         {/* VERSIONING BUTTON */}
@@ -1304,9 +1304,9 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                         <button
                             onClick={handleExport}
                             disabled={filteredEntries.length === 0}
-                            className={`flex items-center gap-2 px-4 py-2 border rounded text-xs font-bold uppercase transition-colors ${selectedIds.size > 0 ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold uppercase transition-all shadow-lg active:scale-95 group ${selectedIds.size > 0 ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}
                         >
-                            <Download size={16} /> {selectedIds.size > 0 ? 'Exportar Seleção' : 'Exportar Lista'}
+                            <Download size={18} className="group-hover:bounce-subtle" /> {selectedIds.size > 0 ? 'Exportar Seleção' : 'Exportar Excel Pro'}
                         </button>
                     </div>
                 </div>
@@ -1488,16 +1488,16 @@ const AnalysisDashboardTab = ({ tree, entries }: { tree: BudgetNode[], entries: 
                         <h3 className="text-indigo-100 uppercase text-xs font-bold mb-2">Relatórios Consolidados</h3>
                         <p className="text-white text-sm opacity-90">Gere relatórios detalhados em formato Excel de toda a movimentação financeira e estrutura orçamentária.</p>
                     </div>
-                    <div className="flex gap-2 mt-4">
+                    <div className="flex gap-3 mt-4">
                         <button
                             onClick={() => {
                                 import('../services/excelService').then(({ ExcelService }) => {
                                     ExcelService.exportFinancialEntries(entries);
                                 });
                             }}
-                            className="flex-1 bg-white text-indigo-700 px-4 py-2 rounded font-bold uppercase text-[10px] hover:bg-indigo-50 shadow-sm flex items-center justify-center gap-2"
+                            className="flex-1 bg-emerald-600 text-white px-4 py-3 rounded-lg font-bold uppercase text-[10px] hover:bg-emerald-700 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 group"
                         >
-                            <Download size={14} /> Exportar Financeiro
+                            <Download size={18} className="group-hover:bounce-subtle" /> Exportar Financeiro Pro
                         </button>
                         <button
                             onClick={() => {
@@ -1505,20 +1505,64 @@ const AnalysisDashboardTab = ({ tree, entries }: { tree: BudgetNode[], entries: 
                                     ExcelService.exportBudget(tree);
                                 });
                             }}
-                            className="flex-1 bg-indigo-500 text-white px-4 py-2 rounded font-bold uppercase text-[10px] hover:bg-indigo-400 shadow-sm border border-indigo-400 flex items-center justify-center gap-2"
+                            className="flex-1 bg-emerald-500 text-white px-4 py-3 rounded-lg font-bold uppercase text-[10px] hover:bg-emerald-600 shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 group border border-emerald-400"
                         >
-                            <Download size={14} /> Exportar Orçamento
+                            <Download size={18} className="group-hover:bounce-subtle" /> Exportar Orçamento Pro
                         </button>
                     </div>
                 </div>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 mb-6 overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50">
+                {/* Visual Update 1.1 - Standardized Analytics */}
+                <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                     <h3 className="font-bold text-slate-700 uppercase text-sm">Fluxo de Caixa Projetado (Desembolso)</h3>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Previsão Próximos 6 Meses</span>
                 </div>
-                <div className="p-8 flex items-center justify-center text-slate-400 italic">
-                    <BarChart className="mr-2" size={24} /> Gráfico de Barras: Vencimentos Jan/Fev/Mar (Mock)
+                <div className="p-8">
+                    {(() => {
+                        const monthsToForecast = 6;
+                        const data: { label: string, value: number }[] = [];
+                        const now = new Date();
+
+                        for (let i = 0; i < monthsToForecast; i++) {
+                            const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+                            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                            const label = d.toLocaleString('pt-BR', { month: 'short' }).toUpperCase();
+
+                            let total = 0;
+                            entries.forEach(entry => {
+                                entry.installments?.forEach(inst => {
+                                    if (inst.dueDate.startsWith(monthKey)) {
+                                        total += inst.value;
+                                    }
+                                });
+                            });
+                            data.push({ label, value: total });
+                        }
+
+                        const maxValue = Math.max(...data.map(d => d.value), 1000);
+
+                        return (
+                            <div className="flex items-end justify-between h-48 gap-4 px-4">
+                                {data.map((item, idx) => (
+                                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                                        <div className="relative w-full flex justify-center">
+                                            <div
+                                                className="w-full max-w-[60px] bg-indigo-500 rounded-t-lg transition-all duration-700 ease-out group-hover:bg-indigo-600 group-hover:shadow-lg group-hover:shadow-indigo-100 relative"
+                                                style={{ height: `${(item.value / maxValue) * 160}px` }}
+                                            >
+                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] font-bold py-1 px-2 rounded whitespace-nowrap z-10">
+                                                    {item.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="text-[10px] font-bold text-slate-500">{item.label}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         </div>

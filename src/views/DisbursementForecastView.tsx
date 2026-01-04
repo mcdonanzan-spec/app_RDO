@@ -543,9 +543,9 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 XLSX.utils.book_append_sheet(wb, ws, "Previsão");
                                 XLSX.writeFile(wb, `Previsao_Desembolso_${startingMonth}.xlsx`);
                             }}
-                            className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-lg group"
+                            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold transition-all shadow-lg active:scale-95 group"
                         >
-                            <Download size={20} />
+                            <Download size={18} className="group-hover:bounce-subtle" /> Exportar Excel Pro
                         </button>
                     </div>
                 </div>
