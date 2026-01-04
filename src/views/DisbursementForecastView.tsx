@@ -368,8 +368,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             const consumedPct = budget > 0 ? (total / budget) * 100 : 0;
 
             rows.push(
-                <tr key={node.id} className={`group border-b hover:bg-slate-50 transition-colors ${node.children.length > 0 ? 'bg-slate-50/50' : ''}`}>
-                    <td className="sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-medium text-slate-900 min-w-[120px]">
+                <tr key={node.id} className={`group border-b hover:bg-slate-50 transition-colors ${node.children.length > 0 ? 'bg-slate-50/80' : 'bg-white'}`}>
+                    <td className={`sticky left-0 z-10 px-4 py-3 text-sm font-medium text-slate-900 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${node.children.length > 0 ? 'bg-slate-50' : 'bg-white'}`}>
                         <div className="flex items-center" style={{ paddingLeft: `${level * 20}px` }}>
                             {node.children.length > 0 && (
                                 <button onClick={() => toggleNode(node.id)} className="mr-2 p-1 hover:bg-slate-200 rounded transition-colors text-slate-400">
@@ -380,7 +380,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             <span className="font-mono text-slate-500 text-xs">{node.code}</span>
                         </div>
                     </td>
-                    <td className="sticky left-[120px] z-10 bg-inherit px-4 py-3 text-sm text-slate-700 min-w-[280px]">
+                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[280px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${node.children.length > 0 ? 'bg-slate-50' : 'bg-white'}`}>
                         <input
                             className={`w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-yellow-400 outline-none transition-all ${node.children.length > 0 ? 'font-bold text-slate-800' : 'text-slate-600'}`}
                             value={description}
@@ -678,10 +678,10 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                     <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-480px)] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                         <table className="w-full border-collapse text-left">
                             <thead className="sticky top-0 z-30 shadow-sm">
-                                <tr className="bg-slate-50/95 backdrop-blur-md">
-                                    <th className="sticky left-0 z-40 bg-slate-50/95 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[120px]">Estrutura</th>
-                                    <th className="sticky left-[120px] z-40 bg-slate-50/95 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[280px]">Descrição do Item</th>
-                                    <th className="px-6 py-5 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] border-b border-slate-200 text-right bg-blue-50/30 whitespace-nowrap">Budget (Total)</th>
+                                <tr className="bg-slate-50 border-b border-slate-200">
+                                    <th className="sticky left-0 z-40 bg-slate-50 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Estrutura</th>
+                                    <th className="sticky left-[120px] z-40 bg-slate-50 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[280px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Descrição do Item</th>
+                                    <th className="px-6 py-5 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] border-b border-slate-200 text-right bg-blue-50/50 whitespace-nowrap">Budget (Total)</th>
 
                                     {months.map(m => (
                                         <th key={m} className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-slate-200 text-right min-w-[140px] border-l border-slate-100">

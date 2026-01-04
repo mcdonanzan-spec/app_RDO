@@ -290,8 +290,8 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
             const difference = values.budget - totalWithCommitment;
 
             rows.push(
-                <tr key={node.id} className={`group border-b hover:bg-slate-50/80 transition-colors ${node.type === 'GROUP' ? 'bg-slate-50/30' : ''}`}>
-                    <td className="sticky left-0 z-10 bg-inherit px-4 py-3 text-sm font-medium text-slate-900 min-w-[120px]">
+                <tr key={node.id} className={`group border-b hover:bg-slate-50 transition-colors ${node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white'}`}>
+                    <td className={`sticky left-0 z-10 px-4 py-3 text-sm font-medium text-slate-900 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white'}`}>
                         <div className="flex items-center" style={{ paddingLeft: `${level * 20}px` }}>
                             {node.children.length > 0 && (
                                 <button onClick={() => toggleNode(node.id)} className="mr-2 p-1 hover:bg-slate-200 rounded transition-colors">
@@ -302,7 +302,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                             <span className="font-mono text-slate-500 whitespace-nowrap">{node.code}</span>
                         </div>
                     </td>
-                    <td className="sticky left-[120px] z-10 bg-inherit px-4 py-3 text-sm text-slate-700 min-w-[250px]">
+                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[250px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white'}`}>
                         <span className={node.type === 'GROUP' ? 'font-bold text-slate-800' : ''}>{node.description}</span>
                     </td>
                     <td className="px-4 py-3 text-sm text-right font-semibold text-blue-700 bg-blue-50/30">
@@ -564,8 +564,8 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                         <table className="w-full border-collapse text-left">
                             <thead className="sticky top-0 z-30 bg-slate-50 shadow-sm">
                                 <tr>
-                                    <th className="sticky left-0 z-40 bg-slate-50 px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 min-w-[120px]">Código</th>
-                                    <th className="sticky left-[120px] z-40 bg-slate-50 px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 min-w-[250px]">Descrição</th>
+                                    <th className="sticky left-0 z-40 bg-slate-50 px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Código</th>
+                                    <th className="sticky left-[120px] z-40 bg-slate-50 px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 min-w-[250px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Descrição</th>
                                     <th className="px-4 py-4 text-[10px] font-bold text-blue-600 uppercase tracking-widest border-b border-slate-200 text-right bg-blue-50/50">Prev. Desembolso (Orç.)</th>
                                     <th className="px-4 py-4 text-[10px] font-bold text-yellow-600 uppercase tracking-widest border-b border-slate-200 text-right bg-yellow-50/50">RDO (Consolidado)</th>
                                     <th className="px-4 py-4 text-[10px] font-bold text-orange-600 uppercase tracking-widest border-b border-slate-200 text-right bg-orange-50/50">RMO (Realizado Mês)</th>
