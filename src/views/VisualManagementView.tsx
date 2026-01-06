@@ -4,20 +4,12 @@ import { AppData, ProductionConfig, ServiceDefinition, ProductionStatus } from '
 import { ApiService } from '../services/api';
 import { ExcelService } from '../services/excelService';
 
-// --- Default Services ---
-const DEFAULT_SERVICES: ServiceDefinition[] = [
-    { id: 'S1', name: 'Fundação', color: '#94a3b8', order: 1 },
-    { id: 'S2', name: 'Alvenaria', color: '#3b82f6', order: 2 },
-    { id: 'S3', name: 'Elétrica', color: '#f59e0b', order: 3 },
-    { id: 'S4', name: 'Hidráulica', color: '#0ea5e9', order: 4 },
-    { id: 'S5', name: 'Pintura', color: '#ec4899', order: 5 },
-    { id: 'S6', name: 'Acabamento', color: '#10b981', order: 6 },
-];
+const DEFAULT_SERVICES: ServiceDefinition[] = [];
 
 export const VisualManagementView = ({ appData }: { appData: AppData }) => {
     // --- State ---
-    const [config, setConfig] = useState<ProductionConfig>(appData.visualManagement?.config || { towers: 4, floors: 12, aptsPerFloor: 8 });
-    const [services, setServices] = useState<ServiceDefinition[]>(appData.visualManagement?.services || DEFAULT_SERVICES);
+    const [config, setConfig] = useState<ProductionConfig>(appData.visualManagement?.config || { towers: 0, floors: 0, aptsPerFloor: 0 });
+    const [services, setServices] = useState<ServiceDefinition[]>(appData.visualManagement?.services || []);
     const [status, setStatus] = useState<ProductionStatus>(appData.visualManagement?.status || {});
 
     const [foundationData, setFoundationData] = useState<Record<string, { total: number, realized: number }>>(appData.visualManagement?.foundationData || {});

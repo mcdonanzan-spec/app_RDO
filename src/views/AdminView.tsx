@@ -3,10 +3,20 @@ import { Users, Building, Shield, Plus, MoreHorizontal, Search, Trash2, Edit2, C
 import { ProjectService, Project } from '../services/projectService';
 import { UserService, Profile } from '../services/userService';
 
-export const AdminView: React.FC = () => {
+interface AdminViewProps {
+    onProjectCreated?: () => void;
+}
+
+export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
     const [activeTab, setActiveTab] = useState<'projects' | 'users' | 'roles'>('projects');
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+
+    // Form state
+    const [newName, setNewName] = useState('');
+    const [newLocation, setNewLocation] = useState('');
+    const [newUnits, setNewUnits] = useState(0);
 
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<Profile[]>([]);
@@ -32,8 +42,103 @@ export const AdminView: React.FC = () => {
         }
     };
 
+    const handleCreateProject = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await ProjectService.createProject({
+                name: newName,
+                location: newLocation,
+                status: 'PLANNING',
+                units: newUnits
+            });
+            setShowNewProjectModal(false);
+            setNewName('');
+            setNewLocation('');
+            setNewUnits(0);
+            await loadData();
+            if (onProjectCreated) onProjectCreated();
+        } catch (error) {
+            console.error("Failed to create project", error);
+            alert("Erro ao criar obra.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteProject = async (id: string) => {
+        if (!window.confirm("Deseja realmente excluir esta obra? Todos os dados vinculados serão perdidos.")) return;
+        setLoading(true);
+        try {
+            await ProjectService.deleteProject(id);
+            await loadData();
+            if (onProjectCreated) onProjectCreated();
+        } catch (error) {
+            console.error("Failed to delete project", error);
+            alert("Erro ao excluir obra.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const renderProjects = () => (
         <div className="space-y-6">
+            {showNewProjectModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                        <h2 className="text-xl font-bold text-slate-800 mb-6 uppercase tracking-tight">Nova Obra</h2>
+                        <form onSubmit={handleCreateProject} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nome do Empreendimento</label>
+                                <input
+                                    required
+                                    className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newName}
+                                    onChange={e => setNewName(e.target.value)}
+                                    placeholder="Ex: Residencial Jardins"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Localização (Cidade, UF)</label>
+                                <input
+                                    required
+                                    className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newLocation}
+                                    onChange={e => setNewLocation(e.target.value)}
+                                    placeholder="Ex: São Paulo, SP"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Total de Unidades</label>
+                                <input
+                                    type="number"
+                                    required
+                                    className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    value={newUnits}
+                                    onChange={e => setNewUnits(parseInt(e.target.value))}
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3 mt-8">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowNewProjectModal(false)}
+                                    className="px-4 py-2 text-slate-500 font-bold uppercase text-xs"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold uppercase text-xs hover:bg-indigo-700 transition-colors shadow-lg flex items-center gap-2"
+                                >
+                                    {loading ? <Loader2 className="animate-spin" size={16} /> : 'Criar Obra'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -45,20 +150,26 @@ export const AdminView: React.FC = () => {
                         onChange={e => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold uppercase flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm">
+                <button
+                    onClick={() => setShowNewProjectModal(true)}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold uppercase flex items-center gap-2 hover:bg-indigo-700 transition-colors shadow-sm"
+                >
                     <Plus size={16} /> Nova Obra
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-slate-800">
                 {projects.map(project => (
-                    <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-md transition-shadow">
+                    <div key={project.id} className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-md transition-shadow relative group">
                         <div className="flex justify-between items-start mb-4">
                             <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
                                 <Building size={24} />
                             </div>
-                            <button className="text-slate-400 hover:text-slate-600">
-                                <MoreHorizontal size={20} />
+                            <button
+                                onClick={() => handleDeleteProject(project.id)}
+                                className="text-slate-300 hover:text-red-600 transition-colors p-2"
+                            >
+                                <Trash2 size={18} />
                             </button>
                         </div>
                         <h3 className="font-bold text-lg text-slate-800 mb-1">{project.name}</h3>
@@ -96,9 +207,19 @@ export const AdminView: React.FC = () => {
         </div>
     );
 
+    const handleUpdateRole = async (userId: string, newRole: 'ADMIN' | 'EDITOR' | 'VIEWER') => {
+        try {
+            await UserService.updateRole(userId, newRole);
+            await loadData();
+        } catch (error) {
+            console.error("Failed to update role", error);
+            alert("Erro ao atualizar perfil.");
+        }
+    };
+
     const renderUsers = () => (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center text-slate-800">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
@@ -120,7 +241,7 @@ export const AdminView: React.FC = () => {
                             <th className="p-4 text-right">Ações</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100 text-slate-800">
                         {users.map(user => (
                             <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="p-4">
@@ -128,15 +249,15 @@ export const AdminView: React.FC = () => {
                                     <div className="text-slate-500 text-xs">{user.email}</div>
                                 </td>
                                 <td className="p-4">
-                                    <div className="flex items-center gap-2">
-                                        {user.role === 'ADMIN' && <Shield size={14} className="text-purple-600" />}
-                                        <span className={`text-xs font-bold px-2 py-1 rounded border ${user.role === 'ADMIN' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                                user.role === 'EDITOR' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                                    'bg-slate-50 text-slate-700 border-slate-200'
-                                            }`}>
-                                            {user.role}
-                                        </span>
-                                    </div>
+                                    <select
+                                        value={user.role}
+                                        onChange={(e) => handleUpdateRole(user.id, e.target.value as any)}
+                                        className="text-xs font-bold px-2 py-1 rounded border bg-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                        <option value="VIEWER">VIEWER</option>
+                                        <option value="EDITOR">EDITOR</option>
+                                        <option value="ADMIN">ADMIN</option>
+                                    </select>
                                 </td>
                                 <td className="p-4 text-center">
                                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
@@ -145,10 +266,7 @@ export const AdminView: React.FC = () => {
                                 </td>
                                 <td className="p-4 text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                        <button className="p-1.5 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded transition-colors" title="Editar">
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition-colors" title="Remover">
+                                        <button className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-600 rounded transition-colors" title="Remover (Apenas Visual)">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>

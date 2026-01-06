@@ -7,7 +7,8 @@ import {
     BrainCircuit,
     Table as TableIcon,
     TrendingUp,
-    Shield
+    Shield,
+    ChevronDown
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -15,9 +16,21 @@ interface SidebarProps {
     setActiveView: (view: string) => void;
     isMobileOpen: boolean;
     setIsMobileOpen: (isOpen: boolean) => void;
+    projects: any[];
+    activeProjectId: string | null;
+    onSelectProject: (id: string) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isMobileOpen, setIsMobileOpen }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+    activeView,
+    setActiveView,
+    isMobileOpen,
+    setIsMobileOpen,
+    projects,
+    activeProjectId,
+    onSelectProject
+}) => {
+    const currentProject = projects.find(p => p.id === activeProjectId);
     const menuItems = [
         { id: 'purchase_flow', label: 'Fluxo de Compras', icon: <ShoppingCart size={20} />, section: 'SUPPLY CHAIN' },
         { id: 'budget_control', label: 'Controle Orçamentário', icon: <CircleDollarSign size={20} />, section: 'FINANCEIRO' },
@@ -50,14 +63,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isM
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static flex flex-col shadow-xl
       `}>
-                <div className="p-6 border-b border-slate-800">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-yellow-400 text-slate-900 p-2 rounded font-bold text-xl shadow-lg shadow-yellow-400/20">BRZ</div>
+                <div className="p-4 border-b border-slate-800">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-yellow-400 text-slate-900 p-2 rounded font-bold text-lg shadow-lg shadow-yellow-400/20">BRZ</div>
                         <div>
-                            <h1 className="font-bold text-lg leading-tight">Torre de Controle</h1>
-                            <p className="text-xs text-slate-400">SGO - Digital Twin v5.0</p>
+                            <h1 className="font-bold text-sm leading-tight text-white">Torre de Controle</h1>
+                            <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter">SGO Digital Twin</p>
                         </div>
                     </div>
+
+                    {projects.length > 0 ? (
+                        <div className="relative group">
+                            <select
+                                value={activeProjectId || ''}
+                                onChange={(e) => onSelectProject(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs font-bold text-slate-200 outline-none appearance-none cursor-pointer focus:ring-2 focus:ring-yellow-400/50 transition-all pr-8"
+                            >
+                                {projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none group-hover:text-yellow-400 transition-colors" />
+                        </div>
+                    ) : (
+                        <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-[10px] font-bold text-red-400 uppercase flex items-center gap-2">
+                            Nenhuma Obra Ativa
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-slate-700">
@@ -92,17 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isM
                 </div>
 
                 <div className="p-4 border-t border-slate-800 bg-slate-950 flex flex-col gap-4">
-                    <button
-                        onClick={async () => {
-                            if (window.confirm("Isso apagará todos os dados atuais e gerará dados de teste. Continuar?")) {
-                                const { generateMockData } = await import('../services/mockGenerator');
-                                await generateMockData();
-                            }
-                        }}
-                        className="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-3 py-2 rounded text-xs font-bold uppercase transition-colors flex items-center justify-center gap-2 border border-slate-700"
-                    >
-                        ⚡ Gerar Dados de Teste
-                    </button>
+
 
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-slate-900 font-bold shadow-md">

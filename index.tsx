@@ -24,8 +24,10 @@ import { LoginView } from './src/views/LoginView';
 // --- APP ---
 const App = () => {
   const { user, loading } = useAuth();
-  const [activeView, setActiveView] = useState('purchase_flow'); // Default to Purchase Flow
+  const [activeView, setActiveView] = useState('purchase_flow');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [appData, setAppData] = useState<AppData>({
     budget: [],
     masterPlanSheets: [],
@@ -45,17 +47,32 @@ const App = () => {
   useEffect(() => {
     if (loading || !user) return;
 
-    const loadData = async () => {
-      // Initialize defaults first (only runs if DB empty)
-      await initializeVisualManagementDefaults();
+    const init = async () => {
+      const { ProjectService } = await import('./src/services/projectService');
+      const projectList = await ProjectService.getProjects();
+      setProjects(projectList);
 
-      const data = await ApiService.getAppData();
+      if (projectList.length === 0) {
+        setActiveView('admin');
+        setAppData(prev => ({ ...prev, isLoaded: true }));
+      } else if (!activeProjectId) {
+        setActiveProjectId(projectList[0].id);
+      }
+    };
+    init();
+  }, [loading, user]);
+
+  useEffect(() => {
+    if (!activeProjectId) return;
+
+    const loadData = async () => {
+      const data = await ApiService.getAppData(activeProjectId);
       if (data) {
         setAppData(data);
       }
     };
     loadData();
-  }, [loading, user]);
+  }, [activeProjectId]);
 
   if (loading) {
     return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div></div>;
@@ -84,7 +101,13 @@ const App = () => {
       case 'analytical_cash_flow': return <AnalyticalCashFlowView appData={appData} />;
       case 'disbursement_forecast': return <DisbursementForecastView appData={appData} onUpdate={handleDataLoaded} />;
       case 'system_summary': return <SystemBlueprintView />;
-      case 'admin': return <AdminView />;
+      case 'admin': return <AdminView
+        onProjectCreated={async () => {
+          const { ProjectService } = await import('./src/services/projectService');
+          const projectList = await ProjectService.getProjects();
+          setProjects(projectList);
+        }}
+      />;
 
       // Fallback
       default: return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
@@ -98,6 +121,9 @@ const App = () => {
         setActiveView={setActiveView}
         isMobileOpen={isMobileOpen}
         setIsMobileOpen={setIsMobileOpen}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={setActiveProjectId}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">

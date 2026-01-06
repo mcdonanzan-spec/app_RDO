@@ -6,7 +6,7 @@ import { BudgetService } from './budgetService';
 
 export class ApiService {
 
-    static async getAppData(): Promise<AppData> {
+    static async getAppData(projectId?: string): Promise<AppData> {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
@@ -14,15 +14,15 @@ export class ApiService {
                 return this.getEmptyAppData();
             }
 
-            const projects = await ProjectService.getProjects();
-            if (projects.length === 0) {
-                return { ...this.getEmptyAppData(), isLoaded: true };
+            if (!projectId) {
+                const projects = await ProjectService.getProjects();
+                if (projects.length === 0) {
+                    return { ...this.getEmptyAppData(), isLoaded: true };
+                }
+                projectId = projects[0].id;
             }
 
-            const activeProject = projects[0]; // TODO: Implement Project Context/Selector
-            const projectId = activeProject.id;
-
-            console.log(`Loading data for project: ${activeProject.name}`);
+            console.log(`Loading data for project ID: ${projectId}`);
 
             const [budgetTree, financialEntries, rdoData] = await Promise.all([
                 BudgetService.getBudgetTree(projectId),
