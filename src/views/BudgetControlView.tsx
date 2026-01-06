@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, BudgetGroup, BudgetNode, FinancialEntry, Installment, FinancialAllocation, BudgetSnapshot, Supplier } from '../../types';
-import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers, CheckCircle, XCircle, MoreHorizontal } from 'lucide-react';
+import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers, CheckCircle, XCircle, MoreHorizontal, PaintBucket } from 'lucide-react';
 
 interface Props {
     appData: AppData;
@@ -146,7 +146,7 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
     };
 
     return (
-        <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${rowBg}`}>
+        <tr className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${!node.color ? rowBg : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
             <td className="p-2 font-mono text-slate-600 text-xs font-bold truncate" style={{ paddingLeft }}>
                 {node.code}
             </td>
@@ -191,6 +191,22 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
                         <button onClick={() => onAddChild(node.id, 'ITEM')} title="Adicionar Item" className="p-1 text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 rounded">
                             <FileText size={14} />
                         </button>
+                        <div className="relative inline-block">
+                            <button
+                                onClick={() => document.getElementById(`color-picker-${node.id}`)?.click()}
+                                title="Pintar Linha (Destaque Visual)"
+                                className="p-1 text-slate-400 hover:text-purple-600 bg-slate-100 hover:bg-purple-50 rounded"
+                            >
+                                <PaintBucket size={14} />
+                            </button>
+                            <input
+                                id={`color-picker-${node.id}`}
+                                type="color"
+                                className="absolute opacity-0 w-0 h-0 overflow-hidden"
+                                value={node.color || '#ffffff'}
+                                onChange={(e) => onUpdateNode({ ...node, color: e.target.value })}
+                            />
+                        </div>
                         {hasChildren ?
                             <button onClick={() => onRemoveResources(node.id)} title="Remover Agrupamento (Limpar Filhos)" className="p-1 text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-50 rounded font-bold text-[10px] w-6 border border-slate-200 flex items-center justify-center">
                                 <X size={14} />
@@ -555,6 +571,9 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     const [filterEnd, setFilterEnd] = useState('');
     const [activePaymentFilter, setActivePaymentFilter] = useState<'ALL' | 'LAST_MONTH' | 'NEXT_MONTH' | 'NEXT_3_MONTHS'>('ALL');
 
+    // Filtered entries for consultation (based on installment due dates)
+    const [observation, setObservation] = useState('');
+
     // Selection State
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -683,7 +702,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     // Temporary State for Adding Allocation
     const [tempAllocGroup, setTempAllocGroup] = useState('');
     const [tempAllocValue, setTempAllocValue] = useState(0);
-    const [tempAllocType, setTempAllocType] = useState<'MT' | 'ST' | 'EQ'>('MT');
+    const [tempAllocType, setTempAllocType] = useState<'MT' | 'ST' | 'EQ' | 'CI'>('MT');
 
     const [installments, setInstallments] = useState<Installment[]>([]);
 
@@ -800,7 +819,8 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             installments: installments.length > 0 ? installments : [], // logic fix
             purchaseOrder,
             idMov,
-            nMov
+            nMov,
+            observation // Observation field added
         };
 
         // If installments empty because state lag or something, re-gen:
@@ -822,7 +842,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         onUpdate([...entries, newEntry]);
         setViewMode('list');
         // Reset form
-        setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov('');
+        setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
         setTotalValue(0); setAllocations([]); setInstallments([]);
         setErrors({});
     };
@@ -1149,6 +1169,19 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                         </div>
                     </div>
 
+                    {/* Observation Field */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 mb-6">
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">
+                            Observações / Detalhes do Lançamento
+                        </label>
+                        <textarea
+                            className="w-full border border-slate-200 rounded p-2 text-sm h-20 focus:ring-2 focus:ring-slate-200 outline-none resize-none"
+                            placeholder="Insira detalhes adicionais sobre esta Nota Fiscal (ex: Referência de medição, justificativa de ajuste, etc.)"
+                            value={observation}
+                            onChange={e => setObservation(e.target.value)}
+                        />
+                    </div>
+
                     {/* Multi-Allocation Section */}
                     <div className="bg-orange-50 p-6 rounded-xl border border-orange-100 mb-6 relative overflow-hidden">
                         {/* Background Progress Bar */}
@@ -1179,7 +1212,14 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                         <div className="flex gap-2 mb-4 items-end">
                             <div className="flex-1">
                                 <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Grupo Orçamentário</label>
-                                <select className="w-full border rounded p-2 text-sm" value={tempAllocGroup} onChange={e => setTempAllocGroup(e.target.value)}>
+                                <select className="w-full border rounded p-2 text-sm" value={tempAllocGroup} onChange={e => {
+                                    const val = e.target.value;
+                                    setTempAllocGroup(val);
+                                    // Regra de CI Automático
+                                    if (val.startsWith('01.09')) {
+                                        setTempAllocType('CI');
+                                    }
+                                }}>
                                     <option value="">Selecione...</option>
                                     {flatGroups.map(g => <option key={g.code} value={g.code}>{g.code} - {g.desc}</option>)}
                                 </select>
@@ -1190,6 +1230,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                     <option value="MT">Material</option>
                                     <option value="ST">Serviço</option>
                                     <option value="EQ">Equipamento</option>
+                                    <option value="CI">Custos Indiretos</option>
                                 </select>
                             </div>
                             <div className="w-40">
@@ -1411,102 +1452,90 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                         {viewingEntry.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Control Data Section */}
-                            <div className="grid grid-cols-3 gap-4 mb-8">
-                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
-                                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">OC (Ordem de Compra)</div>
-                                    <div className="font-bold text-slate-700">{viewingEntry.purchaseOrder || '---'}</div>
-                                </div>
-                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
-                                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">IDMOV</div>
-                                    <div className="font-bold text-slate-700">{viewingEntry.idMov || '---'}</div>
-                                </div>
-                                <div className="p-3 bg-white border border-slate-200 rounded-lg">
+                                <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
                                     <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">NMOV</div>
                                     <div className="font-bold text-slate-700">{viewingEntry.nMov || '---'}</div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* Tables Grid */}
-                            <div className="grid grid-cols-1 gap-8">
-                                {/* Allocations */}
-                                <div>
-                                    <h3 className="font-bold text-slate-700 uppercase text-sm mb-3 flex items-center gap-2">
-                                        <Layers size={16} /> Rateio (Apropriação de Custo)
-                                    </h3>
-                                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                        <table className="w-full text-sm">
-                                            <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
-                                                <tr>
-                                                    <th className="p-3 text-left">G.O.</th>
-                                                    <th className="p-3 text-left">Descrição</th>
-                                                    <th className="p-3 text-center">Tipo</th>
-                                                    <th className="p-3 text-right">Valor</th>
-                                                    <th className="p-3 text-right">%</th>
+                        {/* Tables Grid */}
+                        <div className="grid grid-cols-1 gap-8">
+                            {/* Allocations */}
+                            <div>
+                                <h3 className="font-bold text-slate-700 uppercase text-sm mb-3 flex items-center gap-2">
+                                    <Layers size={16} /> Rateio (Apropriação de Custo)
+                                </h3>
+                                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
+                                            <tr>
+                                                <th className="p-3 text-left">G.O.</th>
+                                                <th className="p-3 text-left">Descrição</th>
+                                                <th className="p-3 text-center">Tipo</th>
+                                                <th className="p-3 text-right">Valor</th>
+                                                <th className="p-3 text-right">%</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {viewingEntry.allocations.map(alloc => (
+                                                <tr key={alloc.id} className="border-b last:border-0 hover:bg-slate-50">
+                                                    <td className="p-3 font-mono text-xs">{alloc.budgetGroupCode}</td>
+                                                    <td className="p-3 text-slate-700">{alloc.description}</td>
+                                                    <td className="p-3 text-center text-[10px] font-bold uppercase">{alloc.costType}</td>
+                                                    <td className="p-3 text-right font-mono font-medium">{alloc.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                                    <td className="p-3 text-right text-xs text-slate-400 font-mono">
+                                                        {((alloc.value / viewingEntry.totalValue) * 100).toFixed(1)}%
+                                                    </td>
                                                 </tr>
-                                            </thead>
-                                            <tbody>
-                                                {viewingEntry.allocations.map(alloc => (
-                                                    <tr key={alloc.id} className="border-b last:border-0 hover:bg-slate-50">
-                                                        <td className="p-3 font-mono text-xs">{alloc.budgetGroupCode}</td>
-                                                        <td className="p-3 text-slate-700">{alloc.description}</td>
-                                                        <td className="p-3 text-center text-[10px] font-bold uppercase">{alloc.costType}</td>
-                                                        <td className="p-3 text-right font-mono font-medium">{alloc.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                                        <td className="p-3 text-right text-xs text-slate-400 font-mono">
-                                                            {((alloc.value / viewingEntry.totalValue) * 100).toFixed(1)}%
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
+                            </div>
 
-                                {/* Installments */}
-                                <div>
-                                    <h3 className="font-bold text-slate-700 uppercase text-sm mb-3 flex items-center gap-2">
-                                        <Calendar size={16} /> Parcelamento Financeiro
-                                    </h3>
-                                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                                        <table className="w-full text-sm">
-                                            <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
-                                                <tr>
-                                                    <th className="p-3 text-center w-16">#</th>
-                                                    <th className="p-3 text-left">Vencimento</th>
-                                                    <th className="p-3 text-left">Status</th>
-                                                    <th className="p-3 text-right">Valor</th>
+                            {/* Installments */}
+                            <div>
+                                <h3 className="font-bold text-slate-700 uppercase text-sm mb-3 flex items-center gap-2">
+                                    <Calendar size={16} /> Parcelamento Financeiro
+                                </h3>
+                                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-100 text-slate-600 uppercase text-xs">
+                                            <tr>
+                                                <th className="p-3 text-center w-16">#</th>
+                                                <th className="p-3 text-left">Vencimento</th>
+                                                <th className="p-3 text-left">Status</th>
+                                                <th className="p-3 text-right">Valor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(viewingEntry.installments || []).map(inst => (
+                                                <tr key={inst.id} className="border-b last:border-0 hover:bg-slate-50">
+                                                    <td className="p-3 text-center font-bold text-slate-500">{inst.number}</td>
+                                                    <td className="p-3 font-mono text-slate-700">
+                                                        {new Date(inst.dueDate).toLocaleDateString()}
+                                                        <span className="ml-2 text-[10px] text-slate-400 uppercase">
+                                                            ({new Date(inst.dueDate) < new Date() ? 'Vencido' : 'À Vencer'})
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Provisão</span>
+                                                    </td>
+                                                    <td className="p-3 text-right font-mono font-medium">{inst.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                                                 </tr>
-                                            </thead>
-                                            <tbody>
-                                                {(viewingEntry.installments || []).map(inst => (
-                                                    <tr key={inst.id} className="border-b last:border-0 hover:bg-slate-50">
-                                                        <td className="p-3 text-center font-bold text-slate-500">{inst.number}</td>
-                                                        <td className="p-3 font-mono text-slate-700">
-                                                            {new Date(inst.dueDate).toLocaleDateString()}
-                                                            <span className="ml-2 text-[10px] text-slate-400 uppercase">
-                                                                ({new Date(inst.dueDate) < new Date() ? 'Vencido' : 'À Vencer'})
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-3">
-                                                            <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase">Provisão</span>
-                                                        </td>
-                                                        <td className="p-3 text-right font-mono font-medium">{inst.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                            ))}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-                            <button onClick={() => setViewingEntry(null)} className="px-4 py-2 border border-slate-300 rounded text-slate-600 font-bold uppercase text-xs hover:bg-slate-50">
-                                Fechar
-                            </button>
-                        </div>
+                    <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                        <button onClick={() => setViewingEntry(null)} className="px-4 py-2 border border-slate-300 rounded text-slate-600 font-bold uppercase text-xs hover:bg-slate-50">
+                            Fechar
+                        </button>
                     </div>
                 </div>
             )}
@@ -1685,7 +1714,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                     </tbody>
                 </table>
             </div>
-        </div>
+        </div >
     );
 };
 

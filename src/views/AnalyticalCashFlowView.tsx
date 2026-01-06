@@ -296,8 +296,8 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
             const difference = values.budget - totalWithComp;
 
             rows.push(
-                <tr key={node.id} className={`group border-b hover:bg-slate-50 transition-colors ${node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white'}`}>
-                    <td className={`sticky left-0 z-10 px-4 py-3 text-sm font-medium text-slate-900 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white'}`}>
+                <tr key={node.id} className={`group border-b hover:bg-slate-50 transition-colors ${!node.color ? (node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
+                    <td className={`sticky left-0 z-10 px-4 py-3 text-sm font-medium text-slate-900 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${!node.color ? (node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
                         <div className="flex items-center" style={{ paddingLeft: `${level * 20}px` }}>
                             {node.children.length > 0 && (
                                 <button onClick={() => toggleNode(node.id)} className="mr-2 p-1 hover:bg-slate-200 rounded transition-colors">
@@ -308,7 +308,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                             <span className="font-mono text-slate-500 whitespace-nowrap">{node.code}</span>
                         </div>
                     </td>
-                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[250px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white'}`}>
+                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[250px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${!node.color ? (node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
                         <span className={node.type === 'GROUP' ? 'font-bold text-slate-800' : ''}>{node.description}</span>
                     </td>
                     <td className="px-4 py-3 text-sm text-right font-semibold text-blue-700 bg-blue-50/30">

@@ -21,6 +21,7 @@ export interface BudgetLine {
     unitPrice: number;
     total: number;
     type: 'st' | 'mt';
+    color?: string;
     itemType?: 'ETAPA' | 'SUB_ETAPA' | 'SERVICO' | 'MACRO_ETAPA';
     originSheet: string;
     isGroup?: boolean;
@@ -195,6 +196,7 @@ export interface BudgetNode {
 
     lastUpdated?: string;
     costCenter?: string; // 'T1_T2', 'T3_T4', 'INFRA', 'CI'
+    color?: string;
 }
 
 export interface FinancialEntry {
@@ -204,6 +206,7 @@ export interface FinancialEntry {
     description: string;
     issueDate: string;
     totalValue: number;
+    observation?: string;
 
     // Classification - Multi-allocation support
     allocations: FinancialAllocation[];
@@ -224,7 +227,7 @@ export interface FinancialEntry {
 export interface FinancialAllocation {
     id: string;
     budgetGroupCode: string; // Link to BudgetNode e.g. "01.01.03"
-    costType: 'ST' | 'MT' | 'EQ' | 'OUTROS';
+    costType: 'ST' | 'MT' | 'EQ' | 'OUTROS' | 'CI';
     value: number;
     description?: string; // Optional detail
 }
