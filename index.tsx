@@ -42,15 +42,9 @@ const App = () => {
     financialEntries: []
   });
 
-  if (loading) {
-    return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div></div>;
-  }
-
-  if (!user) {
-    return <LoginView />;
-  }
-
   useEffect(() => {
+    if (loading || !user) return;
+
     const loadData = async () => {
       // Initialize defaults first (only runs if DB empty)
       await initializeVisualManagementDefaults();
@@ -61,7 +55,15 @@ const App = () => {
       }
     };
     loadData();
-  }, []);
+  }, [loading, user]);
+
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div></div>;
+  }
+
+  if (!user) {
+    return <LoginView />;
+  }
 
   const handleDataLoaded = async (data: Partial<AppData>) => {
     setAppData(prev => {
