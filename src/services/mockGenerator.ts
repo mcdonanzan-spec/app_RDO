@@ -77,10 +77,10 @@ export async function generateMockData() {
         const maxAmount = selectedBudget.total * 0.12;
         const totalValue = parseFloat(faker.finance.amount({ min: 500, max: Math.max(5000, maxAmount), dec: 2 }));
 
-        // Distribui de Outubro/2025 até Dezembro/2026
+        // Distribui de Outubro/2025 até Dezembro/2025
         const date = faker.date.between({
             from: new Date(2025, 9, 1), // Out 2025
-            to: new Date(2026, 11, 31)  // Dez 2026
+            to: new Date(2025, 11, 31)  // Dez 2025
         });
         const issueDate = date.toISOString().split('T')[0];
 
@@ -163,26 +163,140 @@ export async function generateMockData() {
 
     // 7. Purchase Requests vinculados a códigos reais
     const validCodes = budgetLines.filter(b => !b.isGroup).map(b => b.code);
-    const purchaseRequests = Array.from({ length: 30 }).map((_, i) => ({
-        id: faker.string.uuid(),
-        requestId: `RPC-2026-${String(i + 1).padStart(3, '0')}`,
-        description: `SOLICITAÇÃO DE ${faker.commerce.productName()}`,
-        date: faker.date.between({ from: new Date(2026, 0, 1), to: new Date() }).toISOString().split('T')[0],
-        requester: faker.person.fullName(),
-        priority: faker.helpers.arrayElement(['Normal', 'Urgente'] as const),
-        status: faker.helpers.arrayElement(['Aguardando Almoxarifado', 'Em Análise Engenharia', 'Aguardando Gerente', 'Aprovado'] as const),
-        budgetGroupCode: faker.helpers.arrayElement(validCodes),
-        items: [
-            {
+    const purchaseRequests = Array.from({ length: 30 }).map((_, i) => {
+        const itemCount = faker.number.int({ min: 2, max: 5 }); // 2 a 5 itens por solicitação
+        const items = Array.from({ length: itemCount }).map(() => {
+            // Atribui G.O. a cada item
+            const budgetCode = faker.helpers.arrayElement(validCodes);
+            return {
                 id: faker.string.uuid(),
                 description: faker.commerce.productMaterial(),
                 quantityRequested: faker.number.int({ min: 5, max: 200 }),
+                quantityToBuy: faker.number.int({ min: 3, max: 150 }), // Quantidade após análise de estoque
                 unit: faker.helpers.arrayElement(['UN', 'M3', 'KG', 'M', 'SC']),
-                observation: faker.lorem.sentence()
-            }
-        ],
-        history: [{ date: new Date().toISOString(), user: 'Sistema', action: 'Geração de Mock' }]
-    }));
+                observation: faker.lorem.sentence(),
+                budgetGroupCode: budgetCode // G.O. vinculado ao item
+            };
+        });
+
+        const status = faker.helpers.arrayElement([
+            'Aguardando Almoxarifado',
+            'Em Análise Engenharia',
+            'Aguardando Gerente',
+            'Aprovado',
+            'No TOTVS',
+            'Finalizado'
+        ] as const);
+
+        // Se status for avançado, gera número da OC
+        const totvsOrderNumber = (['No TOTVS', 'Finalizado'].includes(status))
+            ? `${faker.number.int({ min: 100, max: 500 })}/${currentYear.toString().slice(-2)}`
+            : undefined;
+
+        return {
+            id: faker.string.uuid(),
+            requestId: `RPC-2026-${String(i + 1).padStart(3, '0')}`,
+            description: `SOLICITAÇÃO DE ${faker.commerce.productName()}`,
+            date: faker.date.between({ from: new Date(2026, 0, 1), to: new Date() }).toISOString().split('T')[0],
+            requester: faker.person.fullName(),
+            priority: faker.helpers.arrayElement(['Normal', 'Urgente'] as const),
+            status: status,
+            budgetGroupCode: faker.helpers.arrayElement(validCodes), // G.O. geral da solicitação
+            totvsOrderNumber: totvsOrderNumber,
+            items: items,
+            history: [
+                { date: new Date(2026, 0, Math.floor(Math.random() * 15) + 1).toISOString(), user: 'Sistema', action: 'Criação da solicitação' },
+                ...(totvsOrderNumber ? [{ date: new Date().toISOString(), user: 'Gerente', action: `OC ${totvsOrderNumber} gerada no TOTVS` }] : [])
+            ]
+        };
+    });
+
+    // Adiciona exemplos específicos para teste da funcionalidade de busca por OC
+    const testExamples = [
+        {
+            id: faker.string.uuid(),
+            requestId: 'RPC-2026-999',
+            description: 'SOLICITAÇÃO DE CONCRETO USINADO E AÇO',
+            date: '2026-01-10',
+            requester: 'Maria Silva - Engenheira',
+            priority: 'Urgente' as const,
+            status: 'Finalizado' as const,
+            budgetGroupCode: '01.01.02',
+            totvsOrderNumber: '247/26', // OC de teste principal
+            items: [
+                {
+                    id: faker.string.uuid(),
+                    description: 'CONCRETO FCK 30 - USINADO',
+                    quantityRequested: 150,
+                    quantityToBuy: 150,
+                    unit: 'M3' as const,
+                    observation: 'Para estrutura Torre 1',
+                    budgetGroupCode: '01.01.02.MT' // Material de Estacas
+                },
+                {
+                    id: faker.string.uuid(),
+                    description: 'AÇO CA-50 - 12MM',
+                    quantityRequested: 5000,
+                    quantityToBuy: 5000,
+                    unit: 'KG' as const,
+                    observation: 'Armação de fundação',
+                    budgetGroupCode: '01.01.02.MT' // Material de Estacas
+                }
+            ],
+            history: [
+                { date: '2026-01-10', user: 'Sistema', action: 'Criação da solicitação' },
+                { date: '2026-01-12', user: 'Gerente', action: 'OC 247/26 gerada no TOTVS' }
+            ]
+        },
+        {
+            id: faker.string.uuid(),
+            requestId: 'RPC-2026-998',
+            description: 'SOLICITAÇÃO DE MATERIAIS PARA ALVENARIA',
+            date: '2026-01-15',
+            requester: 'João Santos - Mestre de Obras',
+            priority: 'Normal' as const,
+            status: 'No TOTVS' as const,
+            budgetGroupCode: '01.02.01',
+            totvsOrderNumber: '312/26', // Segunda OC de teste
+            items: [
+                {
+                    id: faker.string.uuid(),
+                    description: 'BLOCO CERÂMICO 14X19X29',
+                    quantityRequested: 50000,
+                    quantityToBuy: 48000,
+                    unit: 'UN' as const,
+                    observation: 'Alvenaria interna Torres 1 e 2',
+                    budgetGroupCode: '01.02.01.MT' // Material de Alvenaria
+                },
+                {
+                    id: faker.string.uuid(),
+                    description: 'ARGAMASSA AC-III - SACO 20KG',
+                    quantityRequested: 800,
+                    quantityToBuy: 750,
+                    unit: 'SC' as const,
+                    observation: 'Assentamento',
+                    budgetGroupCode: '01.02.01.MT' // Material de Alvenaria
+                },
+                {
+                    id: faker.string.uuid(),
+                    description: 'CIMENTO CP-II - SACO 50KG',
+                    quantityRequested: 300,
+                    quantityToBuy: 300,
+                    unit: 'SC' as const,
+                    observation: 'Preparo de argamassa',
+                    budgetGroupCode: '01.01.01.MT' // Material de Serviços Preliminares
+                }
+            ],
+            history: [
+                { date: '2026-01-15', user: 'Sistema', action: 'Criação da solicitação' },
+                { date: '2026-01-16', user: 'Engenheiro', action: 'Aprovação técnica' },
+                { date: '2026-01-17', user: 'Gerente', action: 'OC 312/26 gerada no TOTVS' }
+            ]
+        }
+    ];
+
+    purchaseRequests.push(...testExamples);
+
 
     // 8. Disbursement Forecast Mock (Incluindo final de 2025)
     const disbursementForecast: Record<string, Record<string, number>> = {};

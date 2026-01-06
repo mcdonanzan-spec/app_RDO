@@ -8,6 +8,57 @@ interface IntelligenceViewProps {
     appData: AppData;
 }
 
+// Basic Markdown-like formatter for AI text
+const MarkdownText: React.FC<{ text: string }> = ({ text }) => {
+    // Replace markdown-style bold, lists and paragraphs
+    const formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/^# (.*)/gm, '<h1 class="text-2xl font-black text-slate-800 mt-6 mb-3 border-b pb-2">$1</h1>')
+        .replace(/^## (.*)/gm, '<h2 class="text-xl font-bold text-slate-800 mt-5 mb-2">$1</h2>')
+        .replace(/^### (.*)/gm, '<h3 class="text-lg font-bold text-slate-700 mt-4 mb-2">$1</h3>')
+        .replace(/^- (.*)/gm, '<li class="ml-4 list-disc text-slate-600 mb-1">$1</li>')
+        .replace(/\n\n/g, '</p><p class="mb-4">')
+        .replace(/\n/g, '<br/>');
+
+    return <div className="text-slate-600 leading-relaxed" dangerouslySetInnerHTML={{ __html: `<p class="mb-4">${formatted}</p>` }} />;
+};
+
+// Simple Bar Chart for AI Insights
+const AIInsightChart: React.FC<{ data: any }> = ({ data }) => {
+    if (!data || !data.items || !Array.isArray(data.items)) return null;
+
+    const maxVal = Math.max(...data.items.map((i: any) => i.value || 0), 1);
+
+    return (
+        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm mt-6">
+            <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <BarChart3 size={16} className="text-indigo-500" />
+                {data.title || 'Visualização de Tendências'}
+            </h4>
+            <div className="space-y-4">
+                {data.items.map((item: any, i: number) => (
+                    <div key={i} className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold">
+                            <span className="text-slate-600">{item.label}</span>
+                            <span className="text-slate-900 font-mono">
+                                {typeof item.value === 'number' ?
+                                    (item.format === 'currency' ? `R$ ${item.value.toLocaleString('pt-BR')}` : `${item.value}%`) :
+                                    item.value}
+                            </span>
+                        </div>
+                        <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100 flex items-center">
+                            <div
+                                className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(99,102,241,0.3)]"
+                                style={{ width: `${(item.value / maxVal) * 100}%` }}
+                            />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) => {
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
@@ -18,20 +69,35 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [forecastData, setForecastData] = useState<any>(null);
     const [budgetOverrides, setBudgetOverrides] = useState<any>(null);
     const [descriptionOverrides, setDescriptionOverrides] = useState<any>(null);
+    const [initialRealized, setInitialRealized] = useState<any>(null);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
+    const [lastQueryTime, setLastQueryTime] = useState<number>(0);
 
     React.useEffect(() => {
         loadHistory();
         loadForecastData();
     }, []);
 
+    // Cooldown timer effect
+    React.useEffect(() => {
+        if (cooldownSeconds > 0) {
+            const timer = setTimeout(() => {
+                setCooldownSeconds(prev => prev - 1);
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [cooldownSeconds]);
+
     const loadForecastData = async () => {
         const { db } = await import('../services/db');
         const fd = await db.meta.get('disbursementForecast');
         const bo = await db.meta.get('disbursementBudgetOverrides');
         const d_o = await db.meta.get('disbursementDescOverrides');
+        const ir = await db.meta.get('disbursementInitialRealized');
         if (fd) setForecastData(fd.value);
         if (bo) setBudgetOverrides(bo.value);
         if (d_o) setDescriptionOverrides(d_o.value);
+        if (ir) setInitialRealized(ir.value);
     };
 
     const loadHistory = async () => {
@@ -70,10 +136,10 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                 contextText += `- ${group}: R$${val.toFixed(2)}\n`;
             });
 
-            const topItems = [...appData.rdoData].sort((a, b) => (b.accumulatedValue || 0) - (a.accumulatedValue || 0)).slice(0, 20);
-            contextText += "\nTOP 20 ITENS MAIS CAROS (RDO):\n";
+            const topItems = [...appData.rdoData].sort((a, b) => (b.accumulatedValue || 0) - (a.accumulatedValue || 0)).slice(0, 30);
+            contextText += "\nTOP 30 ITENS MAIS RELEVANTES (RDO):\n";
             topItems.forEach(item => {
-                contextText += `- ${item.service}: R$${(item.accumulatedValue || 0).toFixed(2)} (Data: ${item.date})\n`;
+                contextText += `- Serviço: ${item.service} | Código: ${item.code} | Grupo: ${item.group} | Valor Acumulado: R$${(item.accumulatedValue || 0).toFixed(2)} (Ref: ${item.date})\n`;
             });
         }
 
@@ -99,12 +165,17 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             const budgetItems = appData.budget.filter(i => !i.isGroup);
             const totalRDO = rdoItems.reduce((acc, i) => acc + (i.accumulatedValue || 0), 0);
             const totalBudget = budgetItems.reduce((acc, i) => acc + (i.total || 0), 0);
-            const poc = totalBudget > 0 ? (totalRDO / totalBudget) * 100 : 0;
+
+            // Add Retroactive Realized to POC
+            const totalRetro = initialRealized ? Object.values(initialRealized).reduce((acc: any, val: any) => acc + (val || 0), 0) as number : 0;
+            const totalWithRetro = totalRDO + totalRetro;
+            const poc = totalBudget > 0 ? (totalWithRetro / totalBudget) * 100 : 0;
 
             contextText += `\n=== ANÁLISE DE POC (PERCENTUAL DE OBRA CONCLUÍDA) ===\n`;
             contextText += `Total Realizado (RDO): R$${totalRDO.toFixed(2)}\n`;
+            if (totalRetro > 0) contextText += `Saldo Retroativo (Implantação): R$${totalRetro.toFixed(2)}\n`;
             contextText += `Total Orçado (Meta): R$${totalBudget.toFixed(2)}\n`;
-            contextText += `POC Financeiro: ${poc.toFixed(2)}%\n`;
+            contextText += `POC Financeiro Real (Com Retroativo): ${poc.toFixed(2)}%\n`;
         }
 
         // Master Plan
@@ -112,7 +183,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += `\n\n=== CRONOGRAMA MESTRE ===\n`;
             const meaningfulData = appData.masterPlanSheets.map(s =>
                 `Planilha: ${s.name}\n` +
-                s.data.slice(0, 20).map(row => row.join(' | ')).join('\n')
+                s.data.slice(0, 50).map(row => row.join(' | ')).join('\n')
             ).join('\n');
             contextText += meaningfulData;
         }
@@ -145,7 +216,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             contextText += `Total Pago: R$${paid.toFixed(2)}\n`;
             contextText += `Qtd NFs: ${entries.length}\n`;
 
-            const rdoTotalVal = appData.rdoData.reduce((acc, r) => acc + (r.accumulatedValue || 0), 0);
+            const rdoTotalVal = (appData.rdoData || []).reduce((acc, r) => acc + (r.accumulatedValue || 0), 0);
             contextText += `CONCILIAÇÃO FÍSICO x FINANCEIRO:\n`;
             contextText += `Realizado Físico (RDO): R$${rdoTotalVal.toFixed(2)}\n`;
             contextText += `Realizado Financeiro (NF): R$${totalNFs.toFixed(2)}\n`;
@@ -181,9 +252,10 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             Object.entries(forecastData).forEach(([code, months]: [string, any]) => {
                 const desc = descriptionOverrides?.[code] || code;
                 const budgetActual = budgetOverrides?.[code] || 0;
+                const retro = initialRealized?.[code] || 0;
                 const totalProj = Object.values(months).reduce((a: any, b: any) => a + b, 0) as number;
-                if (totalProj > 0 || budgetActual > 0) {
-                    contextText += `- G.O ${code} (${desc}): Budget Simulado: R$${budgetActual.toFixed(2)} | Total Projetado: R$${totalProj.toFixed(2)}\n`;
+                if (totalProj > 0 || budgetActual > 0 || retro > 0) {
+                    contextText += `- G.O ${code} (${desc}): Budget Simulado: R$${budgetActual.toFixed(2)} | Retroativo: R$${retro.toFixed(2)} | Projeção Futura: R$${totalProj.toFixed(2)}\n`;
                 }
             });
         }
@@ -192,35 +264,74 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     };
 
     const handleAskAI = async () => {
-        if (!query) return;
+        if (!query || cooldownSeconds > 0) return;
+
+        // Set cooldown for 60 seconds
+        setCooldownSeconds(60);
+        setLastQueryTime(Date.now());
         setLoading(true);
         try {
             if (!apiKey) throw new Error("Chave API não configurada.");
             const ai = new GoogleGenAI({ apiKey });
             const context = getContextData();
             const prompt = `
-            Atue como um Diretor de Engenharia e Analista de BI da BRZ Empreendimentos.
-            Analise os dados financeiros da obra e responda à pergunta do usuário.
-            VERTENTES:
-            1. OFICIAL: NFs, RDO físico, Orçamento.
-            2. CENÁRIOS: Projeções mensais manuais.
-            3. FÍSICO: Progresso real de torres (Gestão à Vista) e vínculo com Orçamento.
-            CROSS-CHECK: Se um serviço físico está atrasado, alerte sobre o impacto no desembolso futuro (G.O vinculado).
-            CONTEXTO:\n${context}\nPERGUNTA: "${query}"
-            SAÍDA JSON: { "analysis": "texto", "kpis": [{ "label": "...", "value": "..." }], "chart": { ... } }`;
+            Você é o "Construction Brain", um Diretor de Inteligência da BRZ Empreendimentos.
+            Analise os dados financeiros e técnicos fornecidos e gere um relatório PREMIUM e ESTRATÉGICO.
+
+            DADOS CONTEXTUAIS:
+            ${context}
+
+            PERGUNTA DO USUÁRIO: "${query}"
+
+            REQUISITOS DE SAÍDA (Obrigatório JSON válido):
+            1. "analysis": Texto rico em Markdown (use ## Títulos, **Negrito**, - Listas). Seja crítico e direto.
+            2. "kpis": Array de até 4 objetos { "label": "Título Curto", "value": "Valor Formatado" }.
+            3. "chart": Objeto { "title": "Título do Gráfico", "items": [{ "label": "Eixo X", "value": Numero, "format": "currency" | "percent" }] }.
+            
+            ESTILO: Tom de voz executivo, focado em riscos financeiros e desvios de obra.
+            SAÍDA JSON APENAS.`;
 
             const result = await ai.models.generateContent({
-                model: "gemini-2.0-flash", // Using a stable version
-                contents: prompt
+                model: "gemini-2.0-flash", // Reverting to confirmed found model
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
-            const text = result?.text || "{}";
+            // Handle response based on SDK structure
+            let text = "";
+            const res = result as any;
+            if (res.text && typeof res.text !== 'function') {
+                text = res.text;
+            } else if (typeof res.text === 'function') {
+                text = await res.text();
+            } else if (res.response?.text) {
+                text = typeof res.response.text === 'function' ? res.response.text() : res.response.text;
+            } else if (res.candidates?.[0]?.content?.parts?.[0]?.text) {
+                text = res.candidates[0].content.parts[0].text;
+            }
+
+            if (!text) text = "{}";
+
             const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
             let parsed = JSON.parse(jsonString);
             setResponse(parsed);
         } catch (error: any) {
             console.error(error);
-            setResponse({ analysis: "Erro ao processar consulta IA.", kpis: [] });
+            let userMessage = "Erro ao processar consulta IA.";
+
+            if (error.message?.includes('429')) {
+                userMessage = "⚠️ Limite de Uso Atingido (Quota). Como você está na versão gratuita, por favor aguarde 60 segundos antes da próxima pergunta.";
+            } else if (error.message?.includes('404')) {
+                userMessage = "⚠️ Modelo não encontrado. Verifique se o modelo 'gemini-2.0-flash' está disponível para sua chave.";
+            } else if (error.message?.includes('401') || error.message?.includes('403')) {
+                userMessage = "⚠️ Chave API Inválida ou Expirada. Verifique as configurações.";
+            } else {
+                userMessage = `Erro: ${error.message || 'Falha de conexão'}`;
+            }
+
+            setResponse({
+                analysis: userMessage,
+                kpis: []
+            });
         } finally {
             setLoading(false);
         }
@@ -278,22 +389,57 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                         ) : response ? (
                             <div className="space-y-6">
                                 {response.kpis && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                         {response.kpis.map((kpi, idx) => (
-                                            <div key={idx} className="bg-white p-4 rounded-xl border">
-                                                <p className="text-xs text-slate-500 uppercase">{kpi.label}</p>
-                                                <p className="text-2xl font-bold">{kpi.value}</p>
+                                            <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">{kpi.label}</p>
+                                                <p className="text-xl font-black text-slate-800 font-mono">{kpi.value}</p>
                                             </div>
                                         ))}
                                     </div>
                                 )}
-                                <div className="bg-white p-6 rounded-xl border">
-                                    <h3 className="font-bold mb-4 flex items-center gap-2"><FileText size={18} /> Relatório</h3>
-                                    <div className="prose prose-sm whitespace-pre-wrap">{response.analysis}</div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+                                        <div className="flex items-center gap-3 mb-8">
+                                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                                                <Bot size={24} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-xl font-black text-slate-800">Relatório Executivo</h3>
+                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Construction Brain AI</p>
+                                            </div>
+                                        </div>
+                                        <MarkdownText text={response.analysis} />
+
+                                        <div className="mt-8 pt-6 border-t border-slate-50 flex justify-between items-center">
+                                            <p className="text-[10px] text-slate-400 font-bold italic italic">Análise gerada em tempo real com base nos dados integrados da obra.</p>
+                                            <button
+                                                onClick={handleSaveAnalysis}
+                                                className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg"
+                                            >
+                                                <Save size={16} /> Salvar no Histórico
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        {response.chart && <AIInsightChart data={response.chart} />}
+
+                                        <div className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
+                                            <div className="relative z-10">
+                                                <h4 className="font-bold flex items-center gap-2 mb-2">
+                                                    <Sparkles size={18} />
+                                                    Dica Premium
+                                                </h4>
+                                                <p className="text-xs text-indigo-100 leading-relaxed font-medium">
+                                                    Você pode pedir para a IA comparar o cenário de projeção manual com o realizado oficial das notas fiscais para identificar desvios de provisionamento.
+                                                </p>
+                                            </div>
+                                            <BrainCircuit className="absolute -right-4 -bottom-4 text-indigo-500 opacity-30 group-hover:scale-125 transition-transform duration-700" size={120} />
+                                        </div>
+                                    </div>
                                 </div>
-                                <button onClick={handleSaveAnalysis} className="flex items-center gap-2 bg-white border p-2 rounded-lg text-sm font-medium">
-                                    <Save size={18} /> Salvar análise
-                                </button>
                             </div>
                         ) : null
                     )}
@@ -302,9 +448,39 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
             <div className="p-4 bg-white border-t">
                 <div className="max-w-5xl mx-auto flex gap-2">
-                    <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAskAI()} placeholder="Pergunte algo..." className="flex-1 px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-yellow-400" />
-                    <button onClick={handleAskAI} disabled={loading || !query} className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50">
-                        {loading ? "Processando..." : "Analisar"}
+                    <input
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && !cooldownSeconds && handleAskAI()}
+                        placeholder={cooldownSeconds > 0 ? `Aguarde ${cooldownSeconds}s para próxima análise...` : "Pergunte algo..."}
+                        disabled={cooldownSeconds > 0}
+                        className="flex-1 px-4 py-3 border rounded-lg outline-none focus:ring-2 focus:ring-yellow-400 disabled:bg-slate-100 disabled:text-slate-400"
+                    />
+                    <button
+                        onClick={handleAskAI}
+                        disabled={loading || !query || cooldownSeconds > 0}
+                        className="bg-slate-900 text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden group"
+                    >
+                        {loading ? (
+                            <span className="flex items-center gap-2">
+                                <BrainCircuit className="animate-spin" size={18} />
+                                Processando...
+                            </span>
+                        ) : cooldownSeconds > 0 ? (
+                            <span className="flex items-center gap-2">
+                                <Clock size={18} />
+                                {cooldownSeconds}s
+                            </span>
+                        ) : (
+                            "Analisar"
+                        )}
+                        {cooldownSeconds > 0 && (
+                            <div
+                                className="absolute bottom-0 left-0 h-1 bg-yellow-400 transition-all duration-1000 ease-linear"
+                                style={{ width: `${((60 - cooldownSeconds) / 60) * 100}%` }}
+                            />
+                        )}
                     </button>
                 </div>
             </div>

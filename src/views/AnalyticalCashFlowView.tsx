@@ -194,28 +194,30 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
     const financialData = useMemo(() => {
         const map: Record<string, { total: number, rmo: number, monthly: Record<string, number> }> = {};
 
-        appData.financialEntries?.forEach(entry => {
-            entry.allocations.forEach(alloc => {
-                const code = alloc.budgetGroupCode;
-                if (!map[code]) map[code] = { total: 0, rmo: 0, monthly: {} };
+        appData.financialEntries
+            ?.filter(entry => entry.issueDate.substring(0, 7) <= closedMonth)
+            .forEach(entry => {
+                entry.allocations.forEach(alloc => {
+                    const code = alloc.budgetGroupCode;
+                    if (!map[code]) map[code] = { total: 0, rmo: 0, monthly: {} };
 
-                // Proportion of this allocation to the total entry
-                const allocationRatio = alloc.value / entry.totalValue;
+                    // Proportion of this allocation to the total entry
+                    const allocationRatio = alloc.value / entry.totalValue;
 
-                entry.installments.forEach(inst => {
-                    const instValue = inst.value * allocationRatio;
-                    const instMonth = inst.dueDate.substring(0, 7); // YYYY-MM
+                    entry.installments.forEach(inst => {
+                        const instValue = inst.value * allocationRatio;
+                        const instMonth = inst.dueDate.substring(0, 7); // YYYY-MM
 
-                    map[code].total += instValue;
+                        map[code].total += instValue;
 
-                    if (instMonth <= closedMonth) {
-                        map[code].rmo += instValue;
-                    } else {
-                        map[code].monthly[instMonth] = (map[code].monthly[instMonth] || 0) + instValue;
-                    }
+                        if (instMonth <= closedMonth) {
+                            map[code].rmo += instValue;
+                        } else {
+                            map[code].monthly[instMonth] = (map[code].monthly[instMonth] || 0) + instValue;
+                        }
+                    });
                 });
             });
-        });
 
         return map;
     }, [appData.financialEntries, closedMonth]);
@@ -243,7 +245,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
             budget = node.budgetInitial || 0;
         }
 
-        return { budget, rdoTotal, rmo, monthly };
+        const futureTotal = (Object.values(monthly) as number[]).reduce((a, b) => a + b, 0);
+
+        return { budget, rdoTotal, rmo, monthly, futureTotal };
     };
 
     const toggleNode = (id: string) => {
@@ -284,10 +288,12 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
 
             const values = getNodeValues(node);
             const isExpanded = expandedNodes.has(node.id);
-            const commitment = commitmentValues[node.code] || 0;
-            const totalWithCommitment = values.rmo + commitment;
-            const consumedPct = values.budget > 0 ? (totalWithCommitment / values.budget) * 100 : 0;
-            const difference = values.budget - totalWithCommitment;
+            const manualCommitment = commitmentValues[node.code] || 0;
+            const totalComprometimento = values.futureTotal + manualCommitment;
+            const totalWithComp = values.rmo + totalComprometimento;
+
+            const consumedPct = values.budget > 0 ? (totalWithComp / values.budget) * 100 : 0;
+            const difference = values.budget - totalWithComp;
 
             rows.push(
                 <tr key={node.id} className={`group border-b hover:bg-slate-50 transition-colors ${node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white'}`}>
@@ -324,21 +330,31 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     ))}
 
                     <td className="px-4 py-3 text-sm text-right font-bold text-slate-800 bg-slate-100/30 border-l border-slate-200">
-                        {formatCurrency(values.rmo + (Object.values(values.monthly) as number[]).reduce((a, b) => a + b, 0))}
+                        {formatCurrency(values.rmo)}
                     </td>
 
                     <td className="px-2 py-2 text-right min-w-[140px]">
-                        <EditableCurrencyCell
-                            value={commitment}
-                            onChange={(val) => setCommitmentValues(prev => ({ ...prev, [node.code]: val }))}
-                            isGroup={node.type === 'GROUP'}
-                            colorClass="text-slate-700 font-bold"
-                            placeholder="0,00"
-                        />
+                        <div className="flex flex-col items-end">
+                            <span className="text-[9px] text-slate-400 font-mono mb-1">
+                                {values.futureTotal > 0 ? `Parcelas: ${formatCurrency(values.futureTotal)}` : ''}
+                            </span>
+                            <EditableCurrencyCell
+                                value={manualCommitment}
+                                onChange={(val) => setCommitmentValues(prev => ({ ...prev, [node.code]: val }))}
+                                isGroup={node.type === 'GROUP'}
+                                colorClass="text-slate-700 font-bold"
+                                placeholder="0,00"
+                            />
+                            {totalComprometimento > 0 && (
+                                <span className="text-[10px] text-slate-800 font-bold mt-1 pt-1 border-t border-slate-200 w-full text-right">
+                                    Total: {formatCurrency(totalComprometimento)}
+                                </span>
+                            )}
+                        </div>
                     </td>
 
                     <td className="px-4 py-3 text-sm text-right font-semibold bg-emerald-50/30 text-emerald-800">
-                        {formatCurrency(totalWithCommitment)}
+                        {formatCurrency(totalWithComp)}
                     </td>
 
                     <td className="px-4 py-3 text-sm text-center">
@@ -526,7 +542,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                 </div>
 
                 {/* KPI Summary Strip */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t border-slate-800">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mt-8 pt-6 border-t border-slate-800">
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Orçamento Total</p>
                         <p className="text-xl font-bold text-blue-400 font-mono">
@@ -545,12 +561,28 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                             {formatCurrency(budgetTree.reduce((sum: number, node) => sum + getNodeValues(node).rmo, 0))}
                         </p>
                     </div>
+                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors border-l-2 border-l-yellow-400/30">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Comprometido</p>
+                        <p className="text-xl font-bold text-white font-mono">
+                            {formatCurrency(
+                                budgetTree.reduce((sum: number, node) => {
+                                    const v = getNodeValues(node);
+                                    const manual = commitmentValues[node.code] || 0;
+                                    return sum + v.futureTotal + manual;
+                                }, 0)
+                            )}
+                        </p>
+                    </div>
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Saldo Remanescente (Disponível)</p>
                         <p className="text-xl font-bold text-emerald-400 font-mono">
                             {formatCurrency(
                                 budgetTree.reduce((sum: number, node) => sum + getNodeValues(node).budget, 0) -
-                                budgetTree.reduce((sum: number, node) => sum + getNodeValues(node).rdoTotal + (commitmentValues[node.code] || 0), 0)
+                                budgetTree.reduce((sum: number, node) => {
+                                    const v = getNodeValues(node);
+                                    const manual = commitmentValues[node.code] || 0;
+                                    return sum + v.rmo + v.futureTotal + manual;
+                                }, 0)
                             )}
                         </p>
                     </div>

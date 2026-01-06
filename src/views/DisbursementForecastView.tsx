@@ -126,6 +126,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
     const [hideEmpty, setHideEmpty] = useState(false);
     const [sortBy, setSortBy] = useState<'CODE' | 'VARIANCE'>('CODE');
     const [isLoading, setIsLoading] = useState(true);
+    const [implementationMode, setImplementationMode] = useState(false);
+    const [initialRealized, setInitialRealized] = useState<Record<string, number>>({}); // code -> value
 
     // Load forecast from DB
     useEffect(() => {
@@ -137,7 +139,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                 if (savedForecast) {
                     setForecastData(savedForecast.value);
                 }
-                const savedMonth = await db.meta.get('disbursementForecastStartMonth');
+                const savedMonth = await db.meta.get('cashFlowClosedMonth');
                 if (savedMonth) {
                     setStartingMonth(savedMonth.value);
                 }
@@ -152,6 +154,10 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                 const savedProjectionLength = await db.meta.get('disbursementForecastProjectionLength');
                 if (savedProjectionLength) {
                     setProjectionLength(savedProjectionLength.value);
+                }
+                const savedInitialRealized = await db.meta.get('disbursementInitialRealized');
+                if (savedInitialRealized) {
+                    setInitialRealized(savedInitialRealized.value);
                 }
             } catch (err) {
                 console.error("Failed to load forecast", err);
@@ -170,6 +176,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             await db.meta.put({ key: 'disbursementBudgetOverrides', value: budgetOverrides });
             await db.meta.put({ key: 'disbursementDescOverrides', value: descriptionOverrides });
             await db.meta.put({ key: 'disbursementForecastProjectionLength', value: projectionLength });
+            await db.meta.put({ key: 'disbursementInitialRealized', value: initialRealized });
             alert("✅ Previsão de desembolso e definições salvas com sucesso!");
         } catch (err) {
             console.error("Failed to save forecast", err);
@@ -225,6 +232,63 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
 
         return rootNodes;
     }, [appData.budget]);
+
+    // Aggregate Financial Data per Budget Code (Same as AnalyticalCashFlowView)
+    const financialData = useMemo(() => {
+        const map: Record<string, { total: number, rmo: number, monthly: Record<string, number> }> = {};
+        const closedMonth = startingMonth; // Using startingMonth as the threshold for "Realized"
+
+        appData.financialEntries
+            ?.filter(entry => entry.issueDate.substring(0, 7) <= closedMonth)
+            .forEach(entry => {
+                entry.allocations.forEach(alloc => {
+                    const code = alloc.budgetGroupCode;
+                    if (!map[code]) map[code] = { total: 0, rmo: 0, monthly: {} };
+
+                    const allocationRatio = alloc.value / entry.totalValue;
+
+                    entry.installments.forEach(inst => {
+                        const instValue = inst.value * allocationRatio;
+                        const instMonth = inst.dueDate.substring(0, 7);
+
+                        map[code].total += instValue;
+
+                        if (instMonth <= closedMonth) {
+                            map[code].rmo += instValue;
+                        } else {
+                            map[code].monthly[instMonth] = (map[code].monthly[instMonth] || 0) + instValue;
+                        }
+                    });
+                });
+            });
+
+        return map;
+    }, [appData.financialEntries, startingMonth]);
+
+    const getNodeValues = (node: BudgetNode): any => {
+        let budget = budgetOverrides[node.code] !== undefined ? budgetOverrides[node.code] : (node.budgetInitial || 0);
+        let nfRealized = financialData[node.code]?.rmo || 0;
+        let nfFuture = financialData[node.code]?.monthly || {};
+        let manualForecast = forecastData[node.code] || {};
+
+        if (node.children && node.children.length > 0) {
+            node.children.forEach(child => {
+                const childValues = getNodeValues(child);
+                budget += childValues.budget;
+                nfRealized += childValues.nfRealized;
+                Object.entries(childValues.nfFuture).forEach(([m, val]) => {
+                    nfFuture[m] = (nfFuture[m] || 0) + (val as number);
+                });
+                Object.entries(childValues.manualForecast).forEach(([m, val]) => {
+                    manualForecast[m] = (manualForecast[m] || 0) + (val as number);
+                });
+            });
+        }
+
+        const retroRealized = initialRealized[node.code] || 0;
+
+        return { budget, nfRealized, nfFuture, manualForecast, retroRealized };
+    };
 
     // Helper to aggregate data from Analytical Cash Flow
     const importFromCashFlow = () => {
@@ -361,11 +425,20 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             if (!matchesFilters(node)) return;
 
             const isExpanded = expandedNodes.has(node.id);
-            const { monthly, total } = getNodeForecast(node);
-            const budget = budgetOverrides[node.code] !== undefined ? budgetOverrides[node.code] : (node.budgetInitial || 0);
+            const values = getNodeValues(node);
             const description = descriptionOverrides[node.code] !== undefined ? descriptionOverrides[node.code] : node.description;
-            const diff = budget - total;
-            const consumedPct = budget > 0 ? (total / budget) * 100 : 0;
+
+            // Total calculate logic:
+            // Retroactive (Manual Setup) + Past months (<= startingMonth) = Actual NF Payments
+            // Future months (> startingMonth) = NF Installments + Manual Adjustments
+            const retroVal = initialRealized[node.code] || 0;
+            let totalProjected = values.nfRealized + retroVal;
+            months.filter(m => m > startingMonth).forEach(m => {
+                totalProjected += (values.nfFuture[m] || 0) + (values.manualForecast[m] || 0);
+            });
+
+            const diff = values.budget - totalProjected;
+            const consumedPct = values.budget > 0 ? (totalProjected / values.budget) * 100 : 0;
 
             rows.push(
                 <tr key={node.id} className={`group border-b hover:bg-slate-50 transition-colors ${node.children.length > 0 ? 'bg-slate-50/80' : 'bg-white'}`}>
@@ -389,27 +462,61 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                     </td>
                     <td className="px-4 py-3 bg-blue-50/20 text-right">
                         <EditableCurrencyCell
-                            value={budget}
+                            value={values.budget}
                             onChange={(val) => setBudgetOverrides(prev => ({ ...prev, [node.code]: val }))}
                             colorClass="text-blue-700 font-bold"
                             isGroup={node.children.length > 0}
                         />
                     </td>
 
-                    {/* Monthly Forecast Cells */}
-                    {months.map(m => (
-                        <td key={m} className={`px-2 py-2 min-w-[140px] ${node.children.length > 0 ? 'bg-slate-50/30' : ''}`}>
+                    {/* Implementation Mode: Manual Initial Realized */}
+                    {implementationMode && (
+                        <td className="px-4 py-3 bg-orange-50/20 border-l border-orange-100">
                             <EditableCurrencyCell
-                                value={node.children.length > 0 ? monthly[m] : (forecastData[node.code]?.[m] || 0)}
-                                onChange={(val) => handleCellChange(node.code, m, val)}
+                                value={initialRealized[node.code] || 0}
+                                onChange={(val) => setInitialRealized(prev => ({ ...prev, [node.code]: val }))}
+                                colorClass="text-orange-700 font-bold"
+                                placeholder="Saldo Histórico"
                                 isGroup={node.children.length > 0}
-                                colorClass={node.children.length > 0 ? "text-slate-600" : "text-slate-800"}
                             />
                         </td>
-                    ))}
+                    )}
+
+                    {/* Monthly Forecast Cells */}
+                    {months.map(m => {
+                        const isPast = m <= startingMonth;
+                        const nfValue = m <= startingMonth ? values.nfFuture[m] || 0 : values.nfFuture[m] || 0; // In case of rmo, handled above
+                        // In reality, for past months we show Realized
+                        const displayVal = isPast
+                            ? (m === startingMonth ? values.nfRealized : 0) // Simplify: use rmo for current
+                            : (values.nfFuture[m] || 0) + (values.manualForecast[m] || 0);
+
+                        return (
+                            <td key={m} className={`px-2 py-2 min-w-[140px] ${isPast ? 'bg-slate-100/50' : ''}`}>
+                                {isPast ? (
+                                    <div className="text-right px-3 py-1.5 text-xs font-mono text-slate-400">
+                                        {displayVal > 0 ? formatCurrency(displayVal) : '-'}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[9px] text-slate-400 font-mono">
+                                            {values.nfFuture[m] > 0 ? `Parcela: ${formatCurrency(values.nfFuture[m])}` : ''}
+                                        </span>
+                                        <EditableCurrencyCell
+                                            value={node.children.length > 0 ? (values.manualForecast[m] || 0) : (forecastData[node.code]?.[m] || 0)}
+                                            onChange={(val) => handleCellChange(node.code, m, val)}
+                                            isGroup={node.children.length > 0}
+                                            placeholder="Prev."
+                                            colorClass={node.children.length > 0 ? "text-slate-600" : "text-slate-800"}
+                                        />
+                                    </div>
+                                )}
+                            </td>
+                        );
+                    })}
 
                     <td className="px-4 py-3 text-sm text-right font-bold text-slate-800 bg-slate-100/30 border-l border-slate-200">
-                        {formatCurrency(total)}
+                        {formatCurrency(totalProjected)}
                     </td>
 
                     <td className={`px-4 py-3 text-sm text-right font-bold border-l-2 ${diff < 0 ? 'text-red-600 bg-red-50/30 border-red-500' : 'text-emerald-600 bg-emerald-50/30 border-emerald-500'}`}>
@@ -526,6 +633,14 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                         </div>
 
                         <button
+                            onClick={() => setImplementationMode(!implementationMode)}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-lg ${implementationMode ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                        >
+                            <AlertTriangle size={16} />
+                            {implementationMode ? 'Modo Implantação Ativo' : 'Modo Implantação'}
+                        </button>
+
+                        <button
                             onClick={() => {
                                 // Excel Export logic (summarized)
                                 const data: any[][] = [['CÓDIGO', 'DESCRIÇÃO', 'ORÇAMENTO', ...months.map(getMonthLabel), 'TOTAL PROJETADO', 'DIFERENÇA']];
@@ -564,10 +679,17 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                     <div className="group cursor-help">
                         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
                             <TrendingUp size={10} className="text-yellow-400" />
-                            Total Projetado (G.O)
+                            Total Projetado (Real + Prev)
                         </p>
                         <p className="text-2xl font-black text-white font-mono group-hover:text-yellow-400 transition-colors">
-                            {formatCurrency(budgetTree.reduce((sum, n) => sum + getNodeForecast(n).total, 0))}
+                            {formatCurrency(budgetTree.reduce((sum, n) => {
+                                const v = getNodeValues(n);
+                                let total = v.nfRealized;
+                                months.filter(m => m > startingMonth).forEach(m => {
+                                    total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
+                                });
+                                return sum + total;
+                            }, 0))}
                         </p>
                     </div>
                     <div className="group cursor-help">
@@ -575,16 +697,24 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             <LayoutGrid size={10} className="text-emerald-400" />
                             Saldo Remanescente
                         </p>
-                        <p className={`text-2xl font-black font-mono transition-colors ${budgetTree.reduce((sum, n) => sum + (n.budgetInitial || 0) - getNodeForecast(n).total, 0) < 0
-                            ? 'text-red-400' : 'text-emerald-400'
-                            }`}>
-                            {formatCurrency(budgetTree.reduce((sum, n) => sum + (n.budgetInitial || 0) - getNodeForecast(n).total, 0))}
+                        <p className={`text-2xl font-black font-mono transition-colors`}>
+                            {formatCurrency(
+                                budgetTree.reduce((sum, n) => sum + (budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0)), 0) -
+                                budgetTree.reduce((sum, n) => {
+                                    const v = getNodeValues(n);
+                                    let total = v.nfRealized;
+                                    months.filter(m => m > startingMonth).forEach(m => {
+                                        total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
+                                    });
+                                    return sum + total;
+                                }, 0)
+                            )}
                         </p>
                     </div>
-                    <div className="group cursor-help">
+                    <div className="group cursor-help" title={`Indicador de Cobertura do Orçamento:\n\nMostra quanto do orçamento total já está "comprometido" (Soma do Realizado + Previsão Futura).\n\nCálculo: (Total Projetado / Budget Total) * 100\n\n• Se estiver muito baixo (< 20%): Indica que falta lançar as projeções financeiras para o restante da obra.\n• Se estiver próximo de 100%: O planejamento cobre todo o orçamento.\n• Se passar de 100%: Indica estouro previsto no custo da obra.`}>
                         <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
                             <CheckCircle2 size={10} className="text-purple-400" />
-                            Aderência ao Plano
+                            Cobertura do Planejamento (Aderência)
                         </p>
                         <div className="flex items-end gap-3">
                             <p className="text-2xl font-black text-white font-mono">
@@ -682,6 +812,12 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                     <th className="sticky left-0 z-40 bg-slate-50 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Estrutura</th>
                                     <th className="sticky left-[120px] z-40 bg-slate-50 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[280px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Descrição do Item</th>
                                     <th className="px-6 py-5 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] border-b border-slate-200 text-right bg-blue-50/50 whitespace-nowrap">Budget (Total)</th>
+
+                                    {implementationMode && (
+                                        <th className="px-6 py-5 text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] border-b border-slate-200 text-right bg-orange-50/50 whitespace-nowrap border-l border-orange-200">
+                                            Realizado Retroativo
+                                        </th>
+                                    )}
 
                                     {months.map(m => (
                                         <th key={m} className="px-6 py-5 text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] border-b border-slate-200 text-right min-w-[140px] border-l border-slate-100">

@@ -536,7 +536,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion }: { tree:
     );
 };
 
-const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSaveSuppliers }: { entries: FinancialEntry[], budgetTree: BudgetNode[], onUpdate: (e: FinancialEntry[]) => void, savedSuppliers?: Supplier[], onSaveSuppliers?: (s: Supplier[]) => void }) => {
+const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSaveSuppliers, appData }: { entries: FinancialEntry[], budgetTree: BudgetNode[], onUpdate: (e: FinancialEntry[]) => void, savedSuppliers?: Supplier[], onSaveSuppliers?: (s: Supplier[]) => void, appData: AppData }) => {
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
 
     // Form State for Header
@@ -929,43 +929,223 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                         </div>
                     </div>
 
-                    {/* New Control Fields: OC, IDMOV, NMOV */}
-                    <div className="grid grid-cols-3 gap-6 bg-white p-6 rounded-xl border border-slate-200 mb-6 shadow-sm">
-                        <div className="group">
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1 transition-colors group-focus-within:text-indigo-600">
-                                Ordem de Compra (OC)
-                            </label>
-                            <div className="relative">
-                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                    {/* New Control Fields: OC, IDMOV, NMOV + SMART LOOKUP */}
+                    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-xl border-2 border-indigo-200 mb-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="p-2 bg-indigo-600 text-white rounded-lg">
+                                <FileText size={16} />
+                            </div>
+                            <h3 className="font-black uppercase text-sm text-indigo-900">Busca Inteligente de G.Os por OC/TOTVS</h3>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="group col-span-3">
+                                <label className="block text-xs font-bold uppercase text-indigo-700 mb-2 flex items-center gap-2">
+                                    <Search size={12} />
+                                    Ordem de Compra (OC) - Buscar Automaticamente
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        className="w-full border-2 border-indigo-300 rounded-lg p-3 pl-4 text-sm font-bold focus:ring-4 focus:ring-indigo-100 outline-none transition-all bg-white shadow-inner"
+                                        value={purchaseOrder}
+                                        onChange={(e) => {
+                                            const ocNum = e.target.value;
+                                            setPurchaseOrder(ocNum);
+
+                                            // Auto-lookup in Purchase Requests
+                                            if (ocNum && appData.purchaseRequests) {
+                                                const matchedRequest = appData.purchaseRequests.find(
+                                                    pr => pr.totvsOrderNumber && pr.totvsOrderNumber.includes(ocNum)
+                                                );
+
+                                                if (matchedRequest) {
+                                                    // Auto-populate allocations from matched items
+                                                    const autoAllocations: FinancialAllocation[] = [];
+                                                    matchedRequest.items.forEach(item => {
+                                                        if (item.budgetGroupCode && item.quantityToBuy && item.quantityToBuy > 0) {
+                                                            // Calculate proportional value based on item quantity
+                                                            const itemValue = totalValue > 0
+                                                                ? (totalValue / matchedRequest.items.length)
+                                                                : 0;
+
+                                                            const existingAlloc = autoAllocations.find(
+                                                                a => a.budgetGroupCode === item.budgetGroupCode
+                                                            );
+
+                                                            if (existingAlloc) {
+                                                                existingAlloc.value += itemValue;
+                                                            } else {
+                                                                autoAllocations.push({
+                                                                    id: Date.now() + Math.random().toString(),
+                                                                    budgetGroupCode: item.budgetGroupCode,
+                                                                    costType: 'MT',
+                                                                    value: itemValue,
+                                                                    description: flatGroups.find(g => g.code === item.budgetGroupCode)?.desc || ''
+                                                                });
+                                                            }
+                                                        }
+                                                    });
+
+                                                    if (autoAllocations.length > 0 && allocations.length === 0) {
+                                                        setAllocations(autoAllocations);
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                        placeholder="Digite o número da OC para buscar os G.Os vinculados automaticamente..."
+                                    />
+                                    {purchaseOrder && appData.purchaseRequests?.some(pr => pr.totvsOrderNumber?.includes(purchaseOrder)) && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 text-green-600 font-bold text-xs">
+                                            <CheckCircle size={16} />
+                                            OC Encontrada!
+                                        </div>
+                                    )}
+                                </div>
+                                {purchaseOrder && appData.purchaseRequests && (
+                                    <div className="mt-3 text-xs">
+                                        {(() => {
+                                            const matched = appData.purchaseRequests.find(pr => pr.totvsOrderNumber?.includes(purchaseOrder));
+                                            if (matched) {
+                                                return (
+                                                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
+                                                        <div className="flex items-center gap-2 text-green-700 font-bold">
+                                                            <CheckCircle size={14} />
+                                                            Solicitação #{matched.requestId} encontrada!
+                                                        </div>
+                                                        <div className="text-slate-600">
+                                                            <strong>Descrição:</strong> {matched.description}
+                                                        </div>
+                                                        <div className="text-slate-600">
+                                                            <strong>G.Os Vinculados:</strong> {matched.items
+                                                                .filter(i => i.budgetGroupCode)
+                                                                .map(i => i.budgetGroupCode)
+                                                                .filter((v, i, a) => a.indexOf(v) === i)
+                                                                .join(', ') || 'Nenhum'}
+                                                        </div>
+                                                        {matched.items.filter(i => i.budgetGroupCode).length > 0 && (
+                                                            <div className="mt-2 space-y-2">
+                                                                {allocations.length === 0 && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            const autoAllocs: FinancialAllocation[] = [];
+                                                                            const uniqueGOs = new Set<string>();
+                                                                            matched.items.forEach(item => {
+                                                                                if (item.budgetGroupCode && !uniqueGOs.has(item.budgetGroupCode)) {
+                                                                                    uniqueGOs.add(item.budgetGroupCode);
+                                                                                    autoAllocs.push({
+                                                                                        id: Date.now() + Math.random().toString(),
+                                                                                        budgetGroupCode: item.budgetGroupCode,
+                                                                                        costType: 'MT',
+                                                                                        value: totalValue > 0 ? totalValue / uniqueGOs.size : 0,
+                                                                                        description: flatGroups.find(g => g.code === item.budgetGroupCode)?.desc || ''
+                                                                                    });
+                                                                                }
+                                                                            });
+                                                                            setAllocations(autoAllocs);
+                                                                        }}
+                                                                        className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-indigo-700 transition-colors shadow"
+                                                                        disabled={totalValue <= 0}
+                                                                    >
+                                                                        <Download size={14} />
+                                                                        Preencher G.Os e Distribuir Valor (R$ {totalValue.toLocaleString('pt-BR')})
+                                                                    </button>
+                                                                )}
+                                                                {allocations.length > 0 && totalValue > 0 && (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            // Redistribui o valor total igualmente entre as alocações existentes
+                                                                            const valuePerAlloc = totalValue / allocations.length;
+                                                                            const updatedAllocs = allocations.map(a => ({
+                                                                                ...a,
+                                                                                value: valuePerAlloc
+                                                                            }));
+                                                                            setAllocations(updatedAllocs);
+                                                                        }}
+                                                                        className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-3 py-2 rounded text-xs font-bold hover:bg-green-700 transition-colors shadow"
+                                                                    >
+                                                                        <BarChart size={14} />
+                                                                        Redistribuir Igualmente (R$ {(totalValue / allocations.length).toLocaleString('pt-BR')} cada)
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Reference Panel: Items by G.O. */}
+                                                        {matched.items.length > 0 && (
+                                                            <details className="mt-3 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                                                                <summary className="px-3 py-2 cursor-pointer hover:bg-slate-100 transition-colors flex items-center gap-2 text-xs font-bold text-slate-700 uppercase">
+                                                                    <FileText size={12} />
+                                                                    Consultar Itens da OC (Referência para conferência com NF)
+                                                                </summary>
+                                                                <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+                                                                    {(() => {
+                                                                        // Agrupa itens por G.O.
+                                                                        const itemsByGO: Record<string, any[]> = {};
+                                                                        matched.items.forEach((item: any) => {
+                                                                            if (item.budgetGroupCode) {
+                                                                                if (!itemsByGO[item.budgetGroupCode]) {
+                                                                                    itemsByGO[item.budgetGroupCode] = [];
+                                                                                }
+                                                                                itemsByGO[item.budgetGroupCode].push(item);
+                                                                            }
+                                                                        });
+
+                                                                        return Object.entries(itemsByGO).map(([goCode, items]) => (
+                                                                            <div key={goCode} className="bg-white border border-slate-200 rounded p-2">
+                                                                                <div className="flex items-center gap-2 mb-2 pb-1 border-b">
+                                                                                    <span className="text-xs font-mono font-bold text-indigo-700">{goCode}</span>
+                                                                                    <span className="text-xs text-slate-500">({items.length} {items.length === 1 ? 'item' : 'itens'})</span>
+                                                                                </div>
+                                                                                <div className="space-y-1">
+                                                                                    {items.map((item: any, idx: number) => (
+                                                                                        <div key={idx} className="text-xs text-slate-600 pl-2 flex justify-between">
+                                                                                            <span>• {item.description}</span>
+                                                                                            <span className="font-mono text-slate-400">{item.quantityToBuy || item.quantityRequested} {item.unit}</span>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        ));
+                                                                    })()}
+                                                                </div>
+                                                            </details>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
+                                            return (
+                                                <div className="text-amber-600 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded p-2">
+                                                    <AlertTriangle size={14} />
+                                                    OC não encontrada no sistema. Verifique o número digitado.
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="group">
+                                <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+                                    IDMOV (TOTVS)
+                                </label>
                                 <input
-                                    className="w-full border rounded p-2 pl-8 text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                    value={purchaseOrder}
-                                    onChange={e => setPurchaseOrder(e.target.value)}
-                                    placeholder="Ex: 247/25"
+                                    className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
+                                    value={idMov}
+                                    onChange={e => setIdMov(e.target.value)}
+                                    placeholder="ID Movimento"
                                 />
                             </div>
-                        </div>
-                        <div className="group">
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1 transition-colors group-focus-within:text-indigo-600">
-                                IDMOV (TOTVS)
-                            </label>
-                            <input
-                                className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                value={idMov}
-                                onChange={e => setIdMov(e.target.value)}
-                                placeholder="ID Movimento"
-                            />
-                        </div>
-                        <div className="group">
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-1 transition-colors group-focus-within:text-indigo-600">
-                                NMOV (TOTVS)
-                            </label>
-                            <input
-                                className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
-                                value={nMov}
-                                onChange={e => setNMov(e.target.value)}
-                                placeholder="Número Movimento"
-                            />
+                            <div className="group col-span-2">
+                                <label className="block text-xs font-bold uppercase text-slate-600 mb-1">
+                                    NMOV (TOTVS)
+                                </label>
+                                <input
+                                    className="w-full border rounded p-2 text-sm focus:ring-2 focus:ring-indigo-100 outline-none"
+                                    value={nMov}
+                                    onChange={e => setNMov(e.target.value)}
+                                    placeholder="Número Movimento"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -1051,7 +1231,23 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                                 <td className="p-2 font-mono text-xs">{alloc.budgetGroupCode}</td>
                                                 <td className="p-2 text-xs font-bold text-slate-700">{alloc.description}</td>
                                                 <td className="p-2 text-center text-[10px] font-bold">{alloc.costType}</td>
-                                                <td className="p-2 text-right font-mono">{alloc.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                                <td className="p-2 text-right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <span className="text-slate-400 text-xs">R$</span>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            className="w-32 border border-orange-200 rounded px-2 py-1 text-right font-mono font-bold focus:ring-2 focus:ring-orange-400 outline-none text-orange-900"
+                                                            value={alloc.value.toFixed(2)}
+                                                            onChange={e => {
+                                                                const newAllocs = allocations.map(a =>
+                                                                    a.id === alloc.id ? { ...a, value: Number(e.target.value) } : a
+                                                                );
+                                                                setAllocations(newAllocs);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </td>
                                                 <td className="p-2 text-center"><button onClick={() => removeAllocation(alloc.id)} className="text-red-400 hover:text-red-600"><X size={14} /></button></td>
                                             </tr>
                                         ))}
@@ -1079,34 +1275,94 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                             </div>
                         </div>
                         {installments.length > 0 && (
-                            <div className="bg-white rounded border border-blue-100 overflow-hidden">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-blue-100 text-blue-800">
-                                        <tr>
-                                            <th className="p-2 text-center w-16">#</th>
-                                            <th className="p-2 text-left">Vencimento</th>
-                                            <th className="p-2 text-right">Valor Parcela</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {installments.map((inst, idx) => (
-                                            <tr key={inst.id} className="border-b last:border-0">
-                                                <td className="p-2 text-center font-bold text-slate-500">{inst.number}</td>
-                                                <td className="p-2">
-                                                    <input type="date" className="border rounded px-2 py-1 w-full text-xs" value={inst.dueDate} onChange={e => {
-                                                        const newInsts = [...installments];
-                                                        newInsts[idx].dueDate = e.target.value;
-                                                        setInstallments(newInsts);
-                                                    }} />
+                            <>
+                                {/* Validation Alert */}
+                                {(() => {
+                                    const installmentsSum = installments.reduce((acc, inst) => acc + inst.value, 0);
+                                    const diff = Math.abs(installmentsSum - totalValue);
+                                    if (diff > 0.01) {
+                                        return (
+                                            <div className="mb-4 bg-red-50 border-2 border-red-300 rounded-lg p-3 flex items-center gap-3 animate-pulse">
+                                                <AlertTriangle className="text-red-600" size={20} />
+                                                <div className="flex-1 text-sm">
+                                                    <div className="font-black text-red-900 uppercase">Atenção: Valores não batem!</div>
+                                                    <div className="text-red-700">
+                                                        Soma das Parcelas: <strong className="font-mono">{installmentsSum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                                        {' ≠ '}
+                                                        Total da NF: <strong className="font-mono">{totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+                                                        {' ('}Diferença: <strong className="font-mono text-red-600">{diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>{')'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-2 flex items-center gap-2 text-green-700 text-xs font-bold">
+                                            <CheckCircle size={16} />
+                                            Valores conferem: {installmentsSum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} = Total da NF
+                                        </div>
+                                    );
+                                })()}
+
+                                <div className="bg-white rounded border border-blue-100 overflow-hidden">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-blue-100 text-blue-800">
+                                            <tr>
+                                                <th className="p-2 text-center w-16">#</th>
+                                                <th className="p-2 text-left">Vencimento</th>
+                                                <th className="p-2 text-right">Valor Parcela (Editável)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {installments.map((inst, idx) => (
+                                                <tr key={inst.id} className="border-b last:border-0 hover:bg-blue-50/50 transition-colors">
+                                                    <td className="p-2 text-center font-bold text-slate-500">{inst.number}</td>
+                                                    <td className="p-2">
+                                                        <input
+                                                            type="date"
+                                                            className="border rounded px-2 py-1 w-full text-xs focus:ring-2 focus:ring-blue-200 outline-none"
+                                                            value={inst.dueDate}
+                                                            onChange={e => {
+                                                                const newInsts = [...installments];
+                                                                newInsts[idx].dueDate = e.target.value;
+                                                                setInstallments(newInsts);
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td className="p-2 text-right">
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <span className="text-slate-400 text-xs">R$</span>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                className="border border-blue-200 rounded px-2 py-1 w-32 text-right font-mono font-bold focus:ring-2 focus:ring-blue-400 outline-none text-blue-900"
+                                                                value={inst.value.toFixed(2)}
+                                                                onChange={e => {
+                                                                    const newInsts = [...installments];
+                                                                    newInsts[idx].value = Number(e.target.value);
+                                                                    setInstallments(newInsts);
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {/* Summary Row */}
+                                            <tr className="bg-blue-100 font-bold">
+                                                <td className="p-3" colSpan={2}>
+                                                    <div className="flex items-center gap-2 text-blue-900 uppercase text-xs">
+                                                        <BarChart size={14} />
+                                                        Total das Parcelas
+                                                    </div>
                                                 </td>
-                                                <td className="p-2 text-right font-mono font-medium">
-                                                    {inst.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                                <td className="p-3 text-right font-mono text-blue-900">
+                                                    {installments.reduce((acc, inst) => acc + inst.value, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </td>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
                         )}
                     </div>
 
@@ -1637,7 +1893,7 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
 
             <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                 {activeTab === 'budget' && <BudgetStructureTab tree={budgetTree} onUpdate={handleUpdateTree} versions={budgetVersions} onSaveVersion={handleSaveVersion} />}
-                {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} savedSuppliers={suppliers} onSaveSuppliers={handleUpdateSuppliers} />}
+                {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} savedSuppliers={suppliers} onSaveSuppliers={handleUpdateSuppliers} appData={appData} />}
                 {activeTab === 'analysis' && <AnalysisDashboardTab tree={budgetTree} entries={entries} />}
             </div>
         </div>

@@ -20,10 +20,19 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
     });
     const [showColorSettings, setShowColorSettings] = useState(false);
 
+    const [forecastData, setForecastData] = useState<Record<string, Record<string, number>>>({});
+
     useEffect(() => {
         loadSnapshots();
         loadColors();
+        loadForecast();
     }, []);
+
+    const loadForecast = async () => {
+        const { db } = await import('../services/db');
+        const f = await db.meta.get('disbursementForecast');
+        if (f) setForecastData(f.value);
+    };
 
     const loadColors = async () => {
         const { db } = await import('../services/db');
@@ -68,15 +77,35 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
         // 1. Calculate Curves
         const totalBudget = appData.budget?.filter(i => !i.isGroup).reduce((acc, i) => acc + (i.total || 0), 0) || 1;
 
-        // Standard Curve: Simulating a spread over the timeline
-        const standardCurve = months.map((_, idx) => Math.min(100, Math.round((idx + 1) / months.length * 100)));
+        // Standard Curve: Natural S-Curve (Sigmoid)
+        const standardCurve = months.map((_, idx) => {
+            const progress = (idx + 1) / months.length;
+            // Sigmoid: f(x) = 1 / (1 + e^-k(x-0.5))
+            // x from 0 to 1. Center at 0.5. k=10 for nice S.
+            const k = 6;
+            const x = progress;
+            const sigmoid = 1 / (1 + Math.exp(-k * (x - 0.5)));
+            // Normalize so 0 is 0 and 1 is 1
+            const s0 = 1 / (1 + Math.exp(-k * (-0.5)));
+            const s1 = 1 / (1 + Math.exp(-k * (0.5)));
+            const normalized = (sigmoid - s0) / (s1 - s0);
+            return Math.min(100, Math.round(normalized * 100));
+        });
 
-        // Realized Curve: Total accumulation per month
+        // Realized Curve: Using RDO Accumulated Value as source
+        // RDO is often the "Financial Progress" measured or paid.
+        const totalRDOSum = appData.rdoData?.reduce((acc, item) => acc + (item.accumulatedValue || 0), 0) || 0;
+
         let cumulativeRealized = 0;
         const realizedCurve = monthKeys.map((key, idx) => {
             if (idx > currentMonthIndex && currentMonthIndex !== -1) return null;
 
-            // Get realized value for this specific month from financial entries
+            // If it's the current month, we use the total RDO sum as the current state
+            if (idx === currentMonthIndex) {
+                return Math.min(100, Math.round((totalRDOSum / totalBudget) * 100));
+            }
+
+            // For previous months, if we have financial entries, use them to build the history
             const monthEntries = appData.financialEntries?.filter(fe =>
                 fe.installments?.some(inst => inst.dueDate.startsWith(key))
             ) || [];
@@ -87,13 +116,29 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
             }, 0);
 
             cumulativeRealized += monthTotal;
+
+            // To ensure it connects to the RDO total at the current month, 
+            // we scale the financial history if needed, but here we just return the cumulative.
             return Math.min(100, Math.round((cumulativeRealized / totalBudget) * 100));
         });
 
-        // Projected Curve: Based on trend
-        const projectedCurve = monthKeys.map((_, idx) => {
+        // Projected Curve: Based on Forecast Data from DisbursementForecastView
+        const projectedCurve = monthKeys.map((key, idx) => {
             if (idx < currentMonthIndex && currentMonthIndex !== -1) return null;
-            return Math.min(100, (standardCurve[idx] || 0) + (idx > currentMonthIndex ? 3 : 0));
+
+            // Start from last realized progress (RDO Total)
+            let baseProgress = totalRDOSum;
+
+            // Add sum of all forecast items for future months up to this index
+            let futureSum = 0;
+            for (let i = currentMonthIndex + 1; i <= idx; i++) {
+                const mk = monthKeys[i];
+                Object.values(forecastData).forEach(itemForecast => {
+                    futureSum += (itemForecast[mk] || 0);
+                });
+            }
+
+            return Math.min(100, Math.round(((baseProgress + futureSum) / totalBudget) * 100));
         });
 
         // 2. Status Map from Visual Management
@@ -128,7 +173,7 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
             overruns,
             currentMonthIndex: currentMonthIndex === -1 ? months.length : currentMonthIndex
         };
-    }, [appData]);
+    }, [appData, forecastData]);
 
     const handleSaveSnapshot = async () => {
         const name = prompt("Dê um nome para este Snapshot (ex: Fechamento Jan/24):");
