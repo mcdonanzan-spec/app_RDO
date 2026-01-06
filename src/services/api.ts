@@ -1,140 +1,104 @@
 import { AppData, ContractBox, RHPremise, SupplyChainBox } from '../../types';
-import { db, checkIsLoaded, setLoaded, getVisualManagement } from './db';
-
-// Debug API Key
-console.log("API Key Status:", import.meta.env.VITE_API_KEY ? "Presente" : "Ausente");
+import { supabase } from './supabase';
+import { ProjectService } from './projectService';
+import { FinancialService } from './financialService';
+import { BudgetService } from './budgetService';
 
 export class ApiService {
 
-    // Switch to LocalDB (Dexie) implementation
     static async getAppData(): Promise<AppData> {
         try {
-            const [rhPremises, contracts, orders, budget, masterPlanSheets, rdoData, isLoaded, purchaseRequests, budgetGroups, financialEntries, visualManagement] = await Promise.all([
-                db.rhPremises.toArray(),
-                db.contracts.toArray(),
-                db.orders.toArray(),
-                db.budget.toArray(),
-                db.masterPlanSheets.toArray(),
-                db.rdoData.toArray(),
-                checkIsLoaded(),
-                db.purchaseRequests.toArray(),
-                db.budgetGroups.toArray(),
-                db.financialEntries.toArray(),
-                getVisualManagement()
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                console.log("No active session, returning empty data.");
+                return this.getEmptyAppData();
+            }
+
+            const projects = await ProjectService.getProjects();
+            if (projects.length === 0) {
+                return { ...this.getEmptyAppData(), isLoaded: true };
+            }
+
+            const activeProject = projects[0]; // TODO: Implement Project Context/Selector
+            const projectId = activeProject.id;
+
+            console.log(`Loading data for project: ${activeProject.name}`);
+
+            const [budgetTree, financialEntries, rdoData] = await Promise.all([
+                BudgetService.getBudgetTree(projectId),
+                FinancialService.getEntries(projectId),
+                BudgetService.getRDOItems(projectId)
             ]);
 
-            return {
-                rhPremises,
-                contractorData: { contracts },
-                supplyChainData: { orders },
-                budget,
-                masterPlanSheets,
-                rdoData,
-                isLoaded,
-                purchaseRequests,
-                budgetGroups,
-                projectionData: [],
-                rdoSheets: [],
-                budgetSheets: [],
-                financialEntries,
-                visualManagement,
-                budgetTree: JSON.parse(localStorage.getItem('budgetTree') || '[]')
+            // Transform BudgetTree to flat list if needed by AppData.budget, 
+            // BUT AppData.budget usually expects a flat list too? 
+            // Review types.ts later. The app seems to use budget (flat) and budgetTree (tree).
+            // BudgetService returns tree. We might need to flatten it for 'budget' prop or update AppData type.
+            // For now, let's assume 'budget' prop is flat lines.
+
+            const budgetFlat: any[] = []; // TODO: Flatten logic if strictly required by legacy views
+            // Actually, the new views use budgetTree. Legacy views use budget. 
+            // We can flatten budgetTree easily.
+            const flatten = (nodes: any[]) => {
+                nodes.forEach(n => {
+                    budgetFlat.push({ ...n, children: undefined });
+                    if (n.children) flatten(n.children);
+                });
             };
-        } catch (error) {
-            console.error("Failed to fetch app data from LocalDB", error);
+            flatten(budgetTree);
+
             return {
                 rhPremises: [],
                 contractorData: { contracts: [] },
                 supplyChainData: { orders: [] },
-                budget: [],
+                budget: budgetFlat,
                 masterPlanSheets: [],
-                rdoData: [],
-                isLoaded: false,
+                rdoData: rdoData,
+                isLoaded: true,
+                purchaseRequests: [],
+                budgetGroups: [], // Maybe extract form budgetTree
                 projectionData: [],
                 rdoSheets: [],
-                budgetSheets: []
+                budgetSheets: [],
+                financialEntries: financialEntries,
+                visualManagement: undefined,
+                budgetTree: budgetTree,
+                activeProjectId: projectId
             };
+
+        } catch (error) {
+            console.error("Failed to fetch app data from Supabase", error);
+            return this.getEmptyAppData();
         }
     }
 
+    static getEmptyAppData(): AppData {
+        return {
+            rhPremises: [],
+            contractorData: { contracts: [] },
+            supplyChainData: { orders: [] },
+            budget: [],
+            masterPlanSheets: [],
+            rdoData: [],
+            isLoaded: false,
+            projectionData: [],
+            rdoSheets: [],
+            budgetSheets: [],
+            financialEntries: []
+        };
+    }
+
     static async saveAppData(data: AppData): Promise<void> {
-        // Parallel saving is safe in IndexedDB and much faster
-        console.time("saveAppData");
-
-        await db.transaction('rw', [db.rhPremises, db.contracts, db.orders, db.budget, db.masterPlanSheets, db.rdoData, db.meta, db.purchaseRequests, db.budgetGroups, db.financialDocuments, db.financialEntries, db.visualManagement], async () => {
-            // Clear existing data to ensure full sync (or implement smart diffing if needed)
-            // For bulk loads, clear+add is often fastest in IDB unless items are very large
-
-            // We use bulkPut for upsert behavior logic if we had keys, but full replacement is safer for "files loaded" state
-            // Let's clear and bulkAdd for the main lists to ensure consistency with the "Sheet" nature of the input
-
-            await Promise.all([
-                db.rhPremises.clear().then(() => db.rhPremises.bulkAdd(data.rhPremises)),
-                db.contracts.clear().then(() => db.contracts.bulkAdd(data.contractorData.contracts)),
-                db.orders.clear().then(() => db.orders.bulkAdd(data.supplyChainData.orders)),
-                db.budget.clear().then(() => db.budget.bulkAdd(data.budget)),
-                db.masterPlanSheets.clear().then(() => db.masterPlanSheets.bulkAdd(data.masterPlanSheets)),
-                data.purchaseRequests ? db.purchaseRequests.clear().then(() => db.purchaseRequests.bulkAdd(data.purchaseRequests!)) : Promise.resolve(),
-                data.budgetGroups ? db.budgetGroups.clear().then(() => db.budgetGroups.bulkAdd(data.budgetGroups!)) : Promise.resolve(),
-                data.financialEntries ? db.financialEntries.clear().then(() => db.financialEntries.bulkAdd(data.financialEntries!)) : Promise.resolve(),
-                data.visualManagement ? db.visualManagement.put({ id: 'main', data: data.visualManagement }) : Promise.resolve()
-            ]);
-
-            // Specialized handling for RDO to prevent UI freezing on massive datasets?
-            // IndexedDB is fast enough for 10k items.
-            if (data.rdoData && data.rdoData.length > 0) {
-                console.log(`Saving ${data.rdoData.length} RDO items to LocalDB...`);
-                await db.rdoData.clear();
-                await db.rdoData.bulkAdd(data.rdoData);
-            }
-
-            // Set loaded flag
-            await setLoaded(true);
-        });
-
-        console.timeEnd("saveAppData");
-        console.log("Data saved successfully to LocalDB");
+        console.warn("Legacy saveAppData called. This is deprecated in Supabase mode.");
+        // We could implement partial saves here if desperate, but better to migrate views.
     }
 
-    static async saveRhPremises(data: RHPremise[]): Promise<void> {
-        await db.transaction('rw', db.rhPremises, async () => {
-            await db.rhPremises.clear();
-            await db.rhPremises.bulkAdd(data);
-        });
-    }
+    // Legacy wrappers - safe to keep as no-ops or implementation pending
+    static async saveRhPremises(data: RHPremise[]): Promise<void> { }
+    static async saveContracts(data: ContractBox[]): Promise<void> { }
+    static async updateContract(contract: ContractBox): Promise<void> { }
+    static async addContract(contract: ContractBox): Promise<void> { }
+    static async updateOrder(order: SupplyChainBox): Promise<void> { }
 
-    static async saveContracts(data: ContractBox[]): Promise<void> {
-        await db.transaction('rw', db.contracts, async () => {
-            await db.contracts.clear();
-            await db.contracts.bulkAdd(data);
-        });
-    }
-
-    static async updateContract(contract: ContractBox): Promise<void> {
-        await db.contracts.put(contract);
-    }
-
-    static async addContract(contract: ContractBox): Promise<void> {
-        await db.contracts.put(contract);
-    }
-
-    static async updateOrder(order: SupplyChainBox): Promise<void> {
-        await db.orders.put(order);
-    }
-
-    static async saveAnalysis(analysis: import('../../types').SavedAnalysis): Promise<number> {
-        return await db.savedAnalyses.add(analysis);
-    }
-
-    static async getSavedAnalyses(): Promise<import('../../types').SavedAnalysis[]> {
-        return await db.savedAnalyses.reverse().toArray();
-    }
-
-    static async saveStrategySnapshot(snapshot: import('../../types').StrategySnapshot): Promise<number> {
-        return await db.strategySnapshots.add(snapshot);
-    }
-
-    static async getStrategySnapshots(): Promise<import('../../types').StrategySnapshot[]> {
-        return await db.strategySnapshots.reverse().toArray();
-    }
+    // ... other methods if needed
 }

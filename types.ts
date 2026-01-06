@@ -344,6 +344,7 @@ export interface AppData {
     financialEntries?: FinancialEntry[]; // New store for NFs
     financialDocuments?: FinancialDocument[]; // Keep for legacy compat if needed
     budgetTree?: BudgetNode[]; // Full hierarchical tree state if persisted
+    activeProjectId?: string; // Supabase Project ID
 
     budgetVersions?: BudgetSnapshot[];
     suppliers?: Supplier[];

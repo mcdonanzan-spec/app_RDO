@@ -6,7 +6,8 @@ import {
     Settings,
     BrainCircuit,
     Table as TableIcon,
-    TrendingUp
+    TrendingUp,
+    Shield
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, isM
         { id: 'visual_management', label: 'Gestão à Vista', icon: <Building2 size={20} />, section: 'PRODUÇÃO' },
         { id: 'intelligence', label: 'IA Generativa', icon: <BrainCircuit size={20} />, section: 'ANÁLISE' },
         { id: 'strategy_bi', label: 'Estratégia & BI', icon: <TrendingUp size={20} />, section: 'ANÁLISE' },
+        { id: 'admin', label: 'Admin & Acesso', icon: <Shield size={20} />, section: 'CONFIG' },
         { id: 'system_summary', label: 'Guia do Sistema', icon: <Settings size={20} />, section: 'CONFIG' },
     ];
 

@@ -1,6 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, BudgetGroup, BudgetNode, FinancialEntry, Installment, FinancialAllocation, BudgetSnapshot, Supplier } from '../../types';
-import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers, CheckCircle, XCircle, MoreHorizontal, PaintBucket } from 'lucide-react';
+import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers, CheckCircle, XCircle, MoreHorizontal, PaintBucket, Loader2 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { FinancialService } from '../services/financialService';
+import { BudgetService } from '../services/budgetService';
 
 interface Props {
     appData: AppData;
@@ -772,7 +775,9 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         setInstallments(newInsts);
     };
 
-    const handleSaveEntry = () => {
+    const { user } = useAuth();
+
+    const handleSaveEntry = async () => {
         const newErrors: { [key: string]: boolean } = {};
         if (!supplier) newErrors.supplier = true;
         if (!docNum) newErrors.docNum = true;
@@ -807,8 +812,17 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             generateInstallmentsPreview();
         }
 
+        if (!appData.activeProjectId) {
+            alert("Erro: Nenhum projeto ativo selecionado. Recarregue a página.");
+            return;
+        }
+        if (!user) {
+            alert("Erro: Usuário não autenticado.");
+            return;
+        }
+
         const newEntry: FinancialEntry = {
-            id: Date.now().toString(),
+            id: crypto.randomUUID(), // Use UUID for correct DB insertion
             supplier: supplier.toUpperCase(),
             documentNumber: docNum,
             description: `NF ${docNum} - ${supplier.toUpperCase()}`,
@@ -816,11 +830,11 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             totalValue: totalValue,
             allocations,
             status: 'APPROVED',
-            installments: installments.length > 0 ? installments : [], // logic fix
+            installments: installments.length > 0 ? installments : [],
             purchaseOrder,
             idMov,
             nMov,
-            observation // Observation field added
+            observation
         };
 
         // If installments empty because state lag or something, re-gen:
@@ -830,7 +844,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                 const date = new Date(issueDate);
                 date.setMonth(date.getMonth() + i + 1);
                 newEntry.installments.push({
-                    id: Date.now() + i + 'fix',
+                    id: crypto.randomUUID(),
                     number: i + 1,
                     dueDate: date.toISOString().split('T')[0],
                     value: valPerInst,
@@ -839,12 +853,19 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             }
         }
 
-        onUpdate([...entries, newEntry]);
-        setViewMode('list');
-        // Reset form
-        setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
-        setTotalValue(0); setAllocations([]); setInstallments([]);
-        setErrors({});
+        try {
+            await FinancialService.createEntry(newEntry, appData.activeProjectId, user.id);
+            onUpdate([...entries, newEntry]);
+            setViewMode('list');
+            // Reset form
+            setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
+            setTotalValue(0); setAllocations([]); setInstallments([]);
+            setErrors({});
+            alert("Lançamento salvo com sucesso no banco de dados!");
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao salvar no banco de dados. Tente novamente.");
+        }
     };
 
     const handleExport = () => {
@@ -1876,9 +1897,19 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
         // In a real app we'd debounce or explicit save
     }, [budgetTree, entries, budgetVersions, suppliers]);
 
-    const handleUpdateTree = (newTree: BudgetNode[]) => {
+    const handleUpdateTree = async (newTree: BudgetNode[]) => {
         setBudgetTree(newTree);
-        onUpdate({ budgetTree: newTree });
+        onUpdate({ budgetTree: newTree }); // Optimistic UI update
+
+        if (appData.activeProjectId) {
+            try {
+                await BudgetService.saveBudgetTree(newTree, appData.activeProjectId);
+                console.log("Budget saved to Supabase");
+            } catch (err) {
+                console.error("Failed to save budget", err);
+                alert("Erro ao salvar orçamento no banco de dados.");
+            }
+        }
     };
 
     const handleUpdateEntries = (newEntries: FinancialEntry[]) => {

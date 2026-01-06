@@ -14,12 +14,16 @@ import { AnalyticalCashFlowView } from './src/views/AnalyticalCashFlowView';
 import { DisbursementForecastView } from './src/views/DisbursementForecastView';
 import { AIStrategyView } from './src/views/AIStrategyView';
 import { SystemBlueprintView } from './src/views/SystemBlueprintView';
+import { AdminView } from './src/views/AdminView';
 
 import { ApiService } from './src/services/api';
 import { initializeVisualManagementDefaults } from './src/services/db';
+import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { LoginView } from './src/views/LoginView';
 
 // --- APP ---
 const App = () => {
+  const { user, loading } = useAuth();
   const [activeView, setActiveView] = useState('purchase_flow'); // Default to Purchase Flow
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [appData, setAppData] = useState<AppData>({
@@ -37,6 +41,14 @@ const App = () => {
     budgetSheets: [],
     financialEntries: []
   });
+
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin"></div></div>;
+  }
+
+  if (!user) {
+    return <LoginView />;
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -70,6 +82,7 @@ const App = () => {
       case 'analytical_cash_flow': return <AnalyticalCashFlowView appData={appData} />;
       case 'disbursement_forecast': return <DisbursementForecastView appData={appData} onUpdate={handleDataLoaded} />;
       case 'system_summary': return <SystemBlueprintView />;
+      case 'admin': return <AdminView />;
 
       // Fallback
       default: return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
@@ -151,7 +164,9 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <ErrorBoundary>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </ErrorBoundary>
   );
 }
