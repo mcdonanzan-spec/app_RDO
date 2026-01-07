@@ -99,14 +99,15 @@ const TabButton = ({ active, onClick, icon, label }: any) => (
 
 // --- SUB-COMPONENTS ---
 
-const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRemoveResources, onDelete }: {
+const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRemoveResources, onDelete, isReadOnly }: {
     node: BudgetNode,
     level: number,
     onUpdateNode: (n: BudgetNode) => void,
     onAddChild: (id: string, type: 'GROUP' | 'ITEM') => void,
     onAddResources: (id: string) => void,
     onRemoveResources: (id: string) => void,
-    onDelete: (id: string) => void
+    onDelete: (id: string) => void,
+    isReadOnly?: boolean
 }) => {
     const isGroup = node.type === 'GROUP' || (node.children && node.children.length > 0);
     const hasChildren = node.children && node.children.length > 0;
@@ -122,10 +123,13 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
     if (!isGroup && node.itemType === 'EQ') rowBg = 'bg-orange-50';
 
     const handleValueChange = (val: number) => {
-        onUpdateNode({ ...node, totalValue: val, budgetInitial: val, budgetCurrent: val });
+        if (isReadOnly) return;
+        const roundedVal = parseFloat(val.toFixed(2));
+        onUpdateNode({ ...node, totalValue: roundedVal, budgetInitial: roundedVal, budgetCurrent: roundedVal });
     };
 
     const handleNameChange = (val: string) => {
+        if (isReadOnly) return;
         onUpdateNode({ ...node, description: val.toUpperCase() });
     };
 
@@ -136,17 +140,19 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
             </td>
             <td className="p-2">
                 <input
-                    className={`bg-transparent w-full outline-none uppercase text-xs ${level === 0 ? 'font-black text-slate-900' : 'font-bold text-slate-700'}`}
+                    className={`bg-transparent w-full outline-none uppercase text-xs ${level === 0 ? 'font-black text-slate-900' : 'font-bold text-slate-700'} ${isReadOnly ? 'cursor-not-allowed opacity-80' : ''}`}
                     value={node.description}
                     onChange={(e) => handleNameChange(e.target.value)}
+                    disabled={isReadOnly}
                 />
             </td>
             <td className="p-2 text-center text-[10px]">
                 {isGroup ? <span className="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold">{node.children && node.children.length > 0 ? 'CMP' : 'GRP'}</span> :
                     <select
                         value={node.itemType || 'MT'}
-                        onChange={(e) => onUpdateNode({ ...node, itemType: e.target.value as any })}
-                        className="bg-transparent font-bold border-b border-dotted border-slate-400 outline-none text-center"
+                        onChange={(e) => !isReadOnly && onUpdateNode({ ...node, itemType: e.target.value as any })}
+                        disabled={isReadOnly}
+                        className={`bg-transparent font-bold border-b border-dotted border-slate-400 outline-none text-center ${isReadOnly ? 'cursor-not-allowed border-transparent' : ''}`}
                     >
                         <option value="MT">MAT</option>
                         <option value="ST">SRV</option>
@@ -156,18 +162,20 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
             </td>
             <td className={`p-2 text-right font-mono font-medium border-l border-r border-orange-100 ${hasChildren ? 'bg-orange-50 text-orange-900 opacity-80' : 'text-orange-700 bg-white'}`}>
                 {hasChildren ?
-                    <span>{node.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                    <span>{node.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'BRL' })}</span>
                     :
                     <input
                         type="number"
-                        className="w-full text-right bg-transparent outline-none border-b border-transparent focus:border-orange-400 transition-colors"
+                        step="0.01"
+                        className={`w-full text-right bg-transparent outline-none border-b border-transparent focus:border-orange-400 transition-colors ${isReadOnly ? 'cursor-not-allowed' : ''}`}
                         value={node.totalValue}
                         onChange={(e) => handleValueChange(Number(e.target.value))}
+                        disabled={isReadOnly}
                     />
                 }
             </td>
             <td className="p-2 text-right flex justify-end gap-1 items-center">
-                {!node.code || node.code.length > 0 ? (
+                {!isReadOnly && (!node.code || node.code.length > 0) ? (
                     <>
                         <button onClick={() => onAddChild(node.id, 'GROUP')} title="Adicionar Sub-Grupo" className="p-1 text-slate-400 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 rounded">
                             <Plus size={14} />
@@ -202,7 +210,7 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
                         }
                     </>
                 ) : null}
-                <button onClick={() => onDelete(node.id)} className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded ml-2"><Trash size={14} /></button>
+                {!isReadOnly && <button onClick={() => onDelete(node.id)} className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded ml-2"><Trash size={14} /></button>}
             </td>
         </tr>
     );
@@ -216,9 +224,26 @@ const renderTreeRows = (
     onRemoveResources: (id: string) => void,
     onDelete: (id: string) => void,
     level = 0,
-    showResources = true
+    showResources = true,
+    isReadOnly = false
 ): React.ReactNode[] => {
-    return nodes.flatMap((node) => {
+    // Sort nodes to ensure consistent resource order (MT -> ST -> EQ)
+    const sortedNodes = [...nodes].sort((a, b) => {
+        // If both have codes (groups), use code sort
+        if (a.code && b.code) {
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+        }
+
+        // If one is a resource (empty code), prioritize by type
+        const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
+        const orderA = resourceOrder[a.itemType || ''] || 0;
+        const orderB = resourceOrder[b.itemType || ''] || 0;
+        if (orderA !== orderB) return orderA - orderB;
+
+        return 0;
+    });
+
+    return sortedNodes.flatMap((node) => {
         const isResourceNode = (!node.code || node.code.trim() === '') && ['MT', 'ST', 'EQ'].includes(node.itemType || '');
         if (!showResources && isResourceNode) {
             return [];
@@ -234,8 +259,9 @@ const renderTreeRows = (
                 onAddResources={onAddResources}
                 onRemoveResources={onRemoveResources}
                 onDelete={onDelete}
+                isReadOnly={isReadOnly}
             />,
-            ...(node.children ? renderTreeRows(node.children, onUpdateNode, onAddChild, onAddResources, onRemoveResources, onDelete, level + 1, showResources) : [])
+            ...(node.children ? renderTreeRows(node.children, onUpdateNode, onAddChild, onAddResources, onRemoveResources, onDelete, level + 1, showResources, isReadOnly) : [])
         ];
     });
 };
@@ -440,9 +466,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                     const key = node.code;
                     if (aggregatedMap.has(key)) {
                         const existing = aggregatedMap.get(key)!;
-                        existing.totalValue += node.totalValue;
-                        existing.budgetInitial += node.budgetInitial;
-                        existing.budgetCurrent += node.budgetCurrent;
+                        existing.totalValue = parseFloat((existing.totalValue + node.totalValue).toFixed(2));
+                        existing.budgetInitial = parseFloat((existing.budgetInitial + node.budgetInitial).toFixed(2));
+                        existing.budgetCurrent = parseFloat((existing.budgetCurrent + node.budgetCurrent).toFixed(2));
                         // Children are added recursively below
                     } else {
                         aggregatedMap.set(key, { ...node, children: [], costCenter: 'ALL' });
@@ -454,7 +480,17 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
             flattenAndCollect(tree);
 
             // Rebuild tree from aggregated flat list
-            const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+            const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => {
+                // Primary: Code sort
+                const codeCompare = a.code.localeCompare(b.code, undefined, { numeric: true });
+                if (codeCompare !== 0) return codeCompare;
+
+                // Secondary: Resource sort (MT -> ST -> EQ)
+                const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
+                const orderA = resourceOrder[a.itemType || ''] || 0;
+                const orderB = resourceOrder[b.itemType || ''] || 0;
+                return orderA - orderB;
+            });
             const rootNodes: BudgetNode[] = [];
             const tempMap = new Map<string, BudgetNode>();
             sortedItems.forEach(n => tempMap.set(n.code, n));
