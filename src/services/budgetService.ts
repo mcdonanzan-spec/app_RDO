@@ -11,7 +11,7 @@ interface DBBudgetItem {
     parent_id?: string;
     budget_initial: number;
     budget_current: number;
-    children?: DBBudgetItem[];
+    cost_center?: string;
 }
 
 export const BudgetService = {
@@ -38,13 +38,15 @@ export const BudgetService = {
                 level: n.level,
                 type: n.type,
                 itemType: n.item_type as any,
-                totalValue: 0, // Calculated later or on demand
+                totalValue: 0,
                 budgetInitial: Number(n.budget_initial),
                 budgetCurrent: Number(n.budget_current),
                 realizedRDO: 0,
                 realizedFinancial: 0,
                 committed: 0,
-                children: [] // Will be populated
+                children: [],
+                parentId: n.parent_id,
+                costCenter: n.cost_center
             });
         });
 
@@ -73,10 +75,10 @@ export const BudgetService = {
         return data.map((d: any) => ({
             id: d.id,
             date: d.date,
-            status: 'concluido', // Default
+            status: 'concluido',
             accumulatedValue: Number(d.accumulated_value),
-            monthlyValue: 0, // Not stored primarily
-            group: 'N/A', // Derived from budget code usually
+            monthlyValue: 0,
+            group: 'N/A',
             service: d.description,
             code: d.code,
             description: d.description
@@ -89,7 +91,7 @@ export const BudgetService = {
 
         const processNode = (node: BudgetNode, parentId?: string) => {
             flatItems.push({
-                id: node.id, // Ensure UUID or generate
+                id: node.id,
                 project_id: projectId,
                 code: node.code,
                 description: node.description,
@@ -98,10 +100,13 @@ export const BudgetService = {
                 item_type: node.itemType,
                 parent_id: parentId,
                 budget_initial: node.budgetInitial,
-                budget_current: node.budgetCurrent
+                budget_current: node.budgetCurrent,
+                cost_center: node.costCenter
             });
 
-            node.children.forEach(child => processNode(child, node.id));
+            if (node.children) {
+                node.children.forEach(child => processNode(child, node.id));
+            }
         };
 
         nodes.forEach(n => processNode(n));

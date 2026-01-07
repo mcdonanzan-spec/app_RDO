@@ -296,7 +296,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
         if (!name) return;
 
         const newNode: BudgetNode = {
-            id: Date.now().toString(),
+            id: crypto.randomUUID(),
             code,
             description: name.toUpperCase(),
             level: 0,
@@ -342,7 +342,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                     }
 
                     const newNode: BudgetNode = {
-                        id: Date.now().toString(),
+                        id: crypto.randomUUID(),
                         code: newCode,
                         description: name.toUpperCase(),
                         level: node.level + 1,
@@ -380,9 +380,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                         return node;
                     }
                     const resources: BudgetNode[] = [
-                        { id: Date.now() + '1', code: '', description: 'MATERIAL', level: node.level + 1, type: 'ITEM', itemType: 'MT', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
-                        { id: Date.now() + '2', code: '', description: 'SERVIÇO DE TERCEIROS', level: node.level + 1, type: 'ITEM', itemType: 'ST', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
-                        { id: Date.now() + '3', code: '', description: 'EQUIPAMENTOS', level: node.level + 1, type: 'ITEM', itemType: 'EQ', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id },
+                        { id: crypto.randomUUID(), code: '', description: 'MATERIAL', level: node.level + 1, type: 'ITEM', itemType: 'MT', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
+                        { id: crypto.randomUUID(), code: '', description: 'SERVIÇO DE TERCEIROS', level: node.level + 1, type: 'ITEM', itemType: 'ST', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
+                        { id: crypto.randomUUID(), code: '', description: 'EQUIPAMENTOS', level: node.level + 1, type: 'ITEM', itemType: 'EQ', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
                     ];
                     setShowResources(true);
                     return { ...node, children: resources };
