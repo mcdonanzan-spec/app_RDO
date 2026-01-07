@@ -381,9 +381,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                         return node;
                     }
                     const resources: BudgetNode[] = [
-                        { id: crypto.randomUUID(), code: '', description: 'MATERIAL', level: node.level + 1, type: 'ITEM', itemType: 'MT', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
-                        { id: crypto.randomUUID(), code: '', description: 'SERVIÇO DE TERCEIROS', level: node.level + 1, type: 'ITEM', itemType: 'ST', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
-                        { id: crypto.randomUUID(), code: '', description: 'EQUIPAMENTOS', level: node.level + 1, type: 'ITEM', itemType: 'EQ', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
+                        { id: crypto.randomUUID(), code: `${node.code}.MT`, description: 'MATERIAL', level: node.level + 1, type: 'ITEM', itemType: 'MT', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
+                        { id: crypto.randomUUID(), code: `${node.code}.ST`, description: 'SERVIÇO DE TERCEIROS', level: node.level + 1, type: 'ITEM', itemType: 'ST', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
+                        { id: crypto.randomUUID(), code: `${node.code}.EQ`, description: 'EQUIPAMENTOS', level: node.level + 1, type: 'ITEM', itemType: 'EQ', totalValue: 0, budgetInitial: 0, budgetCurrent: 0, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [], parentId: node.id, costCenter: node.costCenter },
                     ];
                     setShowResources(true);
                     return { ...node, children: resources };
@@ -395,7 +395,8 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
             });
         };
         const newTree = findAndAddRes(tree);
-        onUpdate(newTree);
+        const { nodes: recalculatedTree } = recalculateTotals(newTree);
+        onUpdate(recalculatedTree);
     };
 
     const handleRemoveResources = (nodeId: string) => {
