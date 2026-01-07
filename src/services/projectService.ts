@@ -7,6 +7,9 @@ export interface Project {
     status: 'ACTIVE' | 'PLANNING' | 'COMPLETED';
     units: number;
     progress: number;
+    settings?: {
+        cost_centers: { id: string, name: string }[];
+    };
 }
 
 export const ProjectService = {

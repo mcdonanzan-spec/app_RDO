@@ -12,6 +12,19 @@ export interface SheetData {
     fileName?: string;
 }
 
+// --- PROJECT & SETTINGS ---
+export interface Project {
+    id: string;
+    name: string;
+    location: string;
+    status: 'ACTIVE' | 'PLANNING' | 'COMPLETED';
+    units: number;
+    progress: number;
+    settings?: {
+        cost_centers: { id: string, name: string }[];
+    };
+}
+
 export interface BudgetLine {
     id?: string;
     code: string;
@@ -345,6 +358,7 @@ export interface AppData {
     financialDocuments?: FinancialDocument[]; // Keep for legacy compat if needed
     budgetTree?: BudgetNode[]; // Full hierarchical tree state if persisted
     activeProjectId?: string; // Supabase Project ID
+    activeProject?: Project; // Full project details including settings
 
     budgetVersions?: BudgetSnapshot[];
     suppliers?: Supplier[];

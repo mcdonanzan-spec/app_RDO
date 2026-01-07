@@ -24,11 +24,15 @@ export class ApiService {
 
             console.log(`Loading data for project ID: ${projectId}`);
 
-            const [budgetTree, financialEntries, rdoData] = await Promise.all([
+            const [projects, budgetTree, financialEntries, rdoData] = await Promise.all([
+                ProjectService.getProjects(),
                 BudgetService.getBudgetTree(projectId),
                 FinancialService.getEntries(projectId),
                 BudgetService.getRDOItems(projectId)
             ]);
+
+            const activeProject = projects.find(p => p.id === projectId);
+
 
             // Transform BudgetTree to flat list if needed by AppData.budget, 
             // BUT AppData.budget usually expects a flat list too? 
@@ -63,7 +67,8 @@ export class ApiService {
                 financialEntries: financialEntries,
                 visualManagement: undefined,
                 budgetTree: budgetTree,
-                activeProjectId: projectId
+                activeProjectId: projectId,
+                activeProject: activeProject
             };
 
         } catch (error) {

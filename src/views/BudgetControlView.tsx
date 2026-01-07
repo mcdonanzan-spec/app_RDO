@@ -84,27 +84,8 @@ function buildTreeFromBudget(budgetLines: import('../../types').BudgetLine[]): B
     return rootNodes;
 }
 
-function generateInitialTree(groups: BudgetGroup[]): BudgetNode[] {
-    // Basic Mock
-    return [
-        {
-            id: '1', code: '01', description: 'CUSTOS DE CONSTRUÇÃO', level: 0, totalValue: 53670434.74, type: 'GROUP', budgetInitial: 53670434.74, budgetCurrent: 53670434.74, realizedRDO: 0, realizedFinancial: 0, committed: 0, costCenter: 'T1_T2', children: [
-                {
-                    id: '2', code: '01.01', description: 'FUNDAÇÃO E CONTENÇÕES', level: 1, totalValue: 2897999.08, type: 'GROUP', budgetInitial: 2897999.08, budgetCurrent: 2897999.08, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
-                        { id: '3', code: '01.01.01', description: 'SERVIÇOS PRELIMINARES', level: 2, totalValue: 980221.99, type: 'ITEM', itemType: 'ST', budgetInitial: 980221.99, budgetCurrent: 980221.99, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
-                        { id: '4', code: '01.01.02', description: 'ESTACAS / TRADO', level: 2, totalValue: 911671.62, type: 'ITEM', itemType: 'ST', budgetInitial: 911671.62, budgetCurrent: 911671.62, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
-                    ]
-                },
-                {
-                    id: '5', code: '01.02', description: 'ESTRUTURA DE CONCRETO', level: 1, totalValue: 12500000.00, type: 'GROUP', budgetInitial: 12500000.00, budgetCurrent: 12500000.00, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [
-                        { id: '6', code: '01.02.01', description: 'CONCRETO USINADO', level: 2, totalValue: 4500000.00, type: 'ITEM', itemType: 'MT', budgetInitial: 4500000.00, budgetCurrent: 4500000.00, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
-                        { id: '7', code: '01.02.02', description: 'AÇO CA-50', level: 2, totalValue: 3200000.00, type: 'ITEM', itemType: 'MT', budgetInitial: 3200000.00, budgetCurrent: 3200000.00, realizedRDO: 0, realizedFinancial: 0, committed: 0, children: [] },
-                    ]
-                }
-            ]
-        }
-    ];
-};
+// Função removida por ser código de teste (mock)
+
 
 const TabButton = ({ active, onClick, icon, label }: any) => (
     <button
@@ -259,9 +240,10 @@ const renderTreeRows = (
     });
 };
 
-const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion }: { tree: BudgetNode[], onUpdate: (t: BudgetNode[]) => void, versions?: BudgetSnapshot[], onSaveVersion: (desc: string) => void }) => {
+const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, onGlobalUpdate }: { tree: BudgetNode[], onUpdate: (t: BudgetNode[]) => void, versions?: BudgetSnapshot[], onSaveVersion: (desc: string) => void, appData: AppData, onGlobalUpdate: (data: Partial<AppData>) => void }) => {
     const [showResources, setShowResources] = useState(true);
-    const [activeSubTab, setActiveSubTab] = useState<'ALL' | 'T1_T2' | 'T3_T4' | 'INFRA' | 'CI'>('ALL');
+    const [activeSubTab, setActiveSubTab] = useState<string>('ALL');
+
 
     const recalculateTotals = (nodes: BudgetNode[]): { nodes: BudgetNode[], total: number } => {
         let sum = 0;
@@ -445,13 +427,59 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion }: { tree:
         onUpdate(recalculatedTree);
     };
 
-    // Filter Logic
+    // Filter & Aggregate Logic
     const filteredTree = useMemo(() => {
-        if (activeSubTab === 'ALL') return tree;
-        // Filter roots. Note that children are rendered inside the root, so if we show a root, we show its children.
-        // We filter top-level nodes by costCenter.
+        if (activeSubTab === 'ALL') {
+            // AGGREGATED VIEW: Sum items with same code
+            const aggregatedMap = new Map<string, BudgetNode>();
+
+            const flattenAndCollect = (nodes: BudgetNode[]) => {
+                nodes.forEach(node => {
+                    const key = node.code;
+                    if (aggregatedMap.has(key)) {
+                        const existing = aggregatedMap.get(key)!;
+                        existing.totalValue += node.totalValue;
+                        existing.budgetInitial += node.budgetInitial;
+                        existing.budgetCurrent += node.budgetCurrent;
+                        // Children are added recursively below
+                    } else {
+                        aggregatedMap.set(key, { ...node, children: [], costCenter: 'ALL' });
+                    }
+                    if (node.children) flattenAndCollect(node.children);
+                });
+            };
+
+            flattenAndCollect(tree);
+
+            // Rebuild tree from aggregated flat list
+            const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+            const rootNodes: BudgetNode[] = [];
+            const tempMap = new Map<string, BudgetNode>();
+            sortedItems.forEach(n => tempMap.set(n.code, n));
+
+            sortedItems.forEach(node => {
+                const lastDotIndex = node.code.lastIndexOf('.');
+                if (lastDotIndex !== -1) {
+                    const parentCode = node.code.substring(0, lastDotIndex);
+                    const parent = tempMap.get(parentCode);
+                    if (parent) {
+                        parent.children.push(node);
+                        parent.type = 'GROUP';
+                    } else {
+                        rootNodes.push(node);
+                    }
+                } else {
+                    rootNodes.push(node);
+                }
+            });
+
+            return rootNodes;
+        }
+
+        // Single Cost Center View
         return tree.filter(n => n.costCenter === activeSubTab);
     }, [tree, activeSubTab]);
+
 
     return (
         <div className="flex flex-col h-full">
@@ -503,27 +531,73 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion }: { tree:
                                 <Save size={14} /> Concluir Orçamento
                             </button>
                         </div>
+
+                        <button
+                            onClick={async () => {
+                                if (!confirm("ATENÇÃO: Isso apagará TODOS os itens do orçamento desta obra. Esta ação não pode ser desfeita. Deseja continuar?")) return;
+                                try {
+                                    const { BudgetService } = await import('../services/budgetService');
+                                    await BudgetService.saveBudgetTree([], appData.activeProjectId!);
+                                    onUpdate([]);
+                                    alert("Orçamento limpo com sucesso.");
+                                } catch (err) {
+                                    console.error(err);
+                                    alert("Erro ao limpar orçamento.");
+                                }
+                            }}
+                            className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100 font-bold text-[10px] uppercase border border-red-200 transition-colors"
+                            title="Apagar todos os itens desta obra"
+                        >
+                            <Trash size={14} /> Limpar Tudo
+                        </button>
                     </div>
                 </div>
 
                 {/* --- SUB TABS NAVIGATION --- */}
-                <div className="flex px-4 gap-1 transform translate-y-px">
-                    <button onClick={() => setActiveSubTab('ALL')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'ALL' ? 'bg-slate-50 border-slate-200 text-indigo-600 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-slate-200'}`}>
+                <div className="flex px-4 gap-1 transform translate-y-px overflow-x-auto no-scrollbar">
+                    <button onClick={() => setActiveSubTab('ALL')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg flex-shrink-0 ${activeSubTab === 'ALL' ? 'bg-slate-50 border-slate-200 text-indigo-600 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-slate-200'}`}>
                         <Layers size={14} className="inline mr-1 mb-0.5" /> CONSOLIDADO
                     </button>
-                    <div className="w-px h-6 bg-slate-300 my-auto mx-2 self-center"></div>
-                    <button onClick={() => setActiveSubTab('T1_T2')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'T1_T2' ? 'bg-green-50 border-green-200 text-green-700 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-green-50 hover:text-green-600'}`}>
-                        TORRES 01 & 02
+
+                    <div className="w-px h-6 bg-slate-300 my-auto mx-2 self-center flex-shrink-0"></div>
+
+                    {/* DYNAMIC COST CENTERS */}
+                    {(appData.activeProject?.settings?.cost_centers || []).map((cc: any) => (
+                        <button
+                            key={cc.id}
+                            onClick={() => setActiveSubTab(cc.id)}
+                            className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg flex-shrink-0 transition-all ${activeSubTab === cc.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 border-b-transparent shadow-[0_-2px_5px_rgba(0,0,0,0.05)]' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-indigo-50/50 hover:text-indigo-600'}`}
+                        >
+                            {cc.name}
+                        </button>
+                    ))}
+
+                    <button
+                        onClick={async () => {
+                            const name = prompt("Nome do novo Centro de Custo / Aba (ex: Torres 01 & 02):");
+                            if (!name) return;
+                            const newCc = { id: `cc_${Date.now()}`, name: name.toUpperCase() };
+                            const currentCcs = appData.activeProject?.settings?.cost_centers || [];
+                            const updatedSettings = {
+                                ...appData.activeProject?.settings,
+                                cost_centers: [...currentCcs, newCc]
+                            };
+
+                            // Save to Supabase (indirectly via ProjectService in this simple implementation or direct update)
+                            const { ProjectService } = await import('../services/projectService');
+                            await ProjectService.updateProject(appData.activeProjectId!, { settings: updatedSettings });
+
+                            // Update local state by forcing a refresh or optimistic update
+                            onGlobalUpdate({ activeProject: { ...appData.activeProject!, settings: updatedSettings } });
+                            setActiveSubTab(newCc.id);
+                        }}
+                        className="px-4 py-2 text-sm font-bold text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1 border-b border-b-slate-200 mb-px"
+                    >
+                        <Plus size={14} /> Nova Aba
                     </button>
-                    <button onClick={() => setActiveSubTab('T3_T4')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'T3_T4' ? 'bg-blue-50 border-blue-200 text-blue-700 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-blue-50 hover:text-blue-600'}`}>
-                        TORRES 03 & 04
-                    </button>
-                    <button onClick={() => setActiveSubTab('INFRA')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'INFRA' ? 'bg-orange-50 border-orange-200 text-orange-700 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-orange-50 hover:text-orange-600'}`}>
-                        INFRAESTRUTURA
-                    </button>
-                    <button onClick={() => setActiveSubTab('CI')} className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg ${activeSubTab === 'CI' ? 'bg-slate-50 border-slate-300 text-slate-800 border-b-transparent' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-slate-200'}`}>
-                        CUSTO INDIRETO (CI)
-                    </button>
+
+                    {/* SPACER TO FILL REMAINING BORDER */}
+                    <div className="flex-1 border-b border-b-slate-200 mb-px"></div>
                 </div>
             </div>
 
@@ -1886,7 +1960,7 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
             const builtTree = buildTreeFromBudget(appData.budget);
             return recalculateTotals(builtTree).nodes;
         }
-        return generateInitialTree(appData.budgetGroups || []);
+        return [];
     });
     const [entries, setEntries] = useState<FinancialEntry[]>(appData.financialEntries || []);
     const [budgetVersions, setBudgetVersions] = useState<BudgetSnapshot[]>(appData.budgetVersions || []);
@@ -1952,7 +2026,7 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
             </header>
 
             <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                {activeTab === 'budget' && <BudgetStructureTab tree={budgetTree} onUpdate={handleUpdateTree} versions={budgetVersions} onSaveVersion={handleSaveVersion} />}
+                {activeTab === 'budget' && <BudgetStructureTab tree={budgetTree} onUpdate={handleUpdateTree} versions={budgetVersions} onSaveVersion={handleSaveVersion} appData={appData} onGlobalUpdate={onUpdate} />}
                 {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} savedSuppliers={suppliers} onSaveSuppliers={handleUpdateSuppliers} appData={appData} />}
                 {activeTab === 'analysis' && <AnalysisDashboardTab tree={budgetTree} entries={entries} />}
             </div>
