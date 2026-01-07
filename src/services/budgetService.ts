@@ -70,9 +70,9 @@ export const BudgetService = {
                 level: n.level,
                 type: n.type,
                 itemType: n.item_type as any,
-                totalValue: 0,
-                budgetInitial: Number(n.budget_initial),
-                budgetCurrent: Number(n.budget_current),
+                totalValue: Number(n.budget_initial) || 0,
+                budgetInitial: Number(n.budget_initial) || 0,
+                budgetCurrent: Number(n.budget_current) || 0,
                 realizedRDO: 0,
                 realizedFinancial: 0,
                 committed: 0,
@@ -93,7 +93,22 @@ export const BudgetService = {
             }
         });
 
-        return rootNodes;
+        // 3. Recalculate Totals (re-sum parents from children)
+        const recalculateInternal = (treeNodes: BudgetNode[]): { nodes: BudgetNode[], total: number } => {
+            let sum = 0;
+            const updated = treeNodes.map(node => {
+                if (node.children && node.children.length > 0) {
+                    const { nodes: children, total } = recalculateInternal(node.children);
+                    return { ...node, children, totalValue: total, budgetInitial: total, budgetCurrent: total };
+                }
+                const val = node.totalValue || 0;
+                return { ...node, totalValue: val, budgetInitial: val, budgetCurrent: val };
+            });
+            sum = updated.reduce((acc, n) => acc + n.totalValue, 0);
+            return { nodes: updated, total: sum };
+        };
+
+        return recalculateInternal(rootNodes).nodes;
     },
 
     async getRDOItems(projectId: string): Promise<import('../../types').RDOItem[]> {

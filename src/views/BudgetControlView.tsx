@@ -578,9 +578,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                                     await BudgetService.saveBudgetTree([], appData.activeProjectId!);
                                     onUpdate([]);
                                     alert("Orçamento limpo com sucesso.");
-                                } catch (err) {
+                                } catch (err: any) {
                                     console.error(err);
-                                    alert("Erro ao limpar orçamento.");
+                                    alert(`Erro ao limpar orçamento: ${err.message || 'Erro desconhecido'}`);
                                 }
                             }}
                             className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100 font-bold text-[10px] uppercase border border-red-200 transition-colors"
@@ -639,9 +639,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
                                                 setActiveSubTab('ALL');
                                                 alert("Aba e itens excluídos com sucesso.");
-                                            } catch (err) {
+                                            } catch (err: any) {
                                                 console.error(err);
-                                                alert("Erro ao excluir aba.");
+                                                alert(`Erro ao excluir aba: ${err.message || 'Erro desconhecido'}`);
                                             }
                                         }}
                                         className="p-1 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-full transition-colors"
@@ -2048,15 +2048,15 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
     const [budgetVersions, setBudgetVersions] = useState<BudgetSnapshot[]>(appData.budgetVersions || []);
     const [suppliers, setSuppliers] = useState<Supplier[]>(appData.suppliers || []);
 
-    // Auto-Save Effect
+    // Sincronizar estado local quando appData mudar (ex: após carregar do Supabase)
     useEffect(() => {
-        // In a real app we'd debounce or explicit save
-    }, [budgetTree, entries, budgetVersions, suppliers]);
+        if (appData.isLoaded && appData.budgetTree && appData.budgetTree.length > 0) {
+            setBudgetTree(appData.budgetTree);
+        }
+    }, [appData.isLoaded, appData.budgetTree, appData.activeProjectId]);
 
     const handleUpdateTree = async (newTree: BudgetNode[]) => {
-        // Sanitize IDs and CostCenters before any operation
         const sanitizedTree = BudgetService.sanitizeTree(newTree);
-
         setBudgetTree(sanitizedTree);
         onUpdate({ budgetTree: sanitizedTree }); // Optimistic UI update
 
