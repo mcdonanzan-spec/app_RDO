@@ -15,7 +15,8 @@ interface DBBudgetItem {
 }
 
 const isUUID = (str: string) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!str) return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(str);
 };
 
@@ -144,6 +145,9 @@ export const BudgetService = {
 
         // Use upsert
         const { error } = await supabase.from('budget_items').upsert(flatItems);
-        if (error) throw error;
+        if (error) {
+            console.error("Supabase Save Error:", error);
+            throw new Error(`Erro Supabase: ${error.message} (${error.code}) - Tabela: budget_items`);
+        }
     }
 };

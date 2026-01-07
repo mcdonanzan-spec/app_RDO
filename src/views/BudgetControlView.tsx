@@ -2027,9 +2027,9 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
             try {
                 await BudgetService.saveBudgetTree(sanitizedTree, appData.activeProjectId);
                 console.log("Budget saved to Supabase (Sanitized)");
-            } catch (err) {
+            } catch (err: any) {
                 console.error("Failed to save budget", err);
-                alert("Erro ao salvar orçamento no banco de dados.");
+                alert(`Erro ao salvar orçamento: ${err.message || 'Erro desconhecido'}`);
             }
         }
     };
