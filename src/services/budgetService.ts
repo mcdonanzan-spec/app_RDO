@@ -14,7 +14,38 @@ interface DBBudgetItem {
     cost_center?: string;
 }
 
+const isUUID = (str: string) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+};
+
 export const BudgetService = {
+    sanitizeTree(nodes: BudgetNode[], parentCostCenter?: string): BudgetNode[] {
+        return nodes.map(node => {
+            const sanitizedNode = { ...node };
+
+            // 1. Ensure UUID
+            if (!isUUID(sanitizedNode.id)) {
+                console.log(`Fixing non-UUID ID: ${sanitizedNode.id}`);
+                sanitizedNode.id = crypto.randomUUID();
+            }
+
+            // 2. Propage Cost Center if missing
+            if (!sanitizedNode.costCenter || sanitizedNode.costCenter === 'ALL') {
+                sanitizedNode.costCenter = node.costCenter || parentCostCenter;
+            }
+
+            // 3. Recurse for children
+            if (sanitizedNode.children && sanitizedNode.children.length > 0) {
+                sanitizedNode.children = this.sanitizeTree(sanitizedNode.children, sanitizedNode.costCenter);
+                // Update parentId of children to match current node's (possibly new) ID
+                sanitizedNode.children = sanitizedNode.children.map(child => ({ ...child, parentId: sanitizedNode.id }));
+            }
+
+            return sanitizedNode;
+        });
+    },
+
     async getBudgetTree(projectId: string): Promise<BudgetNode[]> {
         const { data, error } = await supabase
             .from('budget_items')

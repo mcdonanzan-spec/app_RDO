@@ -355,7 +355,8 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                         realizedRDO: 0,
                         realizedFinancial: 0,
                         committed: 0,
-                        parentId: node.id
+                        parentId: node.id,
+                        costCenter: node.costCenter
                     };
                     return { ...node, children: [...(node.children || []), newNode] };
                 }
@@ -2016,13 +2017,16 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
     }, [budgetTree, entries, budgetVersions, suppliers]);
 
     const handleUpdateTree = async (newTree: BudgetNode[]) => {
-        setBudgetTree(newTree);
-        onUpdate({ budgetTree: newTree }); // Optimistic UI update
+        // Sanitize IDs and CostCenters before any operation
+        const sanitizedTree = BudgetService.sanitizeTree(newTree);
+
+        setBudgetTree(sanitizedTree);
+        onUpdate({ budgetTree: sanitizedTree }); // Optimistic UI update
 
         if (appData.activeProjectId) {
             try {
-                await BudgetService.saveBudgetTree(newTree, appData.activeProjectId);
-                console.log("Budget saved to Supabase");
+                await BudgetService.saveBudgetTree(sanitizedTree, appData.activeProjectId);
+                console.log("Budget saved to Supabase (Sanitized)");
             } catch (err) {
                 console.error("Failed to save budget", err);
                 alert("Erro ao salvar orçamento no banco de dados.");
