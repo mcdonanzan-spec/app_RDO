@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { ProjectService } from './projectService';
 import { FinancialService } from './financialService';
 import { BudgetService } from './budgetService';
+import { getVisualManagement } from './db';
 
 export class ApiService {
 
@@ -24,12 +25,15 @@ export class ApiService {
 
             console.log(`Loading data for project ID: ${projectId}`);
 
-            const [projects, budgetTree, financialEntries, rdoData] = await Promise.all([
+            const [projects, budgetTree, financialEntries, rdoData, visualMgmt] = await Promise.all([
                 ProjectService.getProjects(),
                 BudgetService.getBudgetTree(projectId),
                 FinancialService.getEntries(projectId),
-                BudgetService.getRDOItems(projectId)
+                BudgetService.getRDOItems(projectId),
+                getVisualManagement()
             ]);
+
+
 
             const activeProject = projects.find(p => p.id === projectId);
 
@@ -65,8 +69,9 @@ export class ApiService {
                 rdoSheets: [],
                 budgetSheets: [],
                 financialEntries: financialEntries,
-                visualManagement: undefined,
+                visualManagement: visualMgmt,
                 budgetTree: budgetTree,
+
                 activeProjectId: projectId,
                 activeProject: activeProject
             };

@@ -8,7 +8,7 @@ const DEFAULT_SERVICES: ServiceDefinition[] = [];
 
 export const VisualManagementView = ({ appData }: { appData: AppData }) => {
     // --- State ---
-    const [config, setConfig] = useState<ProductionConfig>(appData.visualManagement?.config || { towers: 0, floors: 0, aptsPerFloor: 0 });
+    const [config, setConfig] = useState<ProductionConfig>(appData.visualManagement?.config || { towers: 4, floors: 12, aptsPerFloor: 8 });
     const [services, setServices] = useState<ServiceDefinition[]>(appData.visualManagement?.services || []);
     const [status, setStatus] = useState<ProductionStatus>(appData.visualManagement?.status || {});
 
