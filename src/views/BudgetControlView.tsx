@@ -563,13 +563,57 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
                     {/* DYNAMIC COST CENTERS */}
                     {(appData.activeProject?.settings?.cost_centers || []).map((cc: any) => (
-                        <button
-                            key={cc.id}
-                            onClick={() => setActiveSubTab(cc.id)}
-                            className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg flex-shrink-0 transition-all ${activeSubTab === cc.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 border-b-transparent shadow-[0_-2px_5px_rgba(0,0,0,0.05)]' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-indigo-50/50 hover:text-indigo-600'}`}
-                        >
-                            {cc.name}
-                        </button>
+                        <div key={cc.id} className="relative group/tab">
+                            <button
+                                onClick={() => setActiveSubTab(cc.id)}
+                                className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg flex-shrink-0 transition-all flex items-center gap-2 ${activeSubTab === cc.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 border-b-transparent shadow-[0_-2px_5px_rgba(0,0,0,0.05)]' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-indigo-50/50 hover:text-indigo-600'}`}
+                            >
+                                {cc.name}
+                                {activeSubTab === cc.id && (
+                                    <button
+                                        onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (!confirm(`Deseja excluir a aba "${cc.name}" e TODOS os seus itens? Esta ação é irreversível.`)) return;
+
+                                            try {
+                                                // 1. Remove items from this cost center in Database
+                                                const { supabase } = await import('../services/supabase');
+                                                const { error } = await supabase
+                                                    .from('budget_items')
+                                                    .delete()
+                                                    .eq('project_id', appData.activeProjectId!)
+                                                    .eq('cost_center', cc.id);
+
+                                                if (error) throw error;
+
+                                                // 2. Update Project Settings
+                                                const updatedCcs = (appData.activeProject?.settings?.cost_centers || []).filter((item: any) => item.id !== cc.id);
+                                                const updatedSettings = { ...appData.activeProject?.settings, cost_centers: updatedCcs };
+                                                const { ProjectService } = await import('../services/projectService');
+                                                await ProjectService.updateProject(appData.activeProjectId!, { settings: updatedSettings });
+
+                                                // 3. Update Local State
+                                                const newTree = tree.filter(n => n.costCenter !== cc.id);
+                                                onGlobalUpdate({
+                                                    activeProject: { ...appData.activeProject!, settings: updatedSettings },
+                                                    budgetTree: newTree
+                                                });
+
+                                                setActiveSubTab('ALL');
+                                                alert("Aba e itens excluídos com sucesso.");
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert("Erro ao excluir aba.");
+                                            }
+                                        }}
+                                        className="p-1 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-full transition-colors"
+                                        title="Excluir esta aba"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                )}
+                            </button>
+                        </div>
                     ))}
 
                     <button
