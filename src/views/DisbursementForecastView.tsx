@@ -191,7 +191,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         return Array.from({ length: projectionLength }, (_, i) => addMonths(startingMonth, i));
     }, [startingMonth, projectionLength]);
 
-    // Build budget tree
+    // Build the budget tree (reusing logic from AnalyticalCashFlowView for consistency)
     const budgetTree = useMemo(() => {
         if (appData.consolidatedTree && appData.consolidatedTree.length > 0) return appData.consolidatedTree;
         if (appData.budgetTree && appData.budgetTree.length > 0) return appData.budgetTree;
@@ -205,17 +205,20 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             description: line.desc,
             level: (line.code.match(/\./g) || []).length,
             totalValue: line.total,
-            type: line.isGroup || line.children ? 'GROUP' : 'ITEM',
+            type: line.isGroup ? 'GROUP' : 'ITEM',
+            itemType: line.isGroup ? undefined : (line.type === 'mt' ? 'MT' : 'ST'),
             children: [],
             budgetInitial: line.total,
             budgetCurrent: line.total,
             realizedRDO: 0,
             realizedFinancial: 0,
-            committed: 0
+            committed: 0,
+            costCenter: 'ALL'
         }));
 
         const rootNodes: BudgetNode[] = [];
         const nodeMap = new Map<string, BudgetNode>();
+
         allNodes.forEach(node => nodeMap.set(node.code, node));
 
         allNodes.forEach(node => {
@@ -226,6 +229,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                 if (parent) {
                     parent.children.push(node);
                     node.parentId = parent.id;
+                    parent.type = 'GROUP';
                 } else {
                     rootNodes.push(node);
                 }
@@ -269,29 +273,63 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         return map;
     }, [appData.financialEntries, startingMonth]);
 
+    // Recursive function to get calculated values for a node (including children)
+    // ADAPTED FROM AnalyticalCashFlowView TO ENSURE CONSISTENCY
     const getNodeValues = (node: BudgetNode): any => {
         let budget = budgetOverrides[node.code] !== undefined ? budgetOverrides[node.code] : (node.budgetInitial || 0);
+
         let nfRealized = financialData[node.code]?.rmo || 0;
         let nfFuture = financialData[node.code]?.monthly || {};
         let manualForecast = forecastData[node.code] || {};
 
+        // Accumulators for children
+        let childrenBudget = 0;
+        let childrenRealized = 0;
+        let childrenFuture: Record<string, number> = {};
+        let childrenManual: Record<string, number> = {};
+
         if (node.children && node.children.length > 0) {
             node.children.forEach(child => {
                 const childValues = getNodeValues(child);
-                budget += childValues.budget;
-                nfRealized += childValues.nfRealized;
+                childrenBudget += childValues.budget;
+                childrenRealized += childValues.nfRealized;
+
                 Object.entries(childValues.nfFuture).forEach(([m, val]) => {
-                    nfFuture[m] = (nfFuture[m] || 0) + (val as number);
+                    childrenFuture[m] = (childrenFuture[m] || 0) + (val as number);
                 });
                 Object.entries(childValues.manualForecast).forEach(([m, val]) => {
-                    manualForecast[m] = (manualForecast[m] || 0) + (val as number);
+                    childrenManual[m] = (childrenManual[m] || 0) + (val as number);
                 });
+            });
+
+            // PARENT VALUE IS SUM OF CHILDREN
+            budget = childrenBudget;
+            nfRealized += childrenRealized; // Add own + children (though usually own is 0 for groups)
+
+            // Merge children future into own future
+            Object.entries(childrenFuture).forEach(([m, val]) => {
+                nfFuture[m] = (nfFuture[m] || 0) + (val as number);
+            });
+
+            // Merge children manual into own manual
+            Object.entries(childrenManual).forEach(([m, val]) => {
+                manualForecast[m] = (manualForecast[m] || 0) + (val as number);
             });
         }
 
         const retroRealized = initialRealized[node.code] || 0;
 
-        return { budget, nfRealized, nfFuture, manualForecast, retroRealized };
+        // Calculate Total Projected (Retro + Realized + Future + Manual)
+        let totalProjected = nfRealized + retroRealized;
+
+        // Add future months
+        months.forEach(m => {
+            if (m > startingMonth) {
+                totalProjected += (nfFuture[m] || 0) + (manualForecast[m] || 0);
+            }
+        });
+
+        return { budget, nfRealized, nfFuture, manualForecast, retroRealized, totalProjected };
     };
 
     // Helper to aggregate data from Analytical Cash Flow
@@ -328,29 +366,6 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         }));
     };
 
-    // Recursive helper to get forecast values for a node
-    const getNodeForecast = (node: BudgetNode): { monthly: Record<string, number>, total: number } => {
-        const monthly: Record<string, number> = {};
-        let total = 0;
-
-        if (node.children && node.children.length > 0) {
-            node.children.forEach(child => {
-                const childForecast = getNodeForecast(child);
-                Object.entries(childForecast.monthly).forEach(([m, val]) => {
-                    monthly[m] = (monthly[m] || 0) + val;
-                });
-                total += childForecast.total;
-            });
-        } else {
-            const nodeData = forecastData[node.code] || {};
-            Object.entries(nodeData).forEach(([m, val]) => {
-                monthly[m] = val;
-                total += val;
-            });
-        }
-
-        return { monthly, total };
-    };
 
     const toggleNode = (id: string) => {
         const next = new Set(expandedNodes);
@@ -379,31 +394,40 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
 
     // Helper to determine if a node (or any of its descendants) match the current filters
     const matchesFilters = (node: BudgetNode): boolean => {
-        const { total } = getNodeForecast(node);
-        const budget = budgetOverrides[node.code] !== undefined ? budgetOverrides[node.code] : (node.budgetInitial || 0);
+        const values = getNodeValues(node);
+        const description = descriptionOverrides[node.code] !== undefined ? descriptionOverrides[node.code] : node.description;
+
+        // Calculate total projected for filtering
+        const retroVal = initialRealized[node.code] || 0;
+        let totalProjected = values.nfRealized + retroVal;
+        months.filter(m => m > startingMonth).forEach(m => {
+            totalProjected += (values.nfFuture[m] || 0) + (values.manualForecast[m] || 0);
+        });
+
+        const budget = values.budget;
 
         // Search term check
         const matchesSearch = !searchTerm ||
-            node.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            description.toLowerCase().includes(searchTerm.toLowerCase()) ||
             node.code.includes(searchTerm);
 
+        if (!matchesSearch) return false;
+
         // Empty check
-        const isEmpty = total === 0 && budget === 0;
+        // Consider empty if Total Project is 0 AND Budget is 0
+        const isEmpty = totalProjected === 0 && budget === 0;
         if (hideEmpty && isEmpty) return false;
 
         // Status check
-        const isOver = total > budget + 0.01;
-        const isUnder = total <= budget && (total > 0 || budget > 0);
+        // Over: Projected > Budget
+        const isOver = totalProjected > budget + 0.01;
+        // Under: Projected <= Budget (but has some activity)
+        const isUnder = totalProjected <= budget && (totalProjected > 0 || budget > 0);
 
-        let statusMatch = true;
-        if (analysisFilter === 'OVER') statusMatch = isOver;
-        if (analysisFilter === 'UNDER') statusMatch = isUnder;
+        if (analysisFilter === 'OVER') return isOver;
+        if (analysisFilter === 'UNDER') return isUnder;
 
-        // If current node matches everything, return true
-        if (matchesSearch && statusMatch) return true;
-
-        // Or if ANY child matches everything
-        return node.children.some(child => matchesFilters(child));
+        return true;
     };
 
     const renderRows = (nodes: BudgetNode[], level: number = 0): React.ReactNode[] => {
@@ -412,13 +436,11 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         // Apply sorting
         const sortedNodes = [...nodes].sort((a, b) => {
             if (sortBy === 'VARIANCE') {
-                const { total: totalA } = getNodeForecast(a);
-                const budgetA = budgetOverrides[a.code] !== undefined ? budgetOverrides[a.code] : (a.budgetInitial || 0);
-                const diffA = budgetA - totalA;
+                const valuesA = getNodeValues(a);
+                const diffA = valuesA.budget - valuesA.totalProjected;
 
-                const { total: totalB } = getNodeForecast(b);
-                const budgetB = budgetOverrides[b.code] !== undefined ? budgetOverrides[b.code] : (b.budgetInitial || 0);
-                const diffB = budgetB - totalB;
+                const valuesB = getNodeValues(b);
+                const diffB = valuesB.budget - valuesB.totalProjected;
 
                 return diffA - diffB; // Ascending variance (most negative/overflow first)
             }
@@ -662,8 +684,16 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 const data: any[][] = [['CÓDIGO', 'DESCRIÇÃO', 'ORÇAMENTO', ...months.map(getMonthLabel), 'TOTAL PROJETADO', 'DIFERENÇA']];
                                 const flatten = (nodes: BudgetNode[]) => {
                                     nodes.forEach(node => {
-                                        const { monthly, total } = getNodeForecast(node);
-                                        const row = [node.code, node.description, node.budgetInitial, ...months.map(m => monthly[m] || 0), total, node.budgetInitial - total];
+                                        const values = getNodeValues(node);
+                                        const total = values.totalProjected;
+
+                                        // Construct row: Code, Desc, Budget, [Months...], Total, Diff
+                                        const monthlyValues = months.map(m => {
+                                            if (m <= startingMonth) return values.nfRealized; // Simplify for past
+                                            return (values.nfFuture[m] || 0) + (values.manualForecast[m] || 0);
+                                        });
+
+                                        const row = [node.code, node.description, values.budget, ...monthlyValues, total, values.budget - total];
                                         data.push(row);
                                         if (node.children) flatten(node.children);
                                     });
@@ -712,11 +742,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 const sumProjected = (nodes: BudgetNode[]): number => {
                                     return nodes.reduce((sum, n) => {
                                         const v = getNodeValues(n);
-                                        let total = v.nfRealized + (v.retroRealized || 0);
-                                        months.filter(m => m > startingMonth).forEach(m => {
-                                            total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
-                                        });
-                                        return sum + total;
+                                        return sum + v.totalProjected;
                                     }, 0);
                                 };
                                 return sumProjected(budgetTree);
@@ -740,11 +766,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 const sumProjected = (nodes: BudgetNode[]): number => {
                                     return nodes.reduce((sum, n) => {
                                         const v = getNodeValues(n);
-                                        let total = v.nfRealized + (v.retroRealized || 0);
-                                        months.filter(m => m > startingMonth).forEach(m => {
-                                            total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
-                                        });
-                                        return sum + total;
+                                        return sum + v.totalProjected;
                                     }, 0);
                                 };
                                 return sumBudgets(budgetTree) - sumProjected(budgetTree);
@@ -768,8 +790,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                     };
                                     const sumProjected = (nodes: BudgetNode[]): number => {
                                         return nodes.reduce((sum, n) => {
-                                            const forecast = getNodeForecast(n);
-                                            return sum + forecast.total;
+                                            const v = getNodeValues(n);
+                                            return sum + v.totalProjected;
                                         }, 0);
                                     };
                                     const total = sumBudgets(budgetTree);
@@ -791,8 +813,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                             };
                                             const sumProjected = (nodes: BudgetNode[]): number => {
                                                 return nodes.reduce((sum, n) => {
-                                                    const forecast = getNodeForecast(n);
-                                                    return sum + forecast.total;
+                                                    const v = getNodeValues(n);
+                                                    return sum + v.totalProjected;
                                                 }, 0);
                                             };
                                             const total = sumBudgets(budgetTree);
