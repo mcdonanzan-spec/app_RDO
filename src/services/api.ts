@@ -34,7 +34,8 @@ export class ApiService {
                 supplyData,
                 budgetCore,
                 rdoCore,
-                masterPlanData
+                masterPlanData,
+                budgetTree
             ] = await Promise.all([
                 ProjectService.getProjects(),
                 FinancialService.getEntries(projectId),
@@ -44,7 +45,8 @@ export class ApiService {
                 ApiService.getCoreData(projectId, 'project_supply_data'),
                 ApiService.getCoreBudget(projectId),
                 ApiService.getCoreRDO(projectId),
-                ApiService.getCoreData(projectId, 'project_master_plan_data')
+                ApiService.getCoreData(projectId, 'project_master_plan_data'),
+                BudgetService.getBudgetTree(projectId)
             ]);
 
             const activeProject = projects.find(p => p.id === projectId);
@@ -67,7 +69,7 @@ export class ApiService {
                 // Budget & RDO (From Core Tables)
                 budget: budgetCore.data || [],
                 budgetSheets: budgetCore.sheets || [],
-                budgetTree: [], // Legacy tree can be rebuilt if needed, or ignored if views use flat list
+                budgetTree: budgetTree || [],
 
                 rdoData: rdoCore.data || [],
                 rdoSheets: rdoCore.sheets || [],

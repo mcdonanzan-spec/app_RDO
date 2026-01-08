@@ -608,15 +608,21 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                         <button
                             onClick={async () => {
                                 if (isReadOnly) {
-                                    alert("Você não pode limpar o consolidado quando existem centros de custo. Limpe-os individualmente.");
+                                    alert("Você não pode limpar o consolidado quando existem centros de custo. Limpe-as individualmente.");
                                     return;
                                 }
-                                if (!confirm("ATENÇÃO: Isso apagará TODOS os itens do orçamento desta obra. Esta ação não pode ser desfeita. Deseja continuar?")) return;
+                                if (!confirm("ATENÇÃO: Isso apagará TODOS os itens do orçamento desta obra (de todas as abas). Esta ação não pode ser desfeita. Deseja continuar?")) return;
                                 try {
-                                    const { BudgetService } = await import('../services/budgetService');
-                                    await BudgetService.saveBudgetTree([], appData.activeProjectId!);
-                                    onUpdate([]);
-                                    alert("Orçamento limpo com sucesso.");
+                                    const { supabase } = await import('../services/supabase');
+                                    const { error } = await supabase
+                                        .from('budget_items')
+                                        .delete()
+                                        .eq('project_id', appData.activeProjectId!);
+
+                                    if (error) throw error;
+
+                                    onUpdate({ budgetTree: [] });
+                                    alert("Orçamento limpo com sucesso no banco de dados.");
                                 } catch (err: any) {
                                     console.error(err);
                                     alert(`Erro ao limpar orçamento: ${err.message || 'Erro desconhecido'}`);
