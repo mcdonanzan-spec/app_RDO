@@ -28,6 +28,12 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
 
     const selectedService = useMemo(() => services.find(s => s.id === selectedServiceId) || services[0], [services, selectedServiceId]);
 
+    const serviceCounts = useMemo(() => ({
+        pending: services.filter(s => (serviceStatus[s.id] || 'pending') === 'pending').length,
+        executing: services.filter(s => (serviceStatus[s.id] || 'pending') === 'executing').length,
+        completed: services.filter(s => (serviceStatus[s.id] || 'pending') === 'completed').length,
+    }), [services, serviceStatus]);
+
     // --- Presentation Mode Logic ---
     useEffect(() => {
         let interval: any;
@@ -303,10 +309,27 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                     <div className="bg-white p-8 rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full relative h-3/4 flex flex-col">
                         <button onClick={() => setViewMode('matrix')} className="absolute top-4 right-4 text-slate-400 hover:text-slate-800 font-bold">X</button>
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold flex items-center gap-2">Gerenciar Serviços</h3>
-                            <div className="relative">
-                                <input type="file" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".xlsx,.xls,.csv" />
-                                <button className="text-blue-600 text-xs font-bold border border-blue-200 px-3 py-1 rounded hover:bg-blue-50">+ Importar</button>
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                Gerenciar Serviços
+                                <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full ml-2">Total: {services.length}</span>
+                            </h3>
+                            <div className="flex items-center gap-2">
+                                {services.length > 0 && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm(' Tem certeza que deseja EXCLUIR TODOS os serviços? \nIsso não pode ser desfeito e limpará todo o progresso vinculado.')) {
+                                                setServices([]);
+                                            }
+                                        }}
+                                        className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 flex items-center gap-1"
+                                    >
+                                        <Trash2 size={12} /> Excluir Todos
+                                    </button>
+                                )}
+                                <div className="relative">
+                                    <input type="file" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".xlsx,.xls,.csv" />
+                                    <button className="text-blue-600 text-xs font-bold border border-blue-200 px-3 py-1 rounded hover:bg-blue-50">+ Importar</button>
+                                </div>
                             </div>
                         </div>
                         <div className="flex-1 overflow-auto space-y-2 pr-2">
@@ -462,9 +485,15 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                                     Pipeline de Produção
                                 </h3>
                                 <div className="flex text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                                    <button onClick={() => setPipelineTab('pending')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'pending' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>A INICIAR</button>
-                                    <button onClick={() => setPipelineTab('executing')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'executing' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>EM EXECUÇÃO</button>
-                                    <button onClick={() => setPipelineTab('completed')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'completed' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>CONCLUÍDO</button>
+                                    <button onClick={() => setPipelineTab('pending')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'pending' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>
+                                        A INICIAR <span className="ml-1 opacity-60">({serviceCounts.pending})</span>
+                                    </button>
+                                    <button onClick={() => setPipelineTab('executing')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'executing' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>
+                                        EM EXECUÇÃO <span className="ml-1 opacity-60">({serviceCounts.executing})</span>
+                                    </button>
+                                    <button onClick={() => setPipelineTab('completed')} className={`flex-1 py-2 border-b-2 hover:bg-slate-50 transition-colors ${pipelineTab === 'completed' ? 'border-yellow-400 text-slate-800' : 'border-transparent'}`}>
+                                        CONCLUÍDO <span className="ml-1 opacity-60">({serviceCounts.completed})</span>
+                                    </button>
                                 </div>
                             </div>
                             <div className="flex-1 overflow-auto p-5 space-y-3 bg-slate-50/50">
