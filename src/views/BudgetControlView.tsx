@@ -271,6 +271,8 @@ const renderTreeRows = (
 const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, onGlobalUpdate }: { tree: BudgetNode[], onUpdate: (t: BudgetNode[]) => void, versions?: BudgetSnapshot[], onSaveVersion: (desc: string) => void, appData: AppData, onGlobalUpdate: (data: Partial<AppData>) => void }) => {
     const [showResources, setShowResources] = useState(true);
     const [activeSubTab, setActiveSubTab] = useState<string>('ALL');
+    const costCenters = appData.activeProject?.settings?.cost_centers || [];
+    const isReadOnly = activeSubTab === 'ALL' && costCenters.length > 0;
 
 
     const recalculateTotals = (nodes: BudgetNode[]): { nodes: BudgetNode[], total: number } => {
@@ -605,6 +607,10 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
                         <button
                             onClick={async () => {
+                                if (isReadOnly) {
+                                    alert("Você não pode limpar o consolidado quando existem centros de custo. Limpe-os individualmente.");
+                                    return;
+                                }
                                 if (!confirm("ATENÇÃO: Isso apagará TODOS os itens do orçamento desta obra. Esta ação não pode ser desfeita. Deseja continuar?")) return;
                                 try {
                                     const { BudgetService } = await import('../services/budgetService');
@@ -616,8 +622,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                                     alert(`Erro ao limpar orçamento: ${err.message || 'Erro desconhecido'}`);
                                 }
                             }}
-                            className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded hover:bg-red-100 font-bold text-[10px] uppercase border border-red-200 transition-colors"
-                            title="Apagar todos os itens desta obra"
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded font-bold text-[10px] uppercase border transition-colors ${isReadOnly ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'}`}
+                            disabled={isReadOnly}
+                            title={isReadOnly ? "Não é possível limpar o consolidado" : "Apagar todos os itens desta obra"}
                         >
                             <Trash size={14} /> Limpar Tudo
                         </button>
@@ -733,7 +740,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                     </thead>
                     <tbody className="bg-white">
                         {filteredTree.length > 0 ?
-                            renderTreeRows(filteredTree, handleUpdateNode, handleAddChild, handleAddResources, handleRemoveResources, handleDelete, 0, showResources)
+                            renderTreeRows(filteredTree, handleUpdateNode, handleAddChild, handleAddResources, handleRemoveResources, handleDelete, 0, showResources, isReadOnly)
                             :
                             <tr>
                                 <td colSpan={5} className="p-10 text-center text-slate-400 italic">
