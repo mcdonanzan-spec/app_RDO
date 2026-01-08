@@ -288,6 +288,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
 
         nodes.forEach(node => {
             const isResourceNode = ['MT', 'ST', 'EQ', 'MAT', 'SRV', 'EQP'].includes(node.itemType || '');
+            // DEBUG LOG
+            // if (node.code.includes('01.01.01')) console.log(`[AnalyticalRender] Node: ${node.code} (${node.description}), itemType: ${node.itemType}, isResource: ${isResourceNode}, showResources: ${showResources}`);
+
             if (!showResources && isResourceNode) return;
 
             if (searchTerm && !node.description.toLowerCase().includes(searchTerm.toLowerCase()) && !node.code.includes(searchTerm)) {
@@ -316,16 +319,16 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                             <span className="font-mono text-slate-500 whitespace-nowrap">{node.code}</span>
                         </div>
                     </td>
-                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[250px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${!node.color ? (node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
+                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[350px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${!node.color ? (node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
                         <span className={node.type === 'GROUP' ? 'font-bold text-slate-800' : ''}>{node.description}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-blue-700 bg-blue-50/30">
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-blue-700 bg-blue-50/30 min-w-[150px]">
                         {formatCurrency(values.budget)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-600 bg-yellow-50/30 font-medium">
+                    <td className="px-4 py-3 text-sm text-right text-slate-600 bg-yellow-50/30 font-medium min-w-[150px]">
                         {formatCurrency(values.rdoTotal)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-600 bg-orange-50/30 font-medium whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-right text-slate-600 bg-orange-50/30 font-medium whitespace-nowrap min-w-[150px]">
                         <div className="text-[10px] text-slate-400 uppercase leading-none mb-1">ATÉ {getMonthLabel(closedMonth)}</div>
                         {formatCurrency(values.rmo)}
                     </td>
@@ -609,7 +612,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
             {/* Table Area */}
             <div className="flex-1 overflow-auto bg-slate-100 p-4 lg:p-6">
                 <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-420px)] scrollbar-thin scrollbar-thumb-slate-200">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)] scrollbar-thin scrollbar-thumb-slate-200">
                         <table className="w-full border-collapse text-left">
                             <thead className="sticky top-0 z-30 bg-slate-50 shadow-sm">
                                 <tr>

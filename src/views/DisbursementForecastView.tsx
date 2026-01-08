@@ -482,14 +482,14 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             <span className="font-mono text-slate-500 text-xs">{node.code}</span>
                         </div>
                     </td>
-                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[280px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${!node.color ? (node.children.length > 0 ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
+                    <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[350px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${!node.color ? (node.children.length > 0 ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
                         <input
                             className={`w-full bg-transparent border-b border-transparent hover:border-slate-200 focus:border-yellow-400 outline-none transition-all ${node.children.length > 0 ? 'font-bold text-slate-800' : 'text-slate-600'}`}
                             value={description}
                             onChange={(e) => setDescriptionOverrides(prev => ({ ...prev, [node.code]: e.target.value }))}
                         />
                     </td>
-                    <td className="px-4 py-3 bg-blue-50/20 text-right">
+                    <td className="px-4 py-3 bg-blue-50/20 text-right min-w-[150px]">
                         <EditableCurrencyCell
                             value={values.budget}
                             onChange={(val) => setBudgetOverrides(prev => ({ ...prev, [node.code]: val }))}
