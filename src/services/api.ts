@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 import { ProjectService } from './projectService';
 import { FinancialService } from './financialService';
 import { BudgetService } from './budgetService';
-import { getVisualManagement } from './db';
+import { getVisualManagement, saveVisualManagement } from './db';
 
 export class ApiService {
 
@@ -105,8 +105,12 @@ export class ApiService {
     }
 
     static async saveAppData(data: AppData): Promise<void> {
-        console.warn("Legacy saveAppData called. This is deprecated in Supabase mode.");
-        // We could implement partial saves here if desperate, but better to migrate views.
+        if (data.visualManagement) {
+            console.log("Saving Visual Management data...");
+            await saveVisualManagement(data.visualManagement);
+        } else {
+            console.warn("Legacy saveAppData called without Visual Management data. This is deprecated in Supabase mode.");
+        }
     }
 
     // Legacy wrappers - safe to keep as no-ops or implementation pending
