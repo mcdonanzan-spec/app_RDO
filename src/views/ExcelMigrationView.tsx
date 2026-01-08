@@ -4,6 +4,7 @@ import { Database, CheckCircle2, History, Target, TrendingUp, Upload, BrainCircu
 import { AppData } from '../../types';
 import { ApiService } from '../services/api';
 import { ExcelService } from '../services/ExcelService';
+import { ProjectService } from '../services/projectService';
 import { getColumnWidth } from '../utils';
 
 export const ExcelMigrationView = ({ onDataLoaded }: { onDataLoaded: (data: AppData) => void }) => {
@@ -46,10 +47,19 @@ export const ExcelMigrationView = ({ onDataLoaded }: { onDataLoaded: (data: AppD
             rdoData: [],
             projectionData: [],
             rdoSheets: [],
-            budgetSheets: []
+            budgetSheets: [],
+            activeProjectId: ''
         };
 
         try {
+            // Get Active Project ID
+            const projects = await ProjectService.getProjects();
+            if (projects.length > 0) {
+                newAppData.activeProjectId = projects[0].id;
+                newAppData.activeProject = projects[0];
+            } else {
+                alert("Aviso: Nenhum projeto ativo encontrado. O salvamento pode falhar.");
+            }
             // 1. Process Master Plan (Sheet 01)
             if (files.sheet01) {
                 setLoadingMessage('Processando Cronograma Mestre...');

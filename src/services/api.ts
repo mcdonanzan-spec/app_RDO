@@ -23,63 +23,64 @@ export class ApiService {
                 projectId = projects[0].id;
             }
 
-            console.log(`Loading data for project ID: ${projectId}`);
+            console.log(`Loading CORE data for project ID: ${projectId}`);
 
-            const [projects, budgetTree, financialEntries, rdoData, visualMgmt] = await Promise.all([
+            const [
+                projects,
+                financialEntries,
+                visualMgmt,
+                rhData,
+                contractsData,
+                supplyData,
+                budgetCore,
+                rdoCore,
+                masterPlanData
+            ] = await Promise.all([
                 ProjectService.getProjects(),
-                BudgetService.getBudgetTree(projectId),
                 FinancialService.getEntries(projectId),
-                BudgetService.getRDOItems(projectId),
-                ApiService.getVisualManagementData(projectId) // Fetches from Supabase now
+                ApiService.getVisualManagementData(projectId),
+                ApiService.getCoreData(projectId, 'project_rh_data'),
+                ApiService.getCoreData(projectId, 'project_contracts_data'),
+                ApiService.getCoreData(projectId, 'project_supply_data'),
+                ApiService.getCoreBudget(projectId),
+                ApiService.getCoreRDO(projectId),
+                ApiService.getCoreData(projectId, 'project_master_plan_data')
             ]);
-
-
 
             const activeProject = projects.find(p => p.id === projectId);
 
-
-            // Transform BudgetTree to flat list if needed by AppData.budget, 
-            // BUT AppData.budget usually expects a flat list too? 
-            // Review types.ts later. The app seems to use budget (flat) and budgetTree (tree).
-            // BudgetService returns tree. We might need to flatten it for 'budget' prop or update AppData type.
-            // For now, let's assume 'budget' prop is flat lines.
-
-            const budgetFlat: any[] = []; // TODO: Flatten logic if strictly required by legacy views
-            // Actually, the new views use budgetTree. Legacy views use budget. 
-            // We can flatten budgetTree easily.
-            const flatten = (nodes: any[]) => {
-                nodes.forEach(n => {
-                    budgetFlat.push({
-                        ...n,
-                        desc: n.description,
-                        total: n.totalValue,
-                        children: undefined
-                    });
-                    if (n.children) flatten(n.children);
-                });
-            };
-            flatten(budgetTree);
-
+            // Construct AppData from multiple sources
             return {
-                rhPremises: [],
-                contractorData: { contracts: [] },
-                supplyChainData: { orders: [] },
-                budget: budgetFlat,
-                masterPlanSheets: [],
-                rdoData: rdoData,
                 isLoaded: true,
-                purchaseRequests: [],
-                budgetGroups: [], // Maybe extract form budgetTree
-                projectionData: [],
-                rdoSheets: [],
-                budgetSheets: [],
-                financialEntries: financialEntries,
-                visualManagement: visualMgmt,
-                budgetTree: budgetTree,
-
                 activeProjectId: projectId,
                 activeProject: activeProject,
-                consolidatedTree: BudgetService.getConsolidatedTree(budgetTree)
+
+                // Core Data
+                rhPremises: rhData || [],
+                contractorData: { contracts: contractsData || [] },
+                supplyChainData: { orders: supplyData || [] },
+                masterPlanSheets: masterPlanData || [],
+
+                // Financials
+                financialEntries: financialEntries,
+
+                // Budget & RDO (From Core Tables)
+                budget: budgetCore.data || [],
+                budgetSheets: budgetCore.sheets || [],
+                budgetTree: [], // Legacy tree can be rebuilt if needed, or ignored if views use flat list
+
+                rdoData: rdoCore.data || [],
+                rdoSheets: rdoCore.sheets || [],
+                costSummary: rdoCore.costSummary || {},
+
+                // Visual Management
+                visualManagement: visualMgmt,
+
+                // Legacy / Computed placeholders
+                purchaseRequests: [],
+                budgetGroups: [],
+                projectionData: [],
+                consolidatedTree: [] // can compute if needed
             };
 
         } catch (error) {
@@ -129,27 +130,61 @@ export class ApiService {
         }
     }
 
-    static async saveAppData(data: AppData): Promise<void> {
-        if (data.visualManagement && data.activeProjectId) {
-            console.log("Saving Visual Management data to Supabase...");
+    static async saveVisualManagementData(projectId: string, data: any): Promise<void> {
+        try {
+            // Local Save (Legacy)
+            await saveVisualManagement(data);
 
-            // 1. Save Local
-            await saveVisualManagement(data.visualManagement);
-
-            // 2. Save Remote (Supabase)
+            // Supabase Save
             const { error } = await supabase
                 .from('project_visual_management')
                 .upsert({
-                    project_id: data.activeProjectId,
-                    data: data.visualManagement,
+                    project_id: projectId,
+                    data: data,
                     updated_at: new Date()
                 }, { onConflict: 'project_id' });
 
-            if (error) console.error("Supabase Save Error:", error);
-            else console.log("Supabase Save Success");
+            if (error) console.error("Error saving Visual Management:", error);
+        } catch (err) {
+            console.error("Error in saveVisualManagementData:", err);
+        }
+    }
 
-        } else {
-            console.warn("Save skipped: Missing VM data or Project ID");
+    static async saveAppData(data: AppData): Promise<void> {
+        if (!data.activeProjectId) {
+            console.error("Save skipped: Missing Project ID");
+            return;
+        }
+
+        const pid = data.activeProjectId;
+        console.log(`Saving App Data for Project: ${pid}`);
+
+        const promises: Promise<any>[] = [];
+
+        // 1. Visual Management
+        if (data.visualManagement) {
+            promises.push(this.saveVisualManagementData(pid, data.visualManagement));
+        }
+
+        // 2. Core Data Lists (JSONB)
+        if (data.rhPremises) promises.push(this.saveCoreData(pid, 'project_rh_data', data.rhPremises));
+        if (data.contractorData?.contracts) promises.push(this.saveCoreData(pid, 'project_contracts_data', data.contractorData.contracts));
+        if (data.supplyChainData?.orders) promises.push(this.saveCoreData(pid, 'project_supply_data', data.supplyChainData.orders));
+        if (data.masterPlanSheets) promises.push(this.saveCoreData(pid, 'project_master_plan_data', data.masterPlanSheets));
+
+        // 3. Complex Core Data (Budget & RDO)
+        if (data.budget) {
+            promises.push(this.saveCoreBudget(pid, data.budget, data.budgetSheets));
+        }
+        if (data.rdoData) {
+            promises.push(this.saveCoreRDO(pid, data.rdoData, data.rdoSheets, data.costSummary));
+        }
+
+        try {
+            await Promise.all(promises);
+            console.log("✅ All Core Data Saved to Supabase Successfully");
+        } catch (err) {
+            console.error("❌ Partial Error saving Core Data:", err);
         }
     }
 
@@ -317,7 +352,77 @@ export class ApiService {
         else console.log("AI analysis saved successfully");
     }
 
-    // Legacy wrappers - safe to keep as no-ops or implementation pending
+    // --- CORE DATA HELPERS ---
+
+    static async getCoreData(projectId: string, table: string): Promise<any> {
+        const { data, error } = await supabase
+            .from(table)
+            .select('data')
+            .eq('project_id', projectId)
+            .single();
+        if (error && error.code !== 'PGRST116') console.warn(`Fetch error for ${table}:`, error);
+        return data?.data || null;
+    }
+
+    static async saveCoreData(projectId: string, table: string, jsonData: any): Promise<void> {
+        const { error } = await supabase
+            .from(table)
+            .upsert({
+                project_id: projectId,
+                data: jsonData,
+                updated_at: new Date()
+            }, { onConflict: 'project_id' });
+        if (error) console.error(`Error saving ${table}:`, error);
+    }
+
+    static async getCoreBudget(projectId: string): Promise<{ data: any[], sheets: any[] }> {
+        const { data } = await supabase
+            .from('project_budget_data')
+            .select('data, sheets_data')
+            .eq('project_id', projectId)
+            .single();
+        return { data: data?.data || [], sheets: data?.sheets_data || [] };
+    }
+
+    static async saveCoreBudget(projectId: string, budget: any[], sheets: any[] = []): Promise<void> {
+        const { error } = await supabase
+            .from('project_budget_data')
+            .upsert({
+                project_id: projectId,
+                data: budget,
+                sheets_data: sheets,
+                updated_at: new Date()
+            }, { onConflict: 'project_id' });
+        if (error) console.error("Error saving Budget Core:", error);
+    }
+
+    static async getCoreRDO(projectId: string): Promise<{ data: any[], sheets: any[], costSummary: any }> {
+        const { data } = await supabase
+            .from('project_rdo_data')
+            .select('data, sheets_data, cost_summary')
+            .eq('project_id', projectId)
+            .single();
+        return {
+            data: data?.data || [],
+            sheets: data?.sheets_data || [],
+            costSummary: data?.cost_summary || {}
+        };
+    }
+
+    static async saveCoreRDO(projectId: string, rdoData: any[], sheets: any[] = [], summary: any = {}): Promise<void> {
+        const { error } = await supabase
+            .from('project_rdo_data')
+            .upsert({
+                project_id: projectId,
+                data: rdoData,
+                sheets_data: sheets,
+                cost_summary: summary,
+                updated_at: new Date()
+            }, { onConflict: 'project_id' });
+        if (error) console.error("Error saving RDO Core:", error);
+    }
+
+    // Legacy wrappers
     static async saveRhPremises(data: RHPremise[]): Promise<void> { }
     static async saveContracts(data: ContractBox[]): Promise<void> { }
     static async updateContract(contract: ContractBox): Promise<void> { }
