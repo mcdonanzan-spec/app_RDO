@@ -720,15 +720,16 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                         </p>
                         <p className="text-2xl font-black text-white font-mono group-hover:text-blue-400 transition-colors">
                             {formatCurrency((() => {
-                                // Recursive function to sum all budgets including children
-                                const sumBudgets = (nodes: BudgetNode[]): number => {
+                                // Recursive function to sum all budgets (ROOT level only, as getNodeValues handles recursion)
+                                const sumTotalBudget = (nodes: BudgetNode[]): number => {
                                     return nodes.reduce((sum, n) => {
-                                        const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
-                                        const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
-                                        return sum + nodeBudget + childrenBudget;
+                                        // Only sum root nodes or nodes that make up the top level of the displayed tree
+                                        // The budgetTree passed here contains root nodes.
+                                        // getNodeValues(n).budget returns the correct recursive sum for that node.
+                                        return sum + getNodeValues(n).budget;
                                     }, 0);
                                 };
-                                return sumBudgets(budgetTree);
+                                return sumTotalBudget(budgetTree);
                             })())}
                         </p>
                     </div>
@@ -758,12 +759,10 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             {formatCurrency((() => {
                                 const sumBudgets = (nodes: BudgetNode[]): number => {
                                     return nodes.reduce((sum, n) => {
-                                        const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
-                                        const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
-                                        return sum + nodeBudget + childrenBudget;
+                                        // Correct logic: Sum root values only
+                                        return sum + getNodeValues(n).budget;
                                     }, 0);
-                                };
-                                const sumProjected = (nodes: BudgetNode[]): number => {
+                                }; const sumProjected = (nodes: BudgetNode[]): number => {
                                     return nodes.reduce((sum, n) => {
                                         const v = getNodeValues(n);
                                         return sum + v.totalProjected;
@@ -783,9 +782,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 {((() => {
                                     const sumBudgets = (nodes: BudgetNode[]): number => {
                                         return nodes.reduce((sum, n) => {
-                                            const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
-                                            const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
-                                            return sum + nodeBudget + childrenBudget;
+                                            // Correct logic: Sum root values only
+                                            return sum + getNodeValues(n).budget;
                                         }, 0);
                                     };
                                     const sumProjected = (nodes: BudgetNode[]): number => {
@@ -806,9 +804,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                         width: `${Math.min((() => {
                                             const sumBudgets = (nodes: BudgetNode[]): number => {
                                                 return nodes.reduce((sum, n) => {
-                                                    const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
-                                                    const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
-                                                    return sum + nodeBudget + childrenBudget;
+                                                    // Correct logic: Sum root values only, as getNodeValues already handles children recursively
+                                                    return sum + getNodeValues(n).budget;
                                                 }, 0);
                                             };
                                             const sumProjected = (nodes: BudgetNode[]): number => {
