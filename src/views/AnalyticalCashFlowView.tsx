@@ -15,7 +15,9 @@ import {
     TrendingDown,
     TrendingUp,
     LayoutGrid,
-    Table as TableIcon
+    Table as TableIcon,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 
 interface Props {
@@ -117,6 +119,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [commitmentValues, setCommitmentValues] = useState<Record<string, number>>({});
+    const [showResources, setShowResources] = useState(true);
 
     // Load commitments and closed month from meta if available
     React.useEffect(() => {
@@ -144,6 +147,8 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
 
     // Build the budget tree (reusing logic from BudgetControlView)
     const budgetTree = useMemo(() => {
+        if (appData.consolidatedTree && appData.consolidatedTree.length > 0) return appData.consolidatedTree;
+        if (appData.budgetTree && appData.budgetTree.length > 0) return appData.budgetTree;
         if (!appData.budget || appData.budget.length === 0) return [];
 
         const sortedLines = [...appData.budget].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
@@ -188,7 +193,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
         });
 
         return rootNodes;
-    }, [appData.budget]);
+    }, [appData.budget, appData.budgetTree, appData.consolidatedTree]);
 
     // Aggregate Financial Data per Budget Code
     const financialData = useMemo(() => {
@@ -282,6 +287,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
         let rows: React.ReactNode[] = [];
 
         nodes.forEach(node => {
+            const isResourceNode = ['MT', 'ST', 'EQ', 'MAT', 'SRV', 'EQP'].includes(node.itemType || '');
+            if (!showResources && isResourceNode) return;
+
             if (searchTerm && !node.description.toLowerCase().includes(searchTerm.toLowerCase()) && !node.code.includes(searchTerm)) {
                 return;
             }
@@ -450,6 +458,15 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                                 className="bg-slate-800 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 outline-none transition-all w-full lg:w-64"
                             />
                         </div>
+
+                        <button
+                            onClick={() => setShowResources(!showResources)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold shadow-sm border transition-all ${showResources ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white' : 'bg-yellow-400 text-slate-900 border-yellow-500'}`}
+                            title={showResources ? "Ocultar detalhamento de recursos (MT, ST, EQ)" : "Mostrar detalhamento de recursos (MT, ST, EQ)"}
+                        >
+                            {showResources ? <EyeOff size={16} /> : <Eye size={16} />}
+                            <span className="hidden lg:inline">{showResources ? 'Ocultar Recursos' : 'Mostrar Recursos'}</span>
+                        </button>
 
                         <button
                             onClick={() => {

@@ -362,6 +362,7 @@ export interface AppData {
 
     budgetVersions?: BudgetSnapshot[];
     suppliers?: Supplier[];
+    consolidatedTree?: BudgetNode[];
 }
 
 export interface BudgetSnapshot {

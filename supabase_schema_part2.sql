@@ -46,6 +46,7 @@ create table public.budget_items (
   parent_id uuid references public.budget_items(id),
   budget_initial numeric default 0,
   budget_current numeric default 0,
+  cost_center text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 

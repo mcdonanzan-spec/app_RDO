@@ -14,6 +14,7 @@ import {
     LayoutGrid,
     CheckCircle2,
     Filter,
+    Eye,
     EyeOff,
     AlertTriangle,
     SortDesc,
@@ -119,6 +120,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
     const [forecastData, setForecastData] = useState<Record<string, Record<string, number>>>({}); // code -> { month: value }
+    const [showResources, setShowResources] = useState(true);
     const [budgetOverrides, setBudgetOverrides] = useState<Record<string, number>>({}); // code -> budget value
     const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({}); // code -> description
     const [projectionLength, setProjectionLength] = useState<number>(18);
@@ -191,6 +193,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
 
     // Build budget tree
     const budgetTree = useMemo(() => {
+        if (appData.consolidatedTree && appData.consolidatedTree.length > 0) return appData.consolidatedTree;
+        if (appData.budgetTree && appData.budgetTree.length > 0) return appData.budgetTree;
         if (!appData.budget || appData.budget.length === 0) return [];
 
         const sortedLines = [...appData.budget].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
@@ -231,7 +235,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         });
 
         return rootNodes;
-    }, [appData.budget]);
+    }, [appData.budget, appData.budgetTree, appData.consolidatedTree]);
 
     // Aggregate Financial Data per Budget Code (Same as AnalyticalCashFlowView)
     const financialData = useMemo(() => {
@@ -422,6 +426,9 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         });
 
         sortedNodes.forEach(node => {
+            const isResourceNode = ['MT', 'ST', 'EQ', 'MAT', 'SRV', 'EQP'].includes(node.itemType || '');
+            if (!showResources && isResourceNode) return;
+
             if (!matchesFilters(node)) return;
 
             const isExpanded = expandedNodes.has(node.id);
@@ -633,6 +640,15 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                         </div>
 
                         <button
+                            onClick={() => setShowResources(!showResources)}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-lg ${showResources ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-yellow-400 text-slate-900 border-yellow-500'}`}
+                            title={showResources ? "Ocultar detalhamento de recursos (MT, ST, EQ)" : "Mostrar detalhamento de recursos (MT, ST, EQ)"}
+                        >
+                            {showResources ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {showResources ? 'Ocultar Recursos' : 'Mostrar Recursos'}
+                        </button>
+
+                        <button
                             onClick={() => setImplementationMode(!implementationMode)}
                             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-lg ${implementationMode ? 'bg-orange-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                         >
@@ -697,7 +713,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             <LayoutGrid size={10} className="text-emerald-400" />
                             Saldo Remanescente
                         </p>
-                        <p className={`text-2xl font-black font-mono transition-colors`}>
+                        <p className={`text-2xl font-black font-mono text-white transition-colors`}>
                             {formatCurrency(
                                 budgetTree.reduce((sum, n) => sum + (budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0)), 0) -
                                 budgetTree.reduce((sum, n) => {
@@ -733,7 +749,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
 
             {/* Main Table Content */}
             <div className="flex-1 overflow-auto bg-slate-100 p-6">
-                <div className="bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-200 overflow-hidden">
+                <div className="bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-200 overflow-hidden h-full flex flex-col">
                     <div className="px-8 py-6 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-6">
                         <div className="flex items-center gap-4 flex-1 min-w-[300px]">
                             <div className="relative flex-1 max-w-md">
@@ -805,7 +821,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-480px)] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                    <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                         <table className="w-full border-collapse text-left">
                             <thead className="sticky top-0 z-30 shadow-sm">
                                 <tr className="bg-slate-50 border-b border-slate-200">
@@ -857,7 +873,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             </div>
 
             {/* Footer Legend */}
-            <div className="bg-white border-t border-slate-200 px-8 py-4 flex items-center justify-between">
+            <div className="bg-white border-t border-slate-200 px-8 py-4 flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-8">
                     <div className="flex items-center gap-3">
                         <Edit3 size={14} className="text-yellow-500" />

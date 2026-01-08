@@ -49,7 +49,12 @@ export class ApiService {
             // We can flatten budgetTree easily.
             const flatten = (nodes: any[]) => {
                 nodes.forEach(n => {
-                    budgetFlat.push({ ...n, children: undefined });
+                    budgetFlat.push({
+                        ...n,
+                        desc: n.description,
+                        total: n.totalValue,
+                        children: undefined
+                    });
                     if (n.children) flatten(n.children);
                 });
             };
@@ -73,7 +78,8 @@ export class ApiService {
                 budgetTree: budgetTree,
 
                 activeProjectId: projectId,
-                activeProject: activeProject
+                activeProject: activeProject,
+                consolidatedTree: BudgetService.getConsolidatedTree(budgetTree)
             };
 
         } catch (error) {

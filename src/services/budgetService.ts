@@ -164,5 +164,58 @@ export const BudgetService = {
             console.error("Supabase Save Error:", error);
             throw new Error(`Erro Supabase: ${error.message} (${error.code}) - Tabela: budget_items`);
         }
+    },
+
+    getConsolidatedTree(nodes: BudgetNode[]): BudgetNode[] {
+        if (!nodes || nodes.length === 0) return [];
+
+        // 1. Flatten all nodes to aggregate by code
+        const aggregatedMap = new Map<string, BudgetNode>();
+
+        const flattenAndCollect = (treeNodes: BudgetNode[]) => {
+            treeNodes.forEach(node => {
+                const key = node.code;
+                if (aggregatedMap.has(key)) {
+                    const existing = aggregatedMap.get(key)!;
+                    existing.totalValue = parseFloat((existing.totalValue + node.totalValue).toFixed(2));
+                    existing.budgetInitial = parseFloat((existing.budgetInitial + node.budgetInitial).toFixed(2));
+                    existing.budgetCurrent = parseFloat((existing.budgetCurrent + node.budgetCurrent).toFixed(2));
+                } else {
+                    // Create a copy without children to aggregate
+                    aggregatedMap.set(key, { ...node, children: [], costCenter: 'CONSOLIDADO', id: `consolidated-${node.code}` });
+                }
+                if (node.children) flattenAndCollect(node.children);
+            });
+        };
+
+        flattenAndCollect(nodes);
+
+        // 2. Rebuild tree from aggregated nodes
+        const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => {
+            // Sort by code natively
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+        });
+
+        const rootNodes: BudgetNode[] = [];
+        const tempMap = new Map<string, BudgetNode>();
+        sortedItems.forEach(n => tempMap.set(n.code, n));
+
+        sortedItems.forEach(node => {
+            const lastDotIndex = node.code.lastIndexOf('.');
+            if (lastDotIndex !== -1) {
+                const parentCode = node.code.substring(0, lastDotIndex);
+                const parent = tempMap.get(parentCode);
+                if (parent) {
+                    parent.children.push(node);
+                    parent.type = 'GROUP';
+                } else {
+                    rootNodes.push(node);
+                }
+            } else {
+                rootNodes.push(node);
+            }
+        });
+
+        return rootNodes;
     }
 };

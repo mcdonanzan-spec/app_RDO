@@ -18,6 +18,7 @@ import { AdminView } from './src/views/AdminView';
 
 import { ApiService } from './src/services/api';
 import { initializeVisualManagementDefaults } from './src/services/db';
+import { BudgetService } from './src/services/budgetService';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { LoginView } from './src/views/LoginView';
 
@@ -84,7 +85,13 @@ const App = () => {
 
   const handleDataLoaded = async (data: Partial<AppData>) => {
     setAppData(prev => {
-      const newData = { ...prev, ...data };
+      let newData = { ...prev, ...data };
+
+      // If budgetTree is being updated, automatically update consolidatedTree
+      if (data.budgetTree) {
+        newData.consolidatedTree = BudgetService.getConsolidatedTree(data.budgetTree);
+      }
+
       // Trigger background save (fire and forget for UI responsiveness, or await if critical)
       ApiService.saveAppData(newData).catch(err => console.error("Auto-save failed", err));
       return newData;

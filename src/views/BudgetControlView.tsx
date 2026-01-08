@@ -244,7 +244,9 @@ const renderTreeRows = (
     });
 
     return sortedNodes.flatMap((node) => {
-        const isResourceNode = (!node.code || node.code.trim() === '') && ['MT', 'ST', 'EQ'].includes(node.itemType || '');
+        // Um nó é considerado "recurso" se for MT, ST ou EQ (geralmente gerado pelo botão $$)
+        const isResourceNode = ['MT', 'ST', 'EQ', 'MAT', 'SRV', 'EQP'].includes(node.itemType || '');
+
         if (!showResources && isResourceNode) {
             return [];
         }
@@ -457,6 +459,8 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
     // Filter & Aggregate Logic
     const filteredTree = useMemo(() => {
+        console.log(`[BudgetStructureTab] Filtering tree. activeSubTab: "${activeSubTab}", total items in tree: ${tree.length}`);
+
         if (activeSubTab === 'ALL') {
             // AGGREGATED VIEW: Sum items with same code
             const aggregatedMap = new Map<string, BudgetNode>();
@@ -515,7 +519,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
         }
 
         // Single Cost Center View
-        return tree.filter(n => n.costCenter === activeSubTab);
+        const result = tree.filter(n => n.costCenter === activeSubTab);
+        console.log(`[BudgetStructureTab] Filter result for "${activeSubTab}": ${result.length} items`);
+        return result;
     }, [tree, activeSubTab]);
 
 
@@ -683,7 +689,11 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                 </div>
             </div>
 
-            <div className={`flex-1 overflow-auto p-0 ${activeSubTab === 'T1_T2' ? 'bg-green-50/30' : activeSubTab === 'T3_T4' ? 'bg-blue-50/30' : activeSubTab === 'INFRA' ? 'bg-orange-50/30' : activeSubTab === 'CI' ? 'bg-slate-100' : 'bg-slate-50'}`}>
+            <div className={`flex-1 overflow-auto p-0 ${activeSubTab === 'T1_T2' || activeSubTab?.includes('TORRE 01') ? 'bg-green-50/30' :
+                    activeSubTab === 'T3_T4' || activeSubTab?.includes('TORRE 03') ? 'bg-blue-50/30' :
+                        activeSubTab === 'INFRA' || activeSubTab?.toLowerCase().includes('infra') ? 'bg-orange-50/30' :
+                            activeSubTab === 'CI' ? 'bg-slate-100' : 'bg-slate-50'
+                }`}>
                 <table className="w-full text-sm border-collapse">
                     <thead className="bg-slate-200 text-slate-700 font-bold sticky top-0 z-10 shadow-sm uppercase text-xs">
                         <tr>
