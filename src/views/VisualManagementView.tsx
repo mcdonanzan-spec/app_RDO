@@ -3,7 +3,7 @@ import { Settings, TrendingUp, Printer, Trash2, ArrowUp, ArrowDown, Save, CheckC
 import { AppData, ProductionConfig, ServiceDefinition, ProductionStatus } from '../../types';
 import { ApiService } from '../services/api';
 import { ExcelService } from '../services/excelService';
-import { getVisualManagement } from '../services/db';
+// Removed direct db import to rely on ApiService which now handles Supabase sync
 
 const DEFAULT_SERVICES: ServiceDefinition[] = [];
 
@@ -21,11 +21,14 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
     const [legendColors, setLegendColors] = useState(appData.visualManagement?.legendColors || { pending: '#e2e8f0', started: '#3b82f6', completed: '#10b981' });
     const [serviceStatus, setServiceStatus] = useState<Record<string, 'pending' | 'executing' | 'completed'>>(appData.visualManagement?.serviceStatus || {});
 
-    // Ensure data is fresh on mount (handling navigation back to this view)
+    // Ensure data is fresh on mount (fetched from Supabase via API)
     useEffect(() => {
-        getVisualManagement().then(data => {
+        const projectId = appData.activeProjectId;
+        if (!projectId) return;
+
+        ApiService.getVisualManagementData(projectId).then(data => {
             if (data) {
-                console.log("VisualManagementView: Loaded fresh data from Persistence", data);
+                console.log("VisualManagementView: Loaded fresh data from Supabase", data);
                 if (data.config) setConfig(data.config);
                 if (data.services) setServices(data.services);
                 if (data.status) setStatus(data.status);
@@ -36,7 +39,7 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                 if (data.serviceStatus) setServiceStatus(data.serviceStatus);
             }
         });
-    }, []);
+    }, [appData.activeProjectId]);
 
     // Layout State
     const [viewMode, setViewMode] = useState<'matrix' | 'config' | 'services' | 'towernames' | 'legend'>('matrix');

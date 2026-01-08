@@ -30,7 +30,7 @@ export class ApiService {
                 BudgetService.getBudgetTree(projectId),
                 FinancialService.getEntries(projectId),
                 BudgetService.getRDOItems(projectId),
-                getVisualManagement()
+                ApiService.getVisualManagementData(projectId) // Fetches from Supabase now
             ]);
 
 
@@ -104,12 +104,52 @@ export class ApiService {
         };
     }
 
+    // --- Visual Management (Supabase + Local) ---
+
+    static async getVisualManagementData(projectId: string): Promise<any> {
+        try {
+            // Try Supabase first
+            const { data, error } = await supabase
+                .from('project_visual_management')
+                .select('data')
+                .eq('project_id', projectId)
+                .single();
+
+            if (data?.data) {
+                // Update local cache
+                await saveVisualManagement(data.data);
+                return data.data;
+            } else {
+                // Fallback to local
+                return await getVisualManagement();
+            }
+        } catch (error) {
+            console.error("Error fetching VM data:", error);
+            return await getVisualManagement();
+        }
+    }
+
     static async saveAppData(data: AppData): Promise<void> {
-        if (data.visualManagement) {
-            console.log("Saving Visual Management data...");
+        if (data.visualManagement && data.activeProjectId) {
+            console.log("Saving Visual Management data to Supabase...");
+
+            // 1. Save Local
             await saveVisualManagement(data.visualManagement);
+
+            // 2. Save Remote (Supabase)
+            const { error } = await supabase
+                .from('project_visual_management')
+                .upsert({
+                    project_id: data.activeProjectId,
+                    data: data.visualManagement,
+                    updated_at: new Date()
+                }, { onConflict: 'project_id' });
+
+            if (error) console.error("Supabase Save Error:", error);
+            else console.log("Supabase Save Success");
+
         } else {
-            console.warn("Legacy saveAppData called without Visual Management data. This is deprecated in Supabase mode.");
+            console.warn("Save skipped: Missing VM data or Project ID");
         }
     }
 
