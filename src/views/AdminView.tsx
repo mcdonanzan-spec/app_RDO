@@ -65,9 +65,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
             setNewUnits(0);
             await loadData();
             if (onProjectCreated) onProjectCreated();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to create project", error);
-            alert("Erro ao criar obra.");
+            alert(`Erro ao criar obra: ${error.message || JSON.stringify(error)}`);
         } finally {
             setLoading(false);
         }
