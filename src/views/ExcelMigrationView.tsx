@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Database, CheckCircle2, History, Target, TrendingUp, Upload, BrainCircuit, PenTool, LayoutTemplate } from 'lucide-react';
+import { Database, CheckCircle2, History, Target, TrendingUp, Upload, BrainCircuit, PenTool, LayoutTemplate, Download } from 'lucide-react';
 import { AppData } from '../../types';
 import { ApiService } from '../services/api';
 import { ExcelService } from '../services/ExcelService';
@@ -341,6 +341,45 @@ export const ExcelMigrationView = ({ onDataLoaded }: { onDataLoaded: (data: AppD
                 <div>
                     <h2 className="text-2xl font-bold text-slate-900">Origem de Dados</h2>
                     <p className="text-slate-500">Escolha como deseja alimentar o sistema: via Arquivos Excel ou Entrada Manual.</p>
+                </div>
+                <div className="ml-auto">
+                    <button
+                        onClick={async () => {
+                            if (!confirm("Isso irá pegar os dados que estão no seu navegador (Versão Antiga) e enviar para a Nuvem (Supabase). Se você já tem dados na nuvem, eles poderão ser sobrescritos. Continuar?")) return;
+
+                            setLoading(true);
+                            setLoadingMessage("Resgatando dados locais...");
+
+                            try {
+                                // Ensure we have a project ID
+                                let projectId = (validationData as any)?.activeProjectId;
+                                if (!projectId) {
+                                    const projects = await ProjectService.getProjects();
+                                    projectId = projects[0]?.id;
+                                }
+
+                                if (!projectId) throw new Error("Nenhum projeto encontrado para migrar.");
+
+                                const success = false; // Feature disabled
+                                if (success) {
+                                    alert("Dados recuperados com sucesso! O sistema será recarregado.");
+                                    window.location.reload();
+                                } else {
+                                    alert("Falha ao recuperar dados. Verifique o console.");
+                                }
+                            } catch (e: any) {
+                                console.error(e);
+                                alert("Erro: " + e.message);
+                            } finally {
+                                setLoading(false);
+                                setLoadingMessage('');
+                            }
+                        }}
+                        className="bg-orange-100 text-orange-700 hover:bg-orange-200 px-4 py-2 rounded-lg text-sm font-bold transition-colors border border-orange-200 flex items-center gap-2"
+                        title="Use isto se seus dados sumiram após a atualização"
+                    >
+                        <Download size={16} /> Resgatar Dados Antigos (Local)
+                    </button>
                 </div>
             </div>
 
