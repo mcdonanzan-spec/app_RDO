@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { AppData, BudgetNode, FinancialEntry, Installment } from '../../types';
+import { ApiService } from '../services/api';
 import {
     Calendar,
     Search,
@@ -121,23 +122,30 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
     const [commitmentValues, setCommitmentValues] = useState<Record<string, number>>({});
     const [showResources, setShowResources] = useState(true);
 
-    // Load commitments and closed month from meta if available
+    // Load commitments and closed month from Supabase
     React.useEffect(() => {
         const loadPersisted = async () => {
-            const { db } = await import('../services/db');
-            const metaCommitments = await db.meta.get('cashFlowCommitments');
-            if (metaCommitments) setCommitmentValues(metaCommitments.value);
-            const metaClosedMonth = await db.meta.get('cashFlowClosedMonth');
-            if (metaClosedMonth) setClosedMonth(metaClosedMonth.value);
+            const projectId = appData.activeProjectId;
+            if (!projectId) return;
+
+            const data = await ApiService.getCashFlowData(projectId);
+            if (data) {
+                if (data.commitments) setCommitmentValues(data.commitments);
+                if (data.closed_month) setClosedMonth(data.closed_month);
+            }
         };
         loadPersisted();
-    }, []);
+    }, [appData.activeProjectId]);
 
     const saveConferences = async () => {
-        const { db } = await import('../services/db');
-        await db.meta.put({ key: 'cashFlowCommitments', value: commitmentValues });
-        await db.meta.put({ key: 'cashFlowClosedMonth', value: closedMonth });
-        alert("✅ Conferência salva com sucesso!");
+        const projectId = appData.activeProjectId;
+        if (!projectId) {
+            alert("❌ Erro: Projeto não identificado");
+            return;
+        }
+
+        await ApiService.saveCashFlowData(projectId, commitmentValues, closedMonth);
+        alert("✅ Conferência salva com sucesso no Supabase!");
     };
 
     // Generate monthly range for headers (Closed Month + 6 months for example)
