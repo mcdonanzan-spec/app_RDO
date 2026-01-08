@@ -119,6 +119,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+    const [projectionLength, setProjectionLength] = useState<number>(12);
     const [commitmentValues, setCommitmentValues] = useState<Record<string, number>>({});
     const [showResources, setShowResources] = useState(true);
 
@@ -148,10 +149,10 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
         alert("✅ Conferência salva com sucesso no Supabase!");
     };
 
-    // Generate monthly range for headers (Closed Month + 6 months for example)
+    // Generate monthly range for headers
     const futureMonths = useMemo(() => {
-        return Array.from({ length: 12 }, (_, i) => addMonths(closedMonth, i + 1));
-    }, [closedMonth]);
+        return Array.from({ length: projectionLength }, (_, i) => addMonths(closedMonth, i + 1));
+    }, [closedMonth, projectionLength]);
 
     // Build the budget tree (reusing logic from BudgetControlView)
     const budgetTree = useMemo(() => {
@@ -443,20 +444,30 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                             </button>
                         </div>
 
-                        <div className="relative group">
-                            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={18} />
-                            <select
-                                value={closedMonth}
-                                onChange={(e) => setClosedMonth(e.target.value)}
-                                className="bg-slate-800 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 outline-none transition-all appearance-none min-w-[200px]"
-                            >
-                                {Array.from({ length: 24 }, (_, i) => {
-                                    const d = new Date(2025, i, 1);
-                                    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                                    return <option key={val} value={val}>{getMonthLabel(val)}</option>;
-                                })}
-                            </select>
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                        <div className="flex items-center gap-3 bg-slate-800 rounded-lg p-1 border border-slate-700">
+                            <div className="relative group px-1">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={16} />
+                                <input
+                                    type="month"
+                                    value={closedMonth}
+                                    onChange={(e) => setClosedMonth(e.target.value)}
+                                    className="bg-transparent text-white pl-10 pr-4 py-2 text-sm focus:outline-none transition-all font-bold min-w-[150px]"
+                                    title="Mês de Fechamento"
+                                />
+                            </div>
+                            <div className="w-px h-6 bg-slate-700"></div>
+                            <div className="flex items-center gap-3 px-3 py-2">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:inline">Projetar</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="60"
+                                    value={projectionLength}
+                                    onChange={(e) => setProjectionLength(parseInt(e.target.value) || 1)}
+                                    className="w-14 bg-slate-700/50 border border-slate-600 text-white px-2 py-1 rounded text-center text-sm font-black focus:ring-2 focus:ring-yellow-400/50 outline-none transition-all"
+                                />
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap hidden lg:inline">Meses</span>
+                            </div>
                         </div>
 
                         <div className="relative group">
