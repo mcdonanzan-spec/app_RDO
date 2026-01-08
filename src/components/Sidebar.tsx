@@ -10,6 +10,7 @@ import {
     Shield,
     ChevronDown
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SidebarProps {
     activeView: string;
@@ -30,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     activeProjectId,
     onSelectProject
 }) => {
+    const { user, logout } = useAuth();
     const currentProject = projects.find(p => p.id === activeProjectId);
     const menuItems = [
         { id: 'purchase_flow', label: 'Fluxo de Compras', icon: <ShoppingCart size={20} />, section: 'SUPPLY CHAIN' },
@@ -124,15 +126,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 <div className="p-4 border-t border-slate-800 bg-slate-950 flex flex-col gap-4">
-
-
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-slate-900 font-bold shadow-md">
-                            MD
+                            {user?.full_name?.substring(0, 2).toUpperCase() || user?.email?.substring(0, 2).toUpperCase() || 'US'}
                         </div>
-                        <div>
-                            <p className="text-sm font-medium text-white">Marcio Donanzan</p>
-                            <p className="text-xs text-slate-400">Desenvolvedor</p>
+                        <div className="overflow-hidden">
+                            <p className="text-sm font-medium text-white truncate">{user?.full_name || 'Usuário'}</p>
+                            <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+                            <button onClick={logout} className="text-[10px] text-red-400 hover:text-red-300 font-bold mt-1 uppercase">Sair</button>
                         </div>
                     </div>
                 </div>

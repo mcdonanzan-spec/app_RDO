@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Building, Shield, Plus, MoreHorizontal, Search, Trash2, Edit2, CheckCircle, XCircle, ChevronRight, Lock, Loader2 } from 'lucide-react';
+import { Users, Building, Shield, Plus, MoreHorizontal, Search, Trash2, Edit2, CheckCircle, XCircle, ChevronRight, Lock, Loader2, UserPlus, X } from 'lucide-react';
 import { ProjectService, Project } from '../services/projectService';
 import { UserService, Profile } from '../services/userService';
 
@@ -20,6 +20,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
 
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<Profile[]>([]);
+
+    // Members Modal State
+    const [manageMembersProjectId, setManageMembersProjectId] = useState<string | null>(null);
+    const [projectMembers, setProjectMembers] = useState<any[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [selectedUserToAdd, setSelectedUserToAdd] = useState<string>("");
+    const [selectedRoleToAdd, setSelectedRoleToAdd] = useState<string>("VIEWER");
 
     useEffect(() => {
         loadData();
@@ -81,8 +88,51 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
         }
     };
 
+    const openMembersModal = async (projectId: string) => {
+        setManageMembersProjectId(projectId);
+        setLoadingMembers(true);
+        // Load all users for the dropdown to add
+        if (users.length === 0) {
+            const allUsers = await UserService.getProfiles();
+            setUsers(allUsers);
+        }
+        try {
+            const members = await ProjectService.getProjectMembers(projectId);
+            setProjectMembers(members);
+        } catch (error) {
+            console.error("Failed to load members", error);
+        } finally {
+            setLoadingMembers(false);
+        }
+    };
+
+    const handleAddMember = async () => {
+        if (!selectedUserToAdd || !manageMembersProjectId) return;
+        try {
+            await ProjectService.addMember(manageMembersProjectId, selectedUserToAdd, selectedRoleToAdd);
+            // Reload members
+            const members = await ProjectService.getProjectMembers(manageMembersProjectId);
+            setProjectMembers(members);
+            setSelectedUserToAdd("");
+        } catch (e) {
+            alert("Erro ao adicionar membro ou usuário já existe no projeto.");
+        }
+    };
+
+    const handleRemoveMember = async (userId: string) => {
+        if (!manageMembersProjectId || !window.confirm("Remover este usuário da equipe?")) return;
+        try {
+            await ProjectService.removeMember(manageMembersProjectId, userId);
+            setProjectMembers(prev => prev.filter(m => m.user_id !== userId));
+        } catch (e) {
+            console.error(e);
+            alert("Erro ao remover membro.");
+        }
+    };
+
     const renderProjects = () => (
         <div className="space-y-6">
+            {/* New Project Modal */}
             {showNewProjectModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
@@ -135,6 +185,114 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Manage Members Modal */}
+            {manageMembersProjectId && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-0 overflow-hidden flex flex-col max-h-[80vh]">
+                        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <div>
+                                <h2 className="text-xl font-bold text-slate-800 uppercase tracking-tight">Gestão de Equipe</h2>
+                                <p className="text-xs text-slate-500">
+                                    Obra: {projects.find(p => p.id === manageMembersProjectId)?.name}
+                                </p>
+                            </div>
+                            <button onClick={() => setManageMembersProjectId(null)} className="text-slate-400 hover:text-slate-600">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto flex-1">
+                            {/* Add Member Form */}
+                            <div className="bg-indigo-50 p-4 rounded-lg mb-6 border border-indigo-100">
+                                <h4 className="text-xs font-bold text-indigo-800 uppercase mb-3 flex items-center gap-2">
+                                    <UserPlus size={14} /> Adicionar Membro
+                                </h4>
+                                <div className="flex gap-2">
+                                    <select
+                                        className="flex-1 text-sm border-slate-200 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-500"
+                                        value={selectedUserToAdd}
+                                        onChange={e => setSelectedUserToAdd(e.target.value)}
+                                    >
+                                        <option value="">Selecione um usuário...</option>
+                                        {users.filter(u => !projectMembers.some(pm => pm.user_id === u.id)).map(user => (
+                                            <option key={user.id} value={user.id}>
+                                                {user.full_name || user.email} ({user.email})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <select
+                                        className="w-32 text-sm border-slate-200 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-slate-600"
+                                        value={selectedRoleToAdd}
+                                        onChange={e => setSelectedRoleToAdd(e.target.value)}
+                                    >
+                                        <option value="VIEWER">Visualizador</option>
+                                        <option value="EDITOR">Editor</option>
+                                        <option value="MANAGER">Gerente</option>
+                                        <option value="ADMIN">Admin</option>
+                                    </select>
+                                    <button
+                                        onClick={handleAddMember}
+                                        disabled={!selectedUserToAdd}
+                                        className="bg-indigo-600 text-white font-bold px-4 py-1 rounded text-xs hover:bg-indigo-700 disabled:opacity-50"
+                                    >
+                                        Adicionar
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Members List */}
+                            {loadingMembers ? (
+                                <div className="flex justify-center p-8"><Loader2 className="animate-spin text-indigo-600" /></div>
+                            ) : (
+                                <table className="w-full text-sm">
+                                    <thead className="text-xs font-bold text-slate-400 uppercase border-b border-slate-100">
+                                        <tr>
+                                            <th className="text-left pb-2 pl-2">Nome</th>
+                                            <th className="text-left pb-2">Função</th>
+                                            <th className="text-right pb-2 pr-2">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {projectMembers.map(member => (
+                                            <tr key={member.id} className="group hover:bg-slate-50">
+                                                <td className="py-3 pl-2">
+                                                    <div className="font-bold text-slate-700">{member.profile?.full_name || 'Usuário'}</div>
+                                                    <div className="text-xs text-slate-400">{member.profile?.email}</div>
+                                                </td>
+                                                <td className="py-3">
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${member.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
+                                                        member.role === 'MANAGER' ? 'bg-indigo-100 text-indigo-700' :
+                                                            'bg-slate-100 text-slate-600'
+                                                        }`}>
+                                                        {member.role === 'VIEWER' ? 'Visualizador' : member.role}
+                                                    </span>
+                                                </td>
+                                                <td className="py-3 text-right pr-2">
+                                                    <button
+                                                        onClick={() => handleRemoveMember(member.user_id)}
+                                                        className="text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-all"
+                                                        title="Remover da equipe"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {projectMembers.length === 0 && (
+                                            <tr>
+                                                <td colSpan={3} className="text-center py-8 text-slate-400 italic">
+                                                    Nenhum membro nesta equipe ainda.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -194,11 +352,26 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                             <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                                 <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${project.progress}%` }}></div>
                             </div>
+
+                            {/* Team Preview Avatars (Placeholder) */}
+                            <div className="flex items-center gap-[-8px] mt-2 pt-2 border-t border-slate-50">
+                                <span className="text-[10px] font-bold text-slate-400 mr-2 uppercase">Equipe:</span>
+                                {/* This would dynamic in a real scenario */}
+                                <div className="flex -space-x-2">
+                                    <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-[8px] font-bold text-slate-500">AD</div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
+                            <button
+                                onClick={() => openMembersModal(project.id)}
+                                className="text-xs font-bold text-slate-500 flex items-center gap-1 hover:text-indigo-600 transition-colors"
+                            >
+                                <Users size={14} /> Equipe
+                            </button>
                             <button className="text-sm text-indigo-600 font-bold flex items-center gap-1 hover:underline">
-                                Gerenciar Detalhes <ChevronRight size={14} />
+                                Detalhes <ChevronRight size={14} />
                             </button>
                         </div>
                     </div>
@@ -228,7 +401,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                         className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
                     />
                 </div>
-                {/* Invite User Button could go here */}
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -236,7 +408,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                     <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs">
                         <tr>
                             <th className="p-4 text-left">Nome / Email</th>
-                            <th className="p-4 text-left">Perfil</th>
+                            <th className="p-4 text-left">Perfil Global</th>
                             <th className="p-4 text-center">Status</th>
                             <th className="p-4 text-right">Ações</th>
                         </tr>
@@ -246,7 +418,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                             <tr key={user.id} className="hover:bg-slate-50 transition-colors">
                                 <td className="p-4">
                                     <div className="font-bold text-slate-800">{user.full_name || 'Usuário sem nome'}</div>
-                                    <div className="text-slate-500 text-xs">{user.email}</div>
+                                    <div className="text-xs text-slate-500">{user.email}</div>
                                 </td>
                                 <td className="p-4">
                                     <select
@@ -266,7 +438,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                                 </td>
                                 <td className="p-4 text-right">
                                     <div className="flex items-center justify-end gap-2">
-                                        <button className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-600 rounded transition-colors" title="Remover (Apenas Visual)">
+                                        <button className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-600 rounded transition-colors" title="Remover">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
@@ -312,14 +484,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                             <Users size={16} /> Usuários & Equipes
                         </div>
                     </button>
-                    <button
-                        onClick={() => setActiveTab('roles')}
-                        className={`py-4 text-sm font-bold uppercase tracking-wide border-b-2 transition-all ${activeTab === 'roles' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                    >
-                        <div className="flex items-center gap-2">
-                            <Shield size={16} /> Perfis de Acesso
-                        </div>
-                    </button>
                 </div>
             </div>
 
@@ -327,13 +491,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
             <div className="flex-1 overflow-y-auto p-6">
                 {activeTab === 'projects' && renderProjects()}
                 {activeTab === 'users' && renderUsers()}
-                {activeTab === 'roles' && (
-                    <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-200 rounded-xl">
-                        <Lock size={48} className="mb-4 text-slate-300" />
-                        <p className="text-lg font-bold">Configuração de Perfis em Breve</p>
-                        <p className="text-sm">Implementação dependente da migração para Supabase</p>
-                    </div>
-                )}
             </div>
         </div>
     );

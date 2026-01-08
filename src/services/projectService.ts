@@ -50,5 +50,47 @@ export const ProjectService = {
             .eq('id', id);
 
         if (error) throw error;
+    },
+
+    // --- RBAC: Member Management ---
+
+    async getProjectMembers(projectId: string): Promise<any[]> {
+        // Fetches members and joins with profiles to get names/emails
+        const { data, error } = await supabase
+            .from('project_members')
+            .select(`
+                *,
+                profile:profiles ( full_name, email, avatar_url )
+            `)
+            .eq('project_id', projectId);
+
+        if (error) throw error;
+        return data || [];
+    },
+
+    async addMember(projectId: string, userId: string, role: string): Promise<void> {
+        const { error } = await supabase
+            .from('project_members')
+            .insert([{ project_id: projectId, user_id: userId, role }]);
+
+        if (error) throw error;
+    },
+
+    async removeMember(projectId: string, userId: string): Promise<void> {
+        const { error } = await supabase
+            .from('project_members')
+            .delete()
+            .match({ project_id: projectId, user_id: userId });
+
+        if (error) throw error;
+    },
+
+    async updateMemberRole(projectId: string, userId: string, newRole: string): Promise<void> {
+        const { error } = await supabase
+            .from('project_members')
+            .update({ role: newRole })
+            .match({ project_id: projectId, user_id: userId });
+
+        if (error) throw error;
     }
 };
