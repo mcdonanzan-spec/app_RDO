@@ -29,25 +29,34 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
     }, []);
 
     const loadForecast = async () => {
-        const { db } = await import('../services/db');
-        const f = await db.meta.get('disbursementForecast');
-        if (f) setForecastData(f.value);
+        const projectId = appData.activeProjectId;
+        if (!projectId) return;
+
+        const data = await ApiService.getDisbursementForecast(projectId);
+        if (data?.forecast_data) setForecastData(data.forecast_data);
     };
 
     const loadColors = async () => {
-        const { db } = await import('../services/db');
-        const c = await db.meta.get('strategyColors');
-        if (c) setColors(c.value);
+        const projectId = appData.activeProjectId;
+        if (!projectId) return;
+
+        const loadedColors = await ApiService.getStrategyColors(projectId);
+        setColors(loadedColors);
     };
 
     const saveColors = async (newColors: any) => {
-        const { db } = await import('../services/db');
-        await db.meta.put({ key: 'strategyColors', value: newColors });
+        const projectId = appData.activeProjectId;
+        if (!projectId) return;
+
+        await ApiService.saveStrategyColors(projectId, newColors);
         setColors(newColors);
     };
 
     const loadSnapshots = async () => {
-        const data = await ApiService.getStrategySnapshots();
+        const projectId = appData.activeProjectId;
+        if (!projectId) return;
+
+        const data = await ApiService.getStrategySnapshots(projectId);
         setSnapshots(data);
     };
 
@@ -198,7 +207,13 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
                 }
             };
 
-            await ApiService.saveStrategySnapshot(snapshot);
+            const projectId = appData.activeProjectId;
+            if (!projectId) {
+                alert("❌ Erro: Projeto não identificado");
+                return;
+            }
+
+            await ApiService.saveStrategySnapshot(projectId, snapshot);
             await loadSnapshots();
             alert("Snapshot salvo com sucesso! Agora você pode comparar a evolução histórica.");
         } catch (err) {

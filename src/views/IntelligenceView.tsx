@@ -89,32 +89,38 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     }, [cooldownSeconds]);
 
     const loadForecastData = async () => {
-        const { db } = await import('../services/db');
-        const fd = await db.meta.get('disbursementForecast');
-        const bo = await db.meta.get('disbursementBudgetOverrides');
-        const d_o = await db.meta.get('disbursementDescOverrides');
-        const ir = await db.meta.get('disbursementInitialRealized');
-        if (fd) setForecastData(fd.value);
-        if (bo) setBudgetOverrides(bo.value);
-        if (d_o) setDescriptionOverrides(d_o.value);
-        if (ir) setInitialRealized(ir.value);
+        const projectId = appData.activeProjectId;
+        if (!projectId) return;
+
+        const data = await ApiService.getDisbursementForecast(projectId);
+        if (data) {
+            if (data.forecast_data) setForecastData(data.forecast_data);
+            if (data.budget_overrides) setBudgetOverrides(data.budget_overrides);
+            if (data.description_overrides) setDescriptionOverrides(data.description_overrides);
+            if (data.initial_realized) setInitialRealized(data.initial_realized);
+        }
     };
 
     const loadHistory = async () => {
-        const history = await ApiService.getSavedAnalyses();
+        const projectId = appData.activeProjectId;
+        if (!projectId) return;
+
+        const history = await ApiService.getAIAnalyses(projectId);
         setSavedAnalyses(history);
     };
 
     const handleSaveAnalysis = async () => {
         if (!response || !query) return;
-        const newAnalysis: SavedAnalysis = {
-            date: new Date().toISOString(),
-            query,
-            response
-        };
-        await ApiService.saveAnalysis(newAnalysis);
+
+        const projectId = appData.activeProjectId;
+        if (!projectId) {
+            alert("❌ Erro: Projeto não identificado");
+            return;
+        }
+
+        await ApiService.saveAnalysis(projectId, { query, response });
         await loadHistory();
-        alert("Análise salva com sucesso!");
+        alert("✅ Análise salva com sucesso no Supabase!");
     };
 
     const apiKey = manualApiKey || import.meta.env.VITE_API_KEY || "";

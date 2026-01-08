@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { AppData, BudgetNode } from '../../types';
+import { ApiService } from '../services/api';
 import {
     Calendar,
     Search,
@@ -136,30 +137,20 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         const loadForecast = async () => {
             setIsLoading(true);
             try {
-                const { db } = await import('../services/db');
-                const savedForecast = await db.meta.get('disbursementForecast');
-                if (savedForecast) {
-                    setForecastData(savedForecast.value);
+                const projectId = appData.activeProjectId;
+                if (!projectId) {
+                    setIsLoading(false);
+                    return;
                 }
-                const savedMonth = await db.meta.get('cashFlowClosedMonth');
-                if (savedMonth) {
-                    setStartingMonth(savedMonth.value);
-                }
-                const savedBudgetOverrides = await db.meta.get('disbursementBudgetOverrides');
-                if (savedBudgetOverrides) {
-                    setBudgetOverrides(savedBudgetOverrides.value);
-                }
-                const savedDescOverrides = await db.meta.get('disbursementDescOverrides');
-                if (savedDescOverrides) {
-                    setDescriptionOverrides(savedDescOverrides.value);
-                }
-                const savedProjectionLength = await db.meta.get('disbursementForecastProjectionLength');
-                if (savedProjectionLength) {
-                    setProjectionLength(savedProjectionLength.value);
-                }
-                const savedInitialRealized = await db.meta.get('disbursementInitialRealized');
-                if (savedInitialRealized) {
-                    setInitialRealized(savedInitialRealized.value);
+
+                const data = await ApiService.getDisbursementForecast(projectId);
+                if (data) {
+                    if (data.forecast_data) setForecastData(data.forecast_data);
+                    if (data.starting_month) setStartingMonth(data.starting_month);
+                    if (data.budget_overrides) setBudgetOverrides(data.budget_overrides);
+                    if (data.description_overrides) setDescriptionOverrides(data.description_overrides);
+                    if (data.projection_length) setProjectionLength(data.projection_length);
+                    if (data.initial_realized) setInitialRealized(data.initial_realized);
                 }
             } catch (err) {
                 console.error("Failed to load forecast", err);
@@ -168,18 +159,25 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
             }
         };
         loadForecast();
-    }, []);
+    }, [appData.activeProjectId]);
 
     const saveForecast = async () => {
         try {
-            const { db } = await import('../services/db');
-            await db.meta.put({ key: 'disbursementForecast', value: forecastData });
-            await db.meta.put({ key: 'disbursementForecastStartMonth', value: startingMonth });
-            await db.meta.put({ key: 'disbursementBudgetOverrides', value: budgetOverrides });
-            await db.meta.put({ key: 'disbursementDescOverrides', value: descriptionOverrides });
-            await db.meta.put({ key: 'disbursementForecastProjectionLength', value: projectionLength });
-            await db.meta.put({ key: 'disbursementInitialRealized', value: initialRealized });
-            alert("✅ Previsão de desembolso e definições salvas com sucesso!");
+            const projectId = appData.activeProjectId;
+            if (!projectId) {
+                alert("❌ Erro: Projeto não identificado");
+                return;
+            }
+
+            await ApiService.saveDisbursementForecast(projectId, {
+                forecastData,
+                startingMonth,
+                budgetOverrides,
+                descriptionOverrides,
+                projectionLength,
+                initialRealized
+            });
+            alert("✅ Previsão de desembolso salva com sucesso no Supabase!");
         } catch (err) {
             console.error("Failed to save forecast", err);
             alert("❌ Erro ao salvar previsão.");
