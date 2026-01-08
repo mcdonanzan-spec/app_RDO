@@ -479,6 +479,7 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
                             numTowers={appData.visualManagement?.config?.towers || 2}
                             numFloors={appData.visualManagement?.config?.floors || 10}
                             aptsPerFloor={appData.visualManagement?.config?.aptsPerFloor || 4}
+                            towerNames={appData.visualManagement?.towerNames}
                             statusMap={analysis.statusMap}
                         />
                     </div>

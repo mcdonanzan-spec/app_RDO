@@ -7,7 +7,7 @@ import { ExcelService } from '../services/excelService';
 
 const DEFAULT_SERVICES: ServiceDefinition[] = [];
 
-export const VisualManagementView = ({ appData }: { appData: AppData }) => {
+export const VisualManagementView = ({ appData, onUpdate }: { appData: AppData, onUpdate?: (data: Partial<AppData>) => void }) => {
     // --- State ---
     const [config, setConfig] = useState<ProductionConfig>(appData.visualManagement?.config || { towers: 4, floors: 12, aptsPerFloor: 8 });
     const [services, setServices] = useState<ServiceDefinition[]>(appData.visualManagement?.services || []);
@@ -79,9 +79,12 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
             visualManagement: { config, services, status, foundationData, unitProgress: progressData, towerNames, legendColors, serviceStatus }
         };
         await ApiService.saveAppData(newData);
+        if (onUpdate) {
+            onUpdate(newData);
+        }
         setIsSaving(false);
         alert('Dados salvos com sucesso!');
-    }, [appData, config, services, status, foundationData, progressData, towerNames, legendColors, serviceStatus]);
+    }, [appData, config, services, status, foundationData, progressData, towerNames, legendColors, serviceStatus, onUpdate]);
 
     const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.length) return;

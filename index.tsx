@@ -102,7 +102,7 @@ const App = () => {
     switch (activeView) {
       case 'purchase_flow': return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
       case 'budget_control': return <BudgetControlView appData={appData} onUpdate={handleDataLoaded} />;
-      case 'visual_management': return <VisualManagementView appData={appData} />;
+      case 'visual_management': return <VisualManagementView appData={appData} onUpdate={handleDataLoaded} />;
       case 'intelligence': return <IntelligenceView appData={appData} />;
       case 'strategy_bi': return <AIStrategyView appData={appData} />;
       case 'analytical_cash_flow': return <AnalyticalCashFlowView appData={appData} />;

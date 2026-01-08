@@ -4,6 +4,7 @@ interface BuildingModelProps {
     numTowers: number;
     numFloors: number;
     aptsPerFloor: number;
+    towerNames?: string[];
     // Map de status: chave = "T{torre}-F{andar}-A{apto}", valor = status
     // Ex: "T1-F5-A2" -> "concluido"
     statusMap?: Record<string, 'concluido' | 'em_andamento' | 'atrasado' | 'nao_iniciado'>;
@@ -13,6 +14,7 @@ export const BuildingModel: React.FC<BuildingModelProps> = ({
     numTowers = 1,
     numFloors = 10,
     aptsPerFloor = 4,
+    towerNames = [],
     statusMap = {}
 }) => {
 
@@ -32,7 +34,7 @@ export const BuildingModel: React.FC<BuildingModelProps> = ({
                 {Array.from({ length: numTowers }).map((_, tIdx) => (
                     <div key={tIdx} className="flex flex-col items-center flex-shrink-0">
                         <h4 className="font-bold text-slate-700 mb-3 bg-white px-4 py-1 rounded-full shadow-sm border border-slate-200 text-sm">
-                            Torre {tIdx + 1}
+                            {towerNames[tIdx] || `Torre ${tIdx + 1}`}
                         </h4>
                         <div className="flex flex-col-reverse gap-1 bg-white p-3 rounded-lg shadow-md border border-slate-200">
                             {Array.from({ length: numFloors }).map((_, fIdx) => (
