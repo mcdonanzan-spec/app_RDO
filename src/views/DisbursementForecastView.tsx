@@ -781,7 +781,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 <div
                                     className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000"
                                     style={{
-                                        width: `${Math.min(((() => {
+                                        width: `${Math.min((() => {
                                             const sumBudgets = (nodes: BudgetNode[]): number => {
                                                 return nodes.reduce((sum, n) => {
                                                     const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
