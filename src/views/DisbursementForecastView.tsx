@@ -689,7 +689,17 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             CAPEX Total (Orçado)
                         </p>
                         <p className="text-2xl font-black text-white font-mono group-hover:text-blue-400 transition-colors">
-                            {formatCurrency(budgetTree.reduce((sum, n) => sum + (n.budgetInitial || 0), 0))}
+                            {formatCurrency((() => {
+                                // Recursive function to sum all budgets including children
+                                const sumBudgets = (nodes: BudgetNode[]): number => {
+                                    return nodes.reduce((sum, n) => {
+                                        const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
+                                        const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
+                                        return sum + nodeBudget + childrenBudget;
+                                    }, 0);
+                                };
+                                return sumBudgets(budgetTree);
+                            })())}
                         </p>
                     </div>
                     <div className="group cursor-help">
@@ -698,14 +708,19 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             Total Projetado (Real + Prev)
                         </p>
                         <p className="text-2xl font-black text-white font-mono group-hover:text-yellow-400 transition-colors">
-                            {formatCurrency(budgetTree.reduce((sum, n) => {
-                                const v = getNodeValues(n);
-                                let total = v.nfRealized;
-                                months.filter(m => m > startingMonth).forEach(m => {
-                                    total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
-                                });
-                                return sum + total;
-                            }, 0))}
+                            {formatCurrency((() => {
+                                const sumProjected = (nodes: BudgetNode[]): number => {
+                                    return nodes.reduce((sum, n) => {
+                                        const v = getNodeValues(n);
+                                        let total = v.nfRealized + (v.retroRealized || 0);
+                                        months.filter(m => m > startingMonth).forEach(m => {
+                                            total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
+                                        });
+                                        return sum + total;
+                                    }, 0);
+                                };
+                                return sumProjected(budgetTree);
+                            })())}
                         </p>
                     </div>
                     <div className="group cursor-help">
@@ -714,17 +729,26 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             Saldo Remanescente
                         </p>
                         <p className={`text-2xl font-black font-mono text-white transition-colors`}>
-                            {formatCurrency(
-                                budgetTree.reduce((sum, n) => sum + (budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0)), 0) -
-                                budgetTree.reduce((sum, n) => {
-                                    const v = getNodeValues(n);
-                                    let total = v.nfRealized;
-                                    months.filter(m => m > startingMonth).forEach(m => {
-                                        total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
-                                    });
-                                    return sum + total;
-                                }, 0)
-                            )}
+                            {formatCurrency((() => {
+                                const sumBudgets = (nodes: BudgetNode[]): number => {
+                                    return nodes.reduce((sum, n) => {
+                                        const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
+                                        const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
+                                        return sum + nodeBudget + childrenBudget;
+                                    }, 0);
+                                };
+                                const sumProjected = (nodes: BudgetNode[]): number => {
+                                    return nodes.reduce((sum, n) => {
+                                        const v = getNodeValues(n);
+                                        let total = v.nfRealized + (v.retroRealized || 0);
+                                        months.filter(m => m > startingMonth).forEach(m => {
+                                            total += (v.nfFuture[m] || 0) + (v.manualForecast[m] || 0);
+                                        });
+                                        return sum + total;
+                                    }, 0);
+                                };
+                                return sumBudgets(budgetTree) - sumProjected(budgetTree);
+                            })())}
                         </p>
                     </div>
                     <div className="group cursor-help" title={`Indicador de Cobertura do Orçamento:\n\nMostra quanto do orçamento total já está "comprometido" (Soma do Realizado + Previsão Futura).\n\nCálculo: (Total Projetado / Budget Total) * 100\n\n• Se estiver muito baixo (< 20%): Indica que falta lançar as projeções financeiras para o restante da obra.\n• Se estiver próximo de 100%: O planejamento cobre todo o orçamento.\n• Se passar de 100%: Indica estouro previsto no custo da obra.`}>
@@ -734,12 +758,48 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                         </p>
                         <div className="flex items-end gap-3">
                             <p className="text-2xl font-black text-white font-mono">
-                                {((budgetTree.reduce((sum, n) => sum + getNodeForecast(n).total, 0) / (budgetTree.reduce((sum, n) => sum + (n.budgetInitial || 0), 0) || 1)) * 100).toFixed(1)}%
+                                {((() => {
+                                    const sumBudgets = (nodes: BudgetNode[]): number => {
+                                        return nodes.reduce((sum, n) => {
+                                            const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
+                                            const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
+                                            return sum + nodeBudget + childrenBudget;
+                                        }, 0);
+                                    };
+                                    const sumProjected = (nodes: BudgetNode[]): number => {
+                                        return nodes.reduce((sum, n) => {
+                                            const forecast = getNodeForecast(n);
+                                            return sum + forecast.total;
+                                        }, 0);
+                                    };
+                                    const total = sumBudgets(budgetTree);
+                                    const projected = sumProjected(budgetTree);
+                                    return ((projected / (total || 1)) * 100).toFixed(1);
+                                })())}%
                             </p>
                             <div className="flex-1 h-2 bg-slate-700 rounded-full mb-2 overflow-hidden min-w-[60px]">
                                 <div
                                     className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000"
-                                    style={{ width: `${Math.min((budgetTree.reduce((sum, n) => sum + getNodeForecast(n).total, 0) / (budgetTree.reduce((sum, n) => sum + (n.budgetInitial || 0), 0) || 1)) * 100, 100)}%` }}
+                                    style={{
+                                        width: `${Math.min(((() => {
+                                            const sumBudgets = (nodes: BudgetNode[]): number => {
+                                                return nodes.reduce((sum, n) => {
+                                                    const nodeBudget = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
+                                                    const childrenBudget = n.children.length > 0 ? sumBudgets(n.children) : 0;
+                                                    return sum + nodeBudget + childrenBudget;
+                                                }, 0);
+                                            };
+                                            const sumProjected = (nodes: BudgetNode[]): number => {
+                                                return nodes.reduce((sum, n) => {
+                                                    const forecast = getNodeForecast(n);
+                                                    return sum + forecast.total;
+                                                }, 0);
+                                            };
+                                            const total = sumBudgets(budgetTree);
+                                            const projected = sumProjected(budgetTree);
+                                            return (projected / (total || 1)) * 100;
+                                        })(), 100)}%`
+                                    }}
                                 ></div>
                             </div>
                         </div>
@@ -849,25 +909,6 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 {renderRows(budgetTree)}
                             </tbody>
                         </table>
-                    </div>
-
-                    <div className="p-6 bg-slate-50 border-t border-slate-200 flex justify-end">
-                        <div className="flex items-center gap-6 px-6 py-3 bg-white rounded-2xl shadow-sm border border-slate-200">
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Geral Orçado</span>
-                                <span className="text-lg font-black text-blue-600">
-                                    {formatCurrency(budgetTree.reduce((sum, n) => {
-                                        const b = budgetOverrides[n.code] !== undefined ? budgetOverrides[n.code] : (n.budgetInitial || 0);
-                                        return sum + b;
-                                    }, 0))}
-                                </span>
-                            </div>
-                            <div className="w-px h-10 bg-slate-200"></div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Geral Projetado</span>
-                                <span className="text-lg font-black text-slate-900">{formatCurrency(budgetTree.reduce((sum, n) => sum + getNodeForecast(n).total, 0))}</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

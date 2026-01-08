@@ -461,6 +461,11 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
     const filteredTree = useMemo(() => {
         console.log(`[BudgetStructureTab] Filtering tree. activeSubTab: "${activeSubTab}", total items in tree: ${tree.length}`);
 
+        // Log all cost centers present in the tree
+        const costCenters = new Set(tree.map(n => n.costCenter));
+        console.log(`[BudgetStructureTab] Cost centers found in tree:`, Array.from(costCenters));
+        tree.forEach(n => console.log(`  - Code: ${n.code}, CostCenter: ${n.costCenter}, Value: ${n.totalValue}`));
+
         if (activeSubTab === 'ALL') {
             // AGGREGATED VIEW: Sum items with same code
             const aggregatedMap = new Map<string, BudgetNode>();
@@ -473,15 +478,15 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                         existing.totalValue = parseFloat((existing.totalValue + node.totalValue).toFixed(2));
                         existing.budgetInitial = parseFloat((existing.budgetInitial + node.budgetInitial).toFixed(2));
                         existing.budgetCurrent = parseFloat((existing.budgetCurrent + node.budgetCurrent).toFixed(2));
-                        // Children are added recursively below
                     } else {
-                        aggregatedMap.set(key, { ...node, children: [], costCenter: 'ALL' });
+                        aggregatedMap.set(key, { ...node, children: [], costCenter: 'CONSOLIDADO' });
                     }
                     if (node.children) flattenAndCollect(node.children);
                 });
             };
 
             flattenAndCollect(tree);
+            console.log(`[Consolidation] ✓ Aggregated ${aggregatedMap.size} unique codes from ${costCenters.size} cost centers`);
 
             // Rebuild tree from aggregated flat list
             const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => {
@@ -690,9 +695,9 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
             </div>
 
             <div className={`flex-1 overflow-auto p-0 ${activeSubTab === 'T1_T2' || activeSubTab?.includes('TORRE 01') ? 'bg-green-50/30' :
-                    activeSubTab === 'T3_T4' || activeSubTab?.includes('TORRE 03') ? 'bg-blue-50/30' :
-                        activeSubTab === 'INFRA' || activeSubTab?.toLowerCase().includes('infra') ? 'bg-orange-50/30' :
-                            activeSubTab === 'CI' ? 'bg-slate-100' : 'bg-slate-50'
+                activeSubTab === 'T3_T4' || activeSubTab?.includes('TORRE 03') ? 'bg-blue-50/30' :
+                    activeSubTab === 'INFRA' || activeSubTab?.toLowerCase().includes('infra') ? 'bg-orange-50/30' :
+                        activeSubTab === 'CI' ? 'bg-slate-100' : 'bg-slate-50'
                 }`}>
                 <table className="w-full text-sm border-collapse">
                     <thead className="bg-slate-200 text-slate-700 font-bold sticky top-0 z-10 shadow-sm uppercase text-xs">
