@@ -459,12 +459,18 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
     // Filter & Aggregate Logic
     const filteredTree = useMemo(() => {
-        console.log(`[BudgetStructureTab] Filtering tree. activeSubTab: "${activeSubTab}", total items in tree: ${tree.length}`);
-
         // Log all cost centers present in the tree
         const costCenters = new Set(tree.map(n => n.costCenter));
-        console.log(`[BudgetStructureTab] Cost centers found in tree:`, Array.from(costCenters));
-        tree.forEach(n => console.log(`  - Code: ${n.code}, CostCenter: ${n.costCenter}, Value: ${n.totalValue}`));
+
+        // DEBUG: Calculate raw total of tree
+        const rawTotal = tree.reduce((acc, n) => acc + (n.parentId ? 0 : n.totalValue), 0); // simplistic root sum check if it works? No, tree is flat list?
+        // Actually tree in BudgetControlView is the hierarchical tree? 
+        // Wait, localTree is initialized as "BudgetNode[]". 
+        // If it is hierarchical, reduce on roots. if flat, reduce on all?
+        // Let's assume it IS hierarchical based on previous usage (node.children).
+        // Let's log the sum of all nodes in the array (assuming they are roots).
+        const debugSumRoots = tree.reduce((acc, n) => acc + n.totalValue, 0);
+
 
         if (activeSubTab === 'ALL') {
             // AGGREGATED VIEW: Sum items with same code
@@ -519,6 +525,22 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                     rootNodes.push(node);
                 }
             });
+
+            // Recalculate totals to ensure parents reflect ALL children (including those from other cost centers that attached here)
+            const recalculateConsolidatedTotals = (nodes: BudgetNode[]): number => {
+                let sum = 0;
+                nodes.forEach(node => {
+                    if (node.children && node.children.length > 0) {
+                        // For groups, strictly sum the children
+                        // This fixes the issue where 01 (Sum of Tab A+B) didn't include 01.03 (from Tab C)
+                        node.totalValue = recalculateConsolidatedTotals(node.children);
+                    }
+                    sum += node.totalValue;
+                });
+                return parseFloat(sum.toFixed(2));
+            };
+
+            recalculateConsolidatedTotals(rootNodes);
 
             return rootNodes;
         }
