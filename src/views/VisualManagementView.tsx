@@ -3,6 +3,7 @@ import { Settings, TrendingUp, Printer, Trash2, ArrowUp, ArrowDown, Save, CheckC
 import { AppData, ProductionConfig, ServiceDefinition, ProductionStatus } from '../../types';
 import { ApiService } from '../services/api';
 import { ExcelService } from '../services/excelService';
+import { getVisualManagement } from '../services/db';
 
 const DEFAULT_SERVICES: ServiceDefinition[] = [];
 
@@ -19,6 +20,23 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
     const [towerNames, setTowerNames] = useState<string[]>(appData.visualManagement?.towerNames || [...Array(config.towers)].map((_, i) => String.fromCharCode(65 + i)));
     const [legendColors, setLegendColors] = useState(appData.visualManagement?.legendColors || { pending: '#e2e8f0', started: '#3b82f6', completed: '#10b981' });
     const [serviceStatus, setServiceStatus] = useState<Record<string, 'pending' | 'executing' | 'completed'>>(appData.visualManagement?.serviceStatus || {});
+
+    // Ensure data is fresh on mount (handling navigation back to this view)
+    useEffect(() => {
+        getVisualManagement().then(data => {
+            if (data) {
+                console.log("VisualManagementView: Loaded fresh data from Persistence", data);
+                if (data.config) setConfig(data.config);
+                if (data.services) setServices(data.services);
+                if (data.status) setStatus(data.status);
+                if (data.foundationData) setFoundationData(data.foundationData);
+                if (data.unitProgress) setProgressData(data.unitProgress);
+                if (data.towerNames) setTowerNames(data.towerNames);
+                if (data.legendColors) setLegendColors(data.legendColors);
+                if (data.serviceStatus) setServiceStatus(data.serviceStatus);
+            }
+        });
+    }, []);
 
     // Layout State
     const [viewMode, setViewMode] = useState<'matrix' | 'config' | 'services' | 'towernames' | 'legend'>('matrix');
