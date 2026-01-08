@@ -1026,7 +1026,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
 
         try {
             await FinancialService.createEntry(newEntry, appData.activeProjectId, user.id);
-            onUpdate([...entries, newEntry]);
+            onUpdate({ financialEntries: [...entries, newEntry] });
             setViewMode('list');
             // Reset form
             setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
