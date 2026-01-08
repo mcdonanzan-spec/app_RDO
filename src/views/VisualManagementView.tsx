@@ -336,16 +336,27 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                             </h3>
                             <div className="flex items-center gap-2">
                                 {services.length > 0 && (
-                                    <button
-                                        onClick={() => {
-                                            if (window.confirm(' Tem certeza que deseja EXCLUIR TODOS os serviços? \nIsso não pode ser desfeito e limpará todo o progresso vinculado.')) {
-                                                setServices([]);
-                                            }
-                                        }}
-                                        className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 flex items-center gap-1"
-                                    >
-                                        <Trash2 size={12} /> Excluir Todos
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                const randomColor = () => '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
+                                                setServices(services.map(s => ({ ...s, color: randomColor() })));
+                                            }}
+                                            className="text-purple-600 text-xs font-bold border border-purple-200 px-3 py-1 rounded hover:bg-purple-50"
+                                        >
+                                            🎨 Cores
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (window.confirm(' Tem certeza que deseja EXCLUIR TODOS os serviços? \nIsso não pode ser desfeito e limpará todo o progresso vinculado.')) {
+                                                    setServices([]);
+                                                }
+                                            }}
+                                            className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1 rounded hover:bg-red-50 flex items-center gap-1"
+                                        >
+                                            <Trash2 size={12} /> Excluir Todos
+                                        </button>
+                                    </>
                                 )}
                                 <div className="relative">
                                     <input type="file" onChange={handleFileUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".xlsx,.xls,.csv" />
@@ -390,7 +401,7 @@ export const VisualManagementView = ({ appData }: { appData: AppData }) => {
                             ))}
                             <button onClick={() => setServices([...services, { id: `S${Date.now()}`, name: 'Novo', color: '#000000', order: services.length + 1 }])} className="w-full py-2 border border-dashed border-slate-300 text-slate-500 font-bold text-xs rounded">+ Adicionar</button>
                         </div>
-                        <button onClick={() => setViewMode('matrix')} className="w-full py-3 bg-blue-600 text-white font-bold rounded mt-4">Salvar Alterações</button>
+                        <button onClick={async () => { await handleSave(); setViewMode('matrix'); }} className="w-full py-3 bg-blue-600 text-white font-bold rounded mt-4" disabled={isSaving}>{isSaving ? 'Salvando...' : 'Salvar Alterações'}</button>
                     </div>
                 </div>
             )}
