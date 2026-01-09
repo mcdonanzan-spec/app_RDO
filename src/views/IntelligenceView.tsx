@@ -365,7 +365,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             </div>
 
             <div className="flex-1 overflow-auto p-6">
-                <div className="max-w-5xl mx-auto space-y-6">
+                <div className="w-full space-y-6">
                     {!response && !loading && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                             {["Qual o resumo financeiro?", "Riscos de estouro?", "Previsão para o próximo mês?"].map((q, i) => (
@@ -453,7 +453,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             </div>
 
             <div className="p-4 bg-white border-t">
-                <div className="max-w-5xl mx-auto flex gap-2">
+                <div className="w-full flex gap-2">
                     <input
                         type="text"
                         value={query}

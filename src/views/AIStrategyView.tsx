@@ -287,7 +287,7 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
                 </div>
             )}
 
-            <div className="p-8 max-w-7xl mx-auto space-y-12">
+            <div className="p-8 space-y-12 w-full">
                 {/* SEÇÃO 1: O RADAR DE DESVIOS (TIMELINE) */}
                 <section>
                     <div className="flex items-center justify-between mb-6">
