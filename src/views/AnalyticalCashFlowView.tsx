@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { AppData, BudgetNode, FinancialEntry, Installment } from '../../types';
 import { ApiService } from '../services/api';
+import { BudgetService } from '../services/budgetService';
 import {
     Calendar,
     Search,
@@ -156,52 +157,58 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
 
     // Build the budget tree (reusing logic from BudgetControlView)
     const budgetTree = useMemo(() => {
-        if (appData.consolidatedTree && appData.consolidatedTree.length > 0) return appData.consolidatedTree;
-        if (appData.budgetTree && appData.budgetTree.length > 0) return appData.budgetTree;
-        if (!appData.budget || appData.budget.length === 0) return [];
+        let baseTree: BudgetNode[] = [];
 
-        const sortedLines = [...appData.budget].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+        if (appData.consolidatedTree && appData.consolidatedTree.length > 0) {
+            baseTree = appData.consolidatedTree;
+        } else if (appData.budgetTree && appData.budgetTree.length > 0) {
+            baseTree = appData.budgetTree;
+        } else if (appData.budget && appData.budget.length > 0) {
+            const sortedLines = [...appData.budget].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+            const allNodes: BudgetNode[] = sortedLines.map(line => ({
+                id: line.id || `node-${line.code}`,
+                code: line.code,
+                description: line.desc,
+                level: (line.code.match(/\./g) || []).length,
+                totalValue: line.total,
+                type: line.isGroup ? 'GROUP' : 'ITEM',
+                itemType: line.isGroup ? undefined : (line.type === 'mt' ? 'MT' : 'ST'),
+                children: [],
+                budgetInitial: line.total,
+                budgetCurrent: line.total,
+                realizedRDO: 0,
+                realizedFinancial: 0,
+                committed: 0,
+                costCenter: 'ALL'
+            }));
 
-        const allNodes: BudgetNode[] = sortedLines.map(line => ({
-            id: line.id || `node-${line.code}`,
-            code: line.code,
-            description: line.desc,
-            level: (line.code.match(/\./g) || []).length,
-            totalValue: line.total,
-            type: line.isGroup ? 'GROUP' : 'ITEM',
-            itemType: line.isGroup ? undefined : (line.type === 'mt' ? 'MT' : 'ST'),
-            children: [],
-            budgetInitial: line.total,
-            budgetCurrent: line.total,
-            realizedRDO: 0,
-            realizedFinancial: 0,
-            committed: 0,
-            costCenter: 'ALL'
-        }));
+            const nodeMap = new Map<string, BudgetNode>();
+            allNodes.forEach(node => nodeMap.set(node.code, node));
 
-        const rootNodes: BudgetNode[] = [];
-        const nodeMap = new Map<string, BudgetNode>();
-
-        allNodes.forEach(node => nodeMap.set(node.code, node));
-
-        allNodes.forEach(node => {
-            const lastDotIndex = node.code.lastIndexOf('.');
-            if (lastDotIndex !== -1) {
-                const parentCode = node.code.substring(0, lastDotIndex);
-                const parent = nodeMap.get(parentCode);
-                if (parent) {
-                    parent.children.push(node);
-                    node.parentId = parent.id;
-                    parent.type = 'GROUP';
+            const roots: BudgetNode[] = [];
+            allNodes.forEach(node => {
+                const lastDotIndex = node.code.lastIndexOf('.');
+                if (lastDotIndex !== -1) {
+                    const parentCode = node.code.substring(0, lastDotIndex);
+                    const parent = nodeMap.get(parentCode);
+                    if (parent) {
+                        if (!parent.children.some(c => c.id === node.id)) {
+                            parent.children.push(node);
+                        }
+                        node.parentId = parent.id;
+                        parent.type = 'GROUP';
+                    } else {
+                        roots.push(node);
+                    }
                 } else {
-                    rootNodes.push(node);
+                    roots.push(node);
                 }
-            } else {
-                rootNodes.push(node);
-            }
-        });
+            });
+            baseTree = roots;
+        }
 
-        return rootNodes;
+        // Always return a consolidated version by code to avoid UI duplicates
+        return BudgetService.getConsolidatedTree(baseTree);
     }, [appData.budget, appData.budgetTree, appData.consolidatedTree]);
 
     // Aggregate Financial Data per Budget Code
