@@ -106,14 +106,19 @@ const App = () => {
   };
 
   const renderView = () => {
+    // SAFETY: If the loaded data project ID doesn't match the requested activeProjectId,
+    // we must treat it as empty to prevent showing old project data on the new project's screen.
+    const isDataMatching = appData.activeProjectId === activeProjectId;
+    const safeAppData = isDataMatching ? appData : { ...ApiService.getEmptyAppData(), activeProjectId: activeProjectId || undefined };
+
     switch (activeView) {
-      case 'purchase_flow': return <PurchaseFlowView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
-      case 'budget_control': return <BudgetControlView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
-      case 'visual_management': return <VisualManagementView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
-      case 'intelligence': return <IntelligenceView key={activeProjectId} appData={appData} />;
-      case 'strategy_bi': return <AIStrategyView key={activeProjectId} appData={appData} />;
-      case 'analytical_cash_flow': return <AnalyticalCashFlowView key={activeProjectId} appData={appData} />;
-      case 'disbursement_forecast': return <DisbursementForecastView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
+      case 'purchase_flow': return <PurchaseFlowView key={activeProjectId} appData={safeAppData} onUpdate={handleDataLoaded} />;
+      case 'budget_control': return <BudgetControlView key={activeProjectId} appData={safeAppData} onUpdate={handleDataLoaded} />;
+      case 'visual_management': return <VisualManagementView key={activeProjectId} appData={safeAppData} onUpdate={handleDataLoaded} />;
+      case 'intelligence': return <IntelligenceView key={activeProjectId} appData={safeAppData} />;
+      case 'strategy_bi': return <AIStrategyView key={activeProjectId} appData={safeAppData} />;
+      case 'analytical_cash_flow': return <AnalyticalCashFlowView key={activeProjectId} appData={safeAppData} />;
+      case 'disbursement_forecast': return <DisbursementForecastView key={activeProjectId} appData={safeAppData} onUpdate={handleDataLoaded} />;
       case 'system_summary': return <SystemBlueprintView key={activeProjectId} />;
       case 'admin': return <AdminView
         key={activeProjectId}
@@ -125,7 +130,7 @@ const App = () => {
       />;
 
       // Fallback
-      default: return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
+      default: return <PurchaseFlowView key={activeProjectId} appData={safeAppData} onUpdate={handleDataLoaded} />;
     }
   };
 
@@ -138,7 +143,14 @@ const App = () => {
         setIsMobileOpen={setIsMobileOpen}
         projects={projects}
         activeProjectId={activeProjectId}
-        onSelectProject={setActiveProjectId}
+        onSelectProject={(id) => {
+          setActiveProjectId(id);
+          setAppData({
+            ...ApiService.getEmptyAppData(),
+            activeProjectId: id,
+            isLoaded: false
+          });
+        }}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
