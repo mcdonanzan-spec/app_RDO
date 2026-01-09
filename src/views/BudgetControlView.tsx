@@ -621,7 +621,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
                                     if (error) throw error;
 
-                                    onUpdate({ budgetTree: [] });
+                                    onGlobalUpdate({ budgetTree: [] });
                                     alert("Orçamento limpo com sucesso no banco de dados.");
                                 } catch (err: any) {
                                     console.error(err);
@@ -1061,7 +1061,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
 
         try {
             await FinancialService.createEntry(newEntry, appData.activeProjectId, user.id);
-            onUpdate({ financialEntries: [...entries, newEntry] });
+            onUpdate([...entries, newEntry]);
             setViewMode('list');
             // Reset form
             setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
@@ -2100,10 +2100,27 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
 
     // Sincronizar estado local quando appData mudar (ex: após carregar do Supabase)
     useEffect(() => {
-        if (appData.isLoaded && appData.budgetTree && appData.budgetTree.length > 0) {
-            setBudgetTree(appData.budgetTree);
+        if (appData.isLoaded) {
+            // Se carregou e não tem nada, resetamos para vazio
+            // Caso contrário, usamos o que veio do appData
+            const tree = (appData.budgetTree && appData.budgetTree.length > 0)
+                ? appData.budgetTree
+                : (appData.budget && appData.budget.length > 0)
+                    ? recalculateTotals(buildTreeFromBudget(appData.budget)).nodes
+                    : [];
+
+            setBudgetTree(tree);
+            setEntries(appData.financialEntries || []);
+            setBudgetVersions(appData.budgetVersions || []);
+            setSuppliers(appData.suppliers || []);
+        } else {
+            // Enquanto está carregando, já podemos limpar para evitar "vazamento" visual
+            setBudgetTree([]);
+            setEntries([]);
+            setBudgetVersions([]);
+            setSuppliers([]);
         }
-    }, [appData.isLoaded, appData.budgetTree, appData.activeProjectId]);
+    }, [appData.isLoaded, appData.activeProjectId, appData.budgetTree, appData.budget]);
 
     const handleUpdateTree = async (newTree: BudgetNode[]) => {
         const sanitizedTree = BudgetService.sanitizeTree(newTree);

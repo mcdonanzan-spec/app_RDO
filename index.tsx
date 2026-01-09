@@ -67,8 +67,12 @@ const App = () => {
     if (!activeProjectId) return;
 
     const loadData = async () => {
-      // SET LOADING STATE IMMEDIATELY ON PROJECT SWITCH
-      setAppData(prev => ({ ...prev, isLoaded: false }));
+      // SET LOADING STATE IMMEDIATELY ON PROJECT SWITCH & CLEAR PREVIOUS DATA
+      setAppData({
+        ...ApiService.getEmptyAppData(),
+        activeProjectId: activeProjectId,
+        isLoaded: false
+      });
 
       const data = await ApiService.getAppData(activeProjectId);
       if (data) {
@@ -103,15 +107,16 @@ const App = () => {
 
   const renderView = () => {
     switch (activeView) {
-      case 'purchase_flow': return <PurchaseFlowView appData={appData} onUpdate={handleDataLoaded} />;
-      case 'budget_control': return <BudgetControlView appData={appData} onUpdate={handleDataLoaded} />;
-      case 'visual_management': return <VisualManagementView appData={appData} onUpdate={handleDataLoaded} />;
-      case 'intelligence': return <IntelligenceView appData={appData} />;
-      case 'strategy_bi': return <AIStrategyView appData={appData} />;
-      case 'analytical_cash_flow': return <AnalyticalCashFlowView appData={appData} />;
-      case 'disbursement_forecast': return <DisbursementForecastView appData={appData} onUpdate={handleDataLoaded} />;
-      case 'system_summary': return <SystemBlueprintView />;
+      case 'purchase_flow': return <PurchaseFlowView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
+      case 'budget_control': return <BudgetControlView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
+      case 'visual_management': return <VisualManagementView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
+      case 'intelligence': return <IntelligenceView key={activeProjectId} appData={appData} />;
+      case 'strategy_bi': return <AIStrategyView key={activeProjectId} appData={appData} />;
+      case 'analytical_cash_flow': return <AnalyticalCashFlowView key={activeProjectId} appData={appData} />;
+      case 'disbursement_forecast': return <DisbursementForecastView key={activeProjectId} appData={appData} onUpdate={handleDataLoaded} />;
+      case 'system_summary': return <SystemBlueprintView key={activeProjectId} />;
       case 'admin': return <AdminView
+        key={activeProjectId}
         onProjectCreated={async () => {
           const { ProjectService } = await import('./src/services/projectService');
           const projectList = await ProjectService.getProjects();

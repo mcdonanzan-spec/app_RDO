@@ -97,13 +97,22 @@ export class ApiService {
             contractorData: { contracts: [] },
             supplyChainData: { orders: [] },
             budget: [],
+            budgetTree: [],
+            consolidatedTree: [],
             masterPlanSheets: [],
             rdoData: [],
-            isLoaded: false,
-            projectionData: [],
             rdoSheets: [],
             budgetSheets: [],
-            financialEntries: []
+            financialEntries: [],
+            visualManagement: {
+                config: { towers: 4, floors: 12, aptsPerFloor: 8 },
+                services: [],
+                status: {},
+                towerNames: [],
+                serviceStatus: {}
+            },
+            isLoaded: false,
+            projectionData: []
         };
     }
 

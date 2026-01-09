@@ -74,9 +74,16 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [lastQueryTime, setLastQueryTime] = useState<number>(0);
 
     React.useEffect(() => {
+        setQuery('');
+        setResponse(null);
+        setForecastData(null);
+        setBudgetOverrides(null);
+        setDescriptionOverrides(null);
+        setInitialRealized(null);
+
         loadHistory();
         loadForecastData();
-    }, []);
+    }, [appData.activeProjectId]);
 
     // Cooldown timer effect
     React.useEffect(() => {
