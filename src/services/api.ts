@@ -128,24 +128,18 @@ export class ApiService {
                 .single();
 
             if (data?.data) {
-                // Update local cache
-                await saveVisualManagement(data.data);
                 return data.data;
             } else {
-                // Fallback to local
-                return await getVisualManagement();
+                return null;
             }
         } catch (error) {
             console.error("Error fetching VM data:", error);
-            return await getVisualManagement();
+            return null;
         }
     }
 
     static async saveVisualManagementData(projectId: string, data: any): Promise<void> {
         try {
-            // Local Save (Legacy)
-            await saveVisualManagement(data);
-
             // Supabase Save
             const { error } = await supabase
                 .from('project_visual_management')

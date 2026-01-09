@@ -27,12 +27,13 @@ export const VisualManagementView = ({ appData, onUpdate }: { appData: AppData, 
         if (!projectId) return;
 
         // --- RESET LOCAL STATES ON PROJECT SWITCH ---
-        setConfig({ towers: 4, floors: 12, aptsPerFloor: 8 });
+        const defaultConfig = { towers: 4, floors: 12, aptsPerFloor: 8 };
+        setConfig(defaultConfig);
         setServices([]);
         setStatus({});
         setFoundationData({});
         setProgressData({});
-        setTowerNames([]);
+        setTowerNames([...Array(defaultConfig.towers)].map((_, i) => String.fromCharCode(65 + i)));
         setServiceStatus({});
         setSelectedServiceId('');
 
