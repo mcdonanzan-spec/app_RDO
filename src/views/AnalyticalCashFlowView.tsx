@@ -578,26 +578,26 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Orçamento Total</p>
                         <p className="text-xl font-bold text-blue-400 font-mono">
-                            {formatCurrency(budgetTree.reduce((sum: number, node) => sum + getNodeValues(node).budget, 0))}
+                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0))}
                         </p>
                     </div>
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">RDO Consolidado (NFs)</p>
                         <p className="text-xl font-bold text-yellow-400 font-mono">
-                            {formatCurrency(budgetTree.reduce((sum: number, node) => sum + getNodeValues(node).rdoTotal, 0))}
+                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rdoTotal, 0))}
                         </p>
                     </div>
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Realizado até {getMonthLabel(closedMonth)}</p>
                         <p className="text-xl font-bold text-orange-400 font-mono">
-                            {formatCurrency(budgetTree.reduce((sum: number, node) => sum + getNodeValues(node).rmo, 0))}
+                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rmo, 0))}
                         </p>
                     </div>
                     <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors border-l-2 border-l-yellow-400/30">
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Comprometido</p>
                         <p className="text-xl font-bold text-white font-mono">
                             {formatCurrency(
-                                budgetTree.reduce((sum: number, node) => {
+                                budgetTree.reduce((sum: number, node: BudgetNode) => {
                                     const v = getNodeValues(node);
                                     const manual = commitmentValues[node.code] || 0;
                                     return sum + v.futureTotal + manual;
@@ -609,8 +609,8 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                         <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Saldo Remanescente</p>
                         <p className="text-xl font-bold text-emerald-400 font-mono">
                             {formatCurrency(
-                                budgetTree.reduce((sum: number, node) => sum + getNodeValues(node).budget, 0) -
-                                budgetTree.reduce((sum: number, node) => {
+                                budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0) -
+                                budgetTree.reduce((sum: number, node: BudgetNode) => {
                                     const v = getNodeValues(node);
                                     const manual = commitmentValues[node.code] || 0;
                                     return sum + v.rmo + v.futureTotal + manual;
