@@ -144,6 +144,14 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                     return;
                 }
 
+                // RESET LOCAL STATES on Project Switch
+                setForecastData({});
+                setBudgetOverrides({});
+                setDescriptionOverrides({});
+                setInitialRealized({});
+                const now = new Date();
+                setStartingMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+
                 const data = await ApiService.getDisbursementForecast(projectId);
                 if (data) {
                     if (data.forecast_data) setForecastData(data.forecast_data);

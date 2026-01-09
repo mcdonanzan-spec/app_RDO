@@ -67,6 +67,9 @@ const App = () => {
     if (!activeProjectId) return;
 
     const loadData = async () => {
+      // SET LOADING STATE IMMEDIATELY ON PROJECT SWITCH
+      setAppData(prev => ({ ...prev, isLoaded: false }));
+
       const data = await ApiService.getAppData(activeProjectId);
       if (data) {
         setAppData(data);
@@ -134,6 +137,14 @@ const App = () => {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Project Load Overlay */}
+        {!appData.isLoaded && activeProjectId && (
+          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-[100] flex flex-col items-center justify-center animate-in fade-in duration-300">
+            <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p className="text-slate-600 font-bold animate-pulse">Carregando dados da obra...</p>
+          </div>
+        )}
+
         {/* Mobile Header */}
         <div className="lg:hidden bg-slate-900 text-white p-4 flex justify-between items-center shadow-md z-30">
           <div className="font-bold text-lg">Torre de Controle</div>

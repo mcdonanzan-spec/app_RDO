@@ -130,6 +130,11 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
             const projectId = appData.activeProjectId;
             if (!projectId) return;
 
+            // Reset local states to default/empty when project changes
+            setCommitmentValues({});
+            const now = new Date();
+            setClosedMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+
             const data = await ApiService.getCashFlowData(projectId);
             if (data) {
                 if (data.commitments) setCommitmentValues(data.commitments);

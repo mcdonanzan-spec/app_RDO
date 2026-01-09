@@ -26,12 +26,13 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
         loadSnapshots();
         loadColors();
         loadForecast();
-    }, []);
+    }, [appData.activeProjectId]);
 
     const loadForecast = async () => {
         const projectId = appData.activeProjectId;
         if (!projectId) return;
 
+        setForecastData({}); // CLEAR OLD DATA
         const data = await ApiService.getDisbursementForecast(projectId);
         if (data?.forecast_data) setForecastData(data.forecast_data);
     };
@@ -56,8 +57,11 @@ export const AIStrategyView: React.FC<AIStrategyViewProps> = ({ appData }) => {
         const projectId = appData.activeProjectId;
         if (!projectId) return;
 
+        setSnapshots([]); // CLEAR OLD SNAPSHOTS
+        setSelectedSnapshot(null); // CLEAR SELECTION
+
         const data = await ApiService.getStrategySnapshots(projectId);
-        setSnapshots(data);
+        setSnapshots(data || []);
     };
 
     // --- REAL DATA ANALYTICS ---
