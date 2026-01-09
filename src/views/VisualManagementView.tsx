@@ -26,11 +26,30 @@ export const VisualManagementView = ({ appData, onUpdate }: { appData: AppData, 
         const projectId = appData.activeProjectId;
         if (!projectId) return;
 
+        // --- RESET LOCAL STATES ON PROJECT SWITCH ---
+        setConfig({ towers: 4, floors: 12, aptsPerFloor: 8 });
+        setServices([]);
+        setStatus({});
+        setFoundationData({});
+        setProgressData({});
+        setTowerNames([]);
+        setServiceStatus({});
+        setSelectedServiceId('');
+
         ApiService.getVisualManagementData(projectId).then(data => {
             if (data) {
                 console.log("VisualManagementView: Loaded fresh data from Supabase", data);
-                if (data.config) setConfig(data.config);
-                if (data.services) setServices(data.services);
+                if (data.config) {
+                    setConfig(data.config);
+                    // Update tower names if they were empty or mismatch
+                    if (!data.towerNames && data.config.towers) {
+                        setTowerNames([...Array(data.config.towers)].map((_, i) => String.fromCharCode(65 + i)));
+                    }
+                }
+                if (data.services) {
+                    setServices(data.services);
+                    if (data.services.length > 0) setSelectedServiceId(data.services[0].id);
+                }
                 if (data.status) setStatus(data.status);
                 if (data.foundationData) setFoundationData(data.foundationData);
                 if (data.unitProgress) setProgressData(data.unitProgress);
