@@ -418,10 +418,24 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                         </div>
                         <div>
                             <h1 className="text-2xl font-bold tracking-tight">Fluxo de Caixa Analítico</h1>
-                            <p className="text-slate-400 text-sm flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Consolidação de Orçamento, RDO e Projeção Financeira
-                            </p>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1 mt-1">
+                                <p className="text-slate-400 text-sm flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Consolidação de Orçamento, RDO e Projeção Financeira
+                                </p>
+                                <div className="hidden sm:block w-px h-3 bg-slate-700"></div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Abaixo</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Acima</span>
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 font-medium italic">* Lançar comprometimento manual</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -491,7 +505,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                         </button>
 
                         <button
-                            onClick={() => {
+                            onClick={(() => {
                                 const monthsHeaders = futureMonths.map(m => getMonthLabel(m));
                                 const headersOrder = [
                                     'CÓDIGO', 'DESCRIÇÃO', 'ORÇAMENTO (PREV. DESEMBOLSO)', 'RDO (CONSOLIDADO)', 'RMO (REALIZADO MÊS)',
@@ -571,11 +585,19 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                                 const workbook = XLSX.utils.book_new();
                                 XLSX.utils.book_append_sheet(workbook, worksheet, "Fluxo de Caixa");
                                 XLSX.writeFile(workbook, `Mapa_Fluxo_Caixa_${new Date().toISOString().split('T')[0]}.xlsx`);
-                            }}
+                            })}
                             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg active:scale-95 group"
                         >
                             <Download size={18} className="group-hover:bounce-subtle" />
-                            <span>Exportar Excel Pro</span>
+                            <span className="hidden lg:inline">Exportar Excel Pro</span>
+                        </button>
+
+                        <button
+                            onClick={saveConferences}
+                            className="px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-lg text-sm font-black transition-all flex items-center gap-2 shadow-lg shadow-yellow-400/20 active:scale-95 whitespace-nowrap"
+                        >
+                            <CheckCircle2 size={18} />
+                            Salvar Conferência
                         </button>
                     </div>
                 </div>
@@ -629,9 +651,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
             </div>
 
             {/* Table Area */}
-            <div className="flex-1 overflow-auto bg-slate-100 p-4 lg:p-6">
-                <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)] scrollbar-thin scrollbar-thumb-slate-200">
+            <div className="flex-1 overflow-hidden bg-slate-100 p-4 lg:p-6 pb-2">
+                <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden h-full flex flex-col">
+                    <div className="overflow-x-auto overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                         <table className="w-full border-collapse text-left">
                             <thead className="sticky top-0 z-30 bg-slate-50 shadow-sm">
                                 <tr>
@@ -662,33 +684,6 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                 </div>
             </div>
 
-            {/* Footer / Legend */}
-            <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/20"></div>
-                        <span className="text-xs text-slate-600 font-medium">Gasto abaixo do Orçamento</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full bg-red-500 shadow-sm shadow-red-500/20"></div>
-                        <span className="text-xs text-slate-600 font-medium">Gasto acima do Orçamento</span>
-                    </div>
-                    <div className="h-4 w-px bg-slate-300"></div>
-                    <div className="text-[10px] text-slate-400 uppercase tracking-tight">
-                        * O comprometimento deve ser lançado manualmente por G.O
-                    </div>
-                </div>
-
-                <div className="flex gap-2">
-                    <button
-                        onClick={saveConferences}
-                        className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/10"
-                    >
-                        <CheckCircle2 size={14} />
-                        Salvar Conferência
-                    </button>
-                </div>
-            </div>
         </div>
     );
 };
