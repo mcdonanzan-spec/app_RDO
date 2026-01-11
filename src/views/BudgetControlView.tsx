@@ -38,7 +38,23 @@ function buildTreeFromBudget(budgetLines: import('../../types').BudgetLine[]): B
     if (!budgetLines || budgetLines.length === 0) return [];
 
     // Sort by code length then code value
-    const sortedLines = [...budgetLines].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+    const sortedLines = [...budgetLines].sort((a, b) => {
+        const aParts = a.code.split('.');
+        const bParts = b.code.split('.');
+        const minLen = Math.min(aParts.length, bParts.length);
+        for (let i = 0; i < minLen; i++) {
+            const partA = aParts[i];
+            const partB = bParts[i];
+            if (partA !== partB) {
+                const order: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
+                const oA = order[partA] || 99;
+                const oB = order[partB] || 99;
+                if (oA !== oB) return oA - oB;
+                return partA.localeCompare(partB, undefined, { numeric: true });
+            }
+        }
+        return aParts.length - bParts.length;
+    });
 
     // 1. Convert all lines to Nodes
     const allNodes: BudgetNode[] = sortedLines.map(line => ({

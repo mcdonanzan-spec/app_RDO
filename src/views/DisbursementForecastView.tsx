@@ -207,7 +207,23 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         } else if (appData.budgetTree && appData.budgetTree.length > 0) {
             baseTree = appData.budgetTree;
         } else if (appData.budget && appData.budget.length > 0) {
-            const sortedLines = [...appData.budget].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+            const sortedLines = [...appData.budget].sort((a, b) => {
+                const aParts = a.code.split('.');
+                const bParts = b.code.split('.');
+                const minLen = Math.min(aParts.length, bParts.length);
+                for (let i = 0; i < minLen; i++) {
+                    const partA = aParts[i];
+                    const partB = bParts[i];
+                    if (partA !== partB) {
+                        const order: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
+                        const oA = order[partA] || 99;
+                        const oB = order[partB] || 99;
+                        if (oA !== oB) return oA - oB;
+                        return partA.localeCompare(partB, undefined, { numeric: true });
+                    }
+                }
+                return aParts.length - bParts.length;
+            });
             const allNodes: BudgetNode[] = sortedLines.map(line => ({
                 id: line.id || `node-${line.code}`,
                 code: line.code,

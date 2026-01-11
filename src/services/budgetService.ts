@@ -192,8 +192,30 @@ export const BudgetService = {
 
         // 2. Rebuild tree from aggregated nodes
         const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => {
-            // Sort by code natively
-            return a.code.localeCompare(b.code, undefined, { numeric: true });
+            // P0: Extract hierarchy levels
+            const aParts = a.code.split('.');
+            const bParts = b.code.split('.');
+
+            // Compare common parts
+            const minLen = Math.min(aParts.length, bParts.length);
+            for (let i = 0; i < minLen; i++) {
+                const partA = aParts[i];
+                const partB = bParts[i];
+
+                if (partA !== partB) {
+                    // Custom order for resource suffixes: MT > ST > EQ
+                    const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
+                    const orderA = resourceOrder[partA] || 99;
+                    const orderB = resourceOrder[partB] || 99;
+
+                    if (orderA !== orderB) return orderA - orderB;
+
+                    // Native numeric comparison for normal parts
+                    return partA.localeCompare(partB, undefined, { numeric: true });
+                }
+            }
+
+            return aParts.length - bParts.length;
         });
 
         const rootNodes: BudgetNode[] = [];
