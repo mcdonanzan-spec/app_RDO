@@ -867,6 +867,17 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         console.log('BudgetControlView v2.1 loaded - With LoadingOverlay & Deduplication');
     }, []);
 
+    const renderOverlay = () => {
+        if (!savingSuppliersState.isSaving) return null;
+        return (
+            <LoadingOverlay
+                message="Salvando Fornecedores..."
+                progress={savingSuppliersState.progress}
+                total={savingSuppliersState.total}
+            />
+        );
+    };
+
     // Save suppliers to Supabase when they change
     const saveSuppliers = useCallback(async (updatedSuppliers: Supplier[]) => {
         if (!appData.activeProjectId) return;
@@ -2022,7 +2033,8 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                     </tbody>
                 </table>
             </div>
-        </div >
+            {renderOverlay()}
+        </div>
     );
 };
 
@@ -2263,13 +2275,6 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
                 {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} savedSuppliers={suppliers} onSaveSuppliers={handleUpdateSuppliers} appData={appData} />}
                 {activeTab === 'analysis' && <AnalysisDashboardTab tree={budgetTree} entries={entries} />}
             </div>
-            {savingSuppliersState.isSaving && (
-                <LoadingOverlay
-                    message="Salvando Fornecedores..."
-                    progress={savingSuppliersState.progress}
-                    total={savingSuppliersState.total}
-                />
-            )}
         </div>
     );
 };
