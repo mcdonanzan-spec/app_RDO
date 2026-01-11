@@ -37,31 +37,12 @@ function recalculateTotals(nodes: BudgetNode[]): { nodes: BudgetNode[], total: n
 function buildTreeFromBudget(budgetLines: import('../../types').BudgetLine[]): BudgetNode[] {
     if (!budgetLines || budgetLines.length === 0) return [];
 
-    // Sort by code length then code value
-    const sortedLines = [...budgetLines].sort((a, b) => {
-        const aParts = a.code.split('.');
-        const bParts = b.code.split('.');
-        const minLen = Math.min(aParts.length, bParts.length);
-        for (let i = 0; i < minLen; i++) {
-            const partA = aParts[i];
-            const partB = bParts[i];
-            if (partA !== partB) {
-                const order: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
-                const oA = order[partA] || 99;
-                const oB = order[partB] || 99;
-                if (oA !== oB) return oA - oB;
-                return partA.localeCompare(partB, undefined, { numeric: true });
-            }
-        }
-        return aParts.length - bParts.length;
-    });
-
     // 1. Convert all lines to Nodes
-    const allNodes: BudgetNode[] = sortedLines.map(line => ({
+    const allNodes: BudgetNode[] = budgetLines.map(line => ({
         id: line.id || `node-${line.code}-${Math.random().toString(36).substr(2, 9)}`,
         code: line.code,
         description: line.desc,
-        level: (line.code.match(/\./g) || []).length, // 01 is level 0, 01.01 is level 1
+        level: (line.code.match(/\./g) || []).length,
         totalValue: line.total,
         type: line.isGroup ? 'GROUP' : 'ITEM',
         itemType: line.isGroup ? undefined : (line.type === 'mt' ? 'MT' : 'ST'),
@@ -71,7 +52,7 @@ function buildTreeFromBudget(budgetLines: import('../../types').BudgetLine[]): B
         realizedRDO: 0,
         realizedFinancial: 0,
         committed: 0,
-        costCenter: 'ALL' // Default
+        costCenter: 'ALL'
     }));
 
     // 2. Build Hierarchy
@@ -97,7 +78,7 @@ function buildTreeFromBudget(budgetLines: import('../../types').BudgetLine[]): B
         }
     });
 
-    return rootNodes;
+    return BudgetService.sortTreeRecursively(rootNodes);
 }
 
 // Função removida por ser código de teste (mock)
@@ -2120,7 +2101,7 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
             // Se carregou e não tem nada, resetamos para vazio
             // Caso contrário, usamos o que veio do appData
             const tree = (appData.budgetTree && appData.budgetTree.length > 0)
-                ? appData.budgetTree
+                ? BudgetService.sortTreeRecursively(appData.budgetTree)
                 : (appData.budget && appData.budget.length > 0)
                     ? recalculateTotals(buildTreeFromBudget(appData.budget)).nodes
                     : [];

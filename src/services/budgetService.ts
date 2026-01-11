@@ -166,6 +166,43 @@ export const BudgetService = {
         }
     },
 
+    compareCodes(aCode: string, bCode: string): number {
+        const aParts = aCode.split('.');
+        const bParts = bCode.split('.');
+        const minLen = Math.min(aParts.length, bParts.length);
+
+        for (let i = 0; i < minLen; i++) {
+            const partA = aParts[i];
+            const partB = bParts[i];
+
+            if (partA !== partB) {
+                // Custom order for resource suffixes: MT > ST > EQ
+                const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
+                const orderA = resourceOrder[partA] || 99;
+                const orderB = resourceOrder[partB] || 99;
+
+                if (orderA !== orderB) return orderA - orderB;
+
+                // Native numeric comparison for normal parts
+                return partA.localeCompare(partB, undefined, { numeric: true });
+            }
+        }
+        return aParts.length - bParts.length;
+    },
+
+    sortTreeRecursively(nodes: BudgetNode[]): BudgetNode[] {
+        if (!nodes) return [];
+        // Sort current level
+        const sorted = [...nodes].sort((a, b) => this.compareCodes(a.code, b.code));
+        // Sort children
+        sorted.forEach(node => {
+            if (node.children && node.children.length > 0) {
+                node.children = this.sortTreeRecursively(node.children);
+            }
+        });
+        return sorted;
+    },
+
     getConsolidatedTree(nodes: BudgetNode[]): BudgetNode[] {
         if (!nodes || nodes.length === 0) return [];
 
@@ -191,32 +228,7 @@ export const BudgetService = {
         flattenAndCollect(nodes);
 
         // 2. Rebuild tree from aggregated nodes
-        const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => {
-            // P0: Extract hierarchy levels
-            const aParts = a.code.split('.');
-            const bParts = b.code.split('.');
-
-            // Compare common parts
-            const minLen = Math.min(aParts.length, bParts.length);
-            for (let i = 0; i < minLen; i++) {
-                const partA = aParts[i];
-                const partB = bParts[i];
-
-                if (partA !== partB) {
-                    // Custom order for resource suffixes: MT > ST > EQ
-                    const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
-                    const orderA = resourceOrder[partA] || 99;
-                    const orderB = resourceOrder[partB] || 99;
-
-                    if (orderA !== orderB) return orderA - orderB;
-
-                    // Native numeric comparison for normal parts
-                    return partA.localeCompare(partB, undefined, { numeric: true });
-                }
-            }
-
-            return aParts.length - bParts.length;
-        });
+        const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => this.compareCodes(a.code, b.code));
 
         const rootNodes: BudgetNode[] = [];
         const tempMap = new Map<string, BudgetNode>();

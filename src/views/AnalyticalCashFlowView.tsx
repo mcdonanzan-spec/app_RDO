@@ -165,28 +165,11 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
         let baseTree: BudgetNode[] = [];
 
         if (appData.consolidatedTree && appData.consolidatedTree.length > 0) {
-            baseTree = appData.consolidatedTree;
+            baseTree = BudgetService.sortTreeRecursively(appData.consolidatedTree);
         } else if (appData.budgetTree && appData.budgetTree.length > 0) {
-            baseTree = appData.budgetTree;
+            baseTree = BudgetService.sortTreeRecursively(appData.budgetTree);
         } else if (appData.budget && appData.budget.length > 0) {
-            const sortedLines = [...appData.budget].sort((a, b) => {
-                const aParts = a.code.split('.');
-                const bParts = b.code.split('.');
-                const minLen = Math.min(aParts.length, bParts.length);
-                for (let i = 0; i < minLen; i++) {
-                    const partA = aParts[i];
-                    const partB = bParts[i];
-                    if (partA !== partB) {
-                        const order: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
-                        const oA = order[partA] || 99;
-                        const oB = order[partB] || 99;
-                        if (oA !== oB) return oA - oB;
-                        return partA.localeCompare(partB, undefined, { numeric: true });
-                    }
-                }
-                return aParts.length - bParts.length;
-            });
-            const allNodes: BudgetNode[] = sortedLines.map(line => ({
+            const allNodes: BudgetNode[] = appData.budget.map(line => ({
                 id: line.id || `node-${line.code}`,
                 code: line.code,
                 description: line.desc,

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { AppData } from '../../types';
 import { formatMoney } from '../utils';
+import { BudgetService } from '../services/budgetService';
 
 export const LiveBudgetView = ({ appData }: { appData: AppData }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -19,23 +20,7 @@ export const LiveBudgetView = ({ appData }: { appData: AppData }) => {
         });
 
         // 2. Ordenar por código para garantir hierarquia
-        const sorted = [...filtered].sort((a, b) => {
-            const aParts = a.code.split('.');
-            const bParts = b.code.split('.');
-            const minLen = Math.min(aParts.length, bParts.length);
-            for (let i = 0; i < minLen; i++) {
-                const partA = aParts[i];
-                const partB = bParts[i];
-                if (partA !== partB) {
-                    const order: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
-                    const oA = order[partA] || 99;
-                    const oB = order[partB] || 99;
-                    if (oA !== oB) return oA - oB;
-                    return partA.localeCompare(partB, undefined, { numeric: true });
-                }
-            }
-            return aParts.length - bParts.length;
-        });
+        const sorted = [...filtered].sort((a, b) => BudgetService.compareCodes(a.code, b.code));
 
         // 3. Processar Níveis e Agrupamentos
         return sorted.map(item => {
