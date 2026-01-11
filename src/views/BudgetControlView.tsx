@@ -874,6 +874,48 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         alert(`${newSuppliers.length} fornecedores importados com sucesso!`);
     };
 
+    const handleExcelFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const { ExcelService } = await import('../services/excelService');
+            const data = await ExcelService.parseSuppliers(file);
+
+            if (data.length === 0) {
+                alert('Nenhum fornecedor encontrado na planilha. Verifique se as colunas "RAZÃO SOCIAL" e "CNPJ" estão presentes.');
+                return;
+            }
+
+            // Merge with existing suppliers (avoid duplicates by CNPJ)
+            const existingCNPJs = new Set(suppliers.map(s => s.cnpj));
+            const newSuppliers = data.filter(s => !existingCNPJs.has(s.cnpj)).map(s => ({
+                id: crypto.randomUUID(),
+                razaoSocial: s.razaoSocial,
+                cnpj: s.cnpj
+            }));
+
+            if (newSuppliers.length === 0) {
+                alert('Nenhum fornecedor novo encontrado. Todos já estão cadastrados.');
+                return;
+            }
+
+            // Add to suppliers list
+            const updatedSuppliers = [...suppliers, ...newSuppliers];
+            setSuppliers(updatedSuppliers);
+            if (onSaveSuppliers) onSaveSuppliers(updatedSuppliers);
+
+            setShowSupplierImport(false);
+            alert(`✓ ${newSuppliers.length} fornecedores importados com sucesso!`);
+        } catch (error: any) {
+            console.error(error);
+            alert(`Erro ao processar planilha: ${error.message || 'Erro desconhecido'}`);
+        }
+
+        // Reset input
+        e.target.value = '';
+    };
+
     // Filtered suppliers for autocomplete
     const filteredSuppliers = useMemo(() => {
         if (!supplier) return [];
@@ -1074,8 +1116,33 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                     <div className="grid grid-cols-4 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200 mb-6 relative">
                         {showSupplierImport && (
                             <div className="absolute inset-0 bg-white/95 z-20 flex flex-col items-center justify-center p-10 rounded-xl border-2 border-dashed border-indigo-300">
-                                <h3 className="font-bold text-lg mb-2 text-indigo-800">Importar Fornecedores (Cola do Excel/TOTVS)</h3>
-                                <p className="text-sm text-slate-500 mb-4">Copie as colunas [RAZÃO SOCIAL] e [CNPJ] do Excel e cole abaixo:</p>
+                                <h3 className="font-bold text-lg mb-2 text-indigo-800">Importar Fornecedores</h3>
+                                <p className="text-sm text-slate-500 mb-4">Selecione uma planilha Excel ou cole os dados abaixo</p>
+
+                                {/* FILE UPLOAD */}
+                                <div className="w-full mb-6">
+                                    <label className="block w-full cursor-pointer">
+                                        <div className="flex flex-col items-center justify-center border-2 border-dashed border-indigo-200 rounded-lg p-6 hover:border-indigo-400 hover:bg-indigo-50/30 transition-all">
+                                            <Upload size={32} className="text-indigo-400 mb-2" />
+                                            <span className="text-sm font-bold text-indigo-600 mb-1">Clique para selecionar arquivo Excel</span>
+                                            <span className="text-xs text-slate-400">Colunas: [RAZÃO SOCIAL] e [CNPJ]</span>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept=".xlsx,.xls"
+                                            onChange={handleExcelFileUpload}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="flex items-center gap-3 w-full mb-4">
+                                    <div className="flex-1 border-t border-slate-300"></div>
+                                    <span className="text-xs font-bold text-slate-400 uppercase">ou cole os dados</span>
+                                    <div className="flex-1 border-t border-slate-300"></div>
+                                </div>
+
+                                {/* TEXTAREA */}
                                 <textarea
                                     className="w-full h-32 border rounded p-2 text-xs font-mono mb-4 bg-slate-50"
                                     placeholder={`Exemplo:\nCONSTRUTORA XYZ\t00.000.000/0001-00\nFORNECEDOR ABC\t11.111.111/0001-11`}
@@ -1084,7 +1151,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                 />
                                 <div className="flex gap-2">
                                     <button onClick={() => setShowSupplierImport(false)} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancelar</button>
-                                    <button onClick={handleImportSuppliers} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold uppercase text-xs hover:bg-indigo-700">Processar Importação</button>
+                                    <button onClick={handleImportSuppliers} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold uppercase text-xs hover:bg-indigo-700" disabled={!importText.trim()}>Processar Cola</button>
                                 </div>
                             </div>
                         )}

@@ -34,6 +34,62 @@ export class ExcelService {
 
     // --- SPECIFIC PARSERS ---
 
+    static async parseSuppliers(fileOrWb: File | XLSX.WorkBook): Promise<{ razaoSocial: string; cnpj: string }[]> {
+        const wb = await this.ensureWorkbook(fileOrWb);
+        const suppliers: { razaoSocial: string; cnpj: string }[] = [];
+
+        // Search all sheets for supplier data
+        for (const sheetName of wb.SheetNames) {
+            const ws = wb.Sheets[sheetName];
+            if (!ws || !ws['!ref']) continue;
+
+            const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+            let headerRow = -1;
+            let razaoSocialCol = -1;
+            let cnpjCol = -1;
+
+            // Find header row with "RAZÃO SOCIAL" and "CNPJ"
+            for (let i = 0; i < Math.min(json.length, 20); i++) {
+                const row: any = json[i];
+                if (!row || row.length === 0) continue;
+
+                for (let j = 0; j < row.length; j++) {
+                    const cell = String(row[j] || '').toUpperCase().trim();
+
+                    if (cell.includes('RAZÃO') && cell.includes('SOCIAL')) {
+                        razaoSocialCol = j;
+                    }
+                    if (cell.includes('RAZAO') && cell.includes('SOCIAL')) {
+                        razaoSocialCol = j;
+                    }
+                    if (cell.includes('CNPJ')) {
+                        cnpjCol = j;
+                    }
+                }
+
+                if (razaoSocialCol >= 0 && cnpjCol >= 0) {
+                    headerRow = i;
+                    break;
+                }
+            }
+
+            // Extract data rows
+            if (headerRow >= 0) {
+                for (let i = headerRow + 1; i < json.length; i++) {
+                    const row: any = json[i];
+                    const razao = String(row[razaoSocialCol] || '').trim().toUpperCase();
+                    const cnpj = String(row[cnpjCol] || '').trim();
+
+                    if (razao && cnpj) {
+                        suppliers.push({ razaoSocial: razao, cnpj });
+                    }
+                }
+            }
+        }
+
+        return suppliers;
+    }
+
     static async parseContracts(fileOrWb: File | XLSX.WorkBook): Promise<ContractBox[]> {
         const wb = await this.ensureWorkbook(fileOrWb);
         // Universal Search: Filter all sheets for contract-like data
