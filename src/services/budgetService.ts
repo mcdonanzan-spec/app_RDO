@@ -108,7 +108,7 @@ export const BudgetService = {
             return { nodes: updated, total: sum };
         };
 
-        return recalculateInternal(rootNodes).nodes;
+        return this.sortTreeRecursively(recalculateInternal(rootNodes).nodes);
     },
 
     async getRDOItems(projectId: string): Promise<import('../../types').RDOItem[]> {

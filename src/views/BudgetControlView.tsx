@@ -396,7 +396,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
         const newTree = findAndAdd(tree);
         const { nodes: recalculatedTree } = recalculateTotals(newTree);
-        onUpdate(recalculatedTree);
+        onUpdate(BudgetService.sortTreeRecursively(recalculatedTree));
     };
 
     const handleAddResources = (nodeId: string) => {
@@ -423,7 +423,8 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
         };
         const newTree = findAndAddRes(tree);
         const { nodes: recalculatedTree } = recalculateTotals(newTree);
-        onUpdate(recalculatedTree);
+        const sortedTree = BudgetService.sortTreeRecursively(recalculatedTree);
+        onUpdate(sortedTree);
     };
 
     const handleRemoveResources = (nodeId: string) => {
@@ -440,7 +441,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
         };
         const newTree = findAndRemoveRes(tree);
         const { nodes: recalculatedTree } = recalculateTotals(newTree);
-        onUpdate(recalculatedTree);
+        onUpdate(BudgetService.sortTreeRecursively(recalculatedTree));
     }
 
     const handleDelete = (id: string) => {
@@ -494,17 +495,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
             console.log(`[Consolidation] ✓ Aggregated ${aggregatedMap.size} unique codes from ${costCenters.size} cost centers`);
 
             // Rebuild tree from aggregated flat list
-            const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => {
-                // Primary: Code sort
-                const codeCompare = a.code.localeCompare(b.code, undefined, { numeric: true });
-                if (codeCompare !== 0) return codeCompare;
-
-                // Secondary: Resource sort (MT -> ST -> EQ)
-                const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
-                const orderA = resourceOrder[BudgetService.getNormalizedItemType(a.itemType, a.code) || ''] || 99;
-                const orderB = resourceOrder[BudgetService.getNormalizedItemType(b.itemType, b.code) || ''] || 99;
-                return orderA - orderB;
-            });
+            const sortedItems = Array.from(aggregatedMap.values()).sort((a, b) => BudgetService.compareCodes(a.code, b.code));
             const rootNodes: BudgetNode[] = [];
             const tempMap = new Map<string, BudgetNode>();
             sortedItems.forEach(n => tempMap.set(n.code, n));
@@ -2084,10 +2075,10 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
 
     // State
     const [budgetTree, setBudgetTree] = useState<BudgetNode[]>(() => {
-        if (appData.budgetTree && appData.budgetTree.length > 0) return appData.budgetTree;
+        if (appData.budgetTree && appData.budgetTree.length > 0) return BudgetService.sortTreeRecursively(appData.budgetTree);
         if (appData.budget && appData.budget.length > 0) {
             const builtTree = buildTreeFromBudget(appData.budget);
-            return recalculateTotals(builtTree).nodes;
+            return BudgetService.sortTreeRecursively(recalculateTotals(builtTree).nodes);
         }
         return [];
     });

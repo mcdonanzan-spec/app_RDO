@@ -445,18 +445,16 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
     const renderRows = (nodes: BudgetNode[], level: number = 0): React.ReactNode[] => {
         let rows: React.ReactNode[] = [];
 
-        // Apply sorting
+        // Apply sorting based on user preference
         const sortedNodes = [...nodes].sort((a, b) => {
             if (sortBy === 'VARIANCE') {
                 const valuesA = getNodeValues(a);
                 const diffA = valuesA.budget - valuesA.totalProjected;
-
                 const valuesB = getNodeValues(b);
                 const diffB = valuesB.budget - valuesB.totalProjected;
-
-                return diffA - diffB; // Ascending variance (most negative/overflow first)
+                return diffA - diffB;
             }
-            return a.code.localeCompare(b.code, undefined, { numeric: true });
+            return BudgetService.compareCodes(a.code, b.code);
         });
 
         sortedNodes.forEach(node => {
