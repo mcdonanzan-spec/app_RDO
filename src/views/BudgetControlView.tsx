@@ -862,6 +862,11 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         }
     }, [appData.suppliers]);
 
+    // Debug log to verify deployment
+    useEffect(() => {
+        console.log('BudgetControlView v2.1 loaded - With LoadingOverlay & Deduplication');
+    }, []);
+
     // Save suppliers to Supabase when they change
     const saveSuppliers = useCallback(async (updatedSuppliers: Supplier[]) => {
         if (!appData.activeProjectId) return;
