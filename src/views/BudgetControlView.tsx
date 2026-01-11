@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { AppData, BudgetGroup, BudgetNode, FinancialEntry, Installment, FinancialAllocation, BudgetSnapshot, Supplier } from '../../types';
 import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers, CheckCircle, XCircle, MoreHorizontal, PaintBucket, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { FinancialService } from '../services/financialService';
-import { BudgetService } from '../services/budgetService';
+import { BudgetService } '../services/budgetService';
 
 interface Props {
     appData: AppData;
