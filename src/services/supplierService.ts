@@ -28,31 +28,27 @@ export class SupplierService {
         if (!projectId) return;
 
         try {
-            // Since we want to sync the full list and handle deletions/additions,
-            // the simplest robust strategy for this use case is sync-diff or replace.
-            // Given the list size might be large, replace might be heavy but safe for consistency.
-            // However, RLS policies might prevent mass deletion if not careful.
-            // Better strategy: Upsert all.
-            // But we also need to handle deletions (if user removed a supplier).
-            // For now, let's stick to UpsertING new/modified ones.
-            // Ideally, we shouldn't actally delete suppliers if they are used in NFs.
-            // So we will just UPSERT based on CNPJ+ProjectID.
+            // Deduplicate by CNPJ before batching to avoid "ON CONFLICT DO UPDATE command cannot affect row a second time"
+            const uniqueSuppliers = new Map();
+            suppliers.forEach(s => {
+                const key = s.cnpj.replace(/[^\d]/g, ''); // Normalize CNPJ
+                if (!uniqueSuppliers.has(key)) {
+                    uniqueSuppliers.set(key, s);
+                }
+            });
+            const cleanSuppliers = Array.from(uniqueSuppliers.values());
 
-            // Note: The UI currently sends the FULL list every time.
-            // To avoid deleting historical data that might be linked, we will only UPSERT.
-            // If the user "deleted" a supplier from the list, it won't be deleted from DB here
-            // unless we explicitely handle deletion. 
-            // For this specific requirement "save locallly -> save supabase", let's start with Upsert.
-
-            // Batch processing to avoid payload limits 
-            const BATCH_SIZE = 100; // Reduced from 500 to 100 for safety
+            // Batch processing to avoid payload limits
+            const BATCH_SIZE = 100;
             const chunks = [];
 
-            for (let i = 0; i < suppliers.length; i += BATCH_SIZE) {
-                chunks.push(suppliers.slice(i, i + BATCH_SIZE));
+            for (let i = 0; i < cleanSuppliers.length; i += BATCH_SIZE) {
+                chunks.push(cleanSuppliers.slice(i, i + BATCH_SIZE));
             }
 
-            console.log(`Saving ${suppliers.length} suppliers in ${chunks.length} batches...`);
+            console.log(`Saving ${cleanSuppliers.length} unique suppliers (from ${suppliers.length} total) in ${chunks.length} batches...`);
+
+            if (onProgress) onProgress(0, chunks.length);
 
             for (let i = 0; i < chunks.length; i++) {
                 const chunk = chunks[i];
@@ -69,14 +65,13 @@ export class SupplierService {
 
                 if (error) {
                     console.error(`Error saving batch ${i + 1}/${chunks.length}:`, error);
-                    // Continue with other batches, but throw error at end?
-                    // Better to fail fast or try best effort? 
-                    // Let's throw to indicate failure.
                     throw error;
                 }
 
+                if (onProgress) onProgress(i + 1, chunks.length);
+
                 // Small delay to prevent rate limiting
-                await new Promise(r => setTimeout(r, 100));
+                await new Promise(r => setTimeout(r, 50));
             }
 
             console.log('All supplier batches saved successfully.');

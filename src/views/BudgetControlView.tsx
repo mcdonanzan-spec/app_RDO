@@ -854,6 +854,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     const [importText, setImportText] = useState('');
     const [savingSuppliersState, setSavingSuppliersState] = useState<{ isSaving: boolean; progress: number; total: number }>({ isSaving: false, progress: 0, total: 0 });
 
+
     // Sync suppliers when appData changes (after Supabase load)
     useEffect(() => {
         if (appData.suppliers) {
@@ -867,8 +868,12 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
 
         try {
             const { SupplierService } = await import('../services/supplierService');
-            // We use the service to save (upsert) the data
-            await SupplierService.saveSuppliers(appData.activeProjectId, updatedSuppliers);
+            setSavingSuppliersState({ isSaving: true, progress: 0, total: 0 });
+
+            await SupplierService.saveSuppliers(appData.activeProjectId, updatedSuppliers, (current, total) => {
+                setSavingSuppliersState(prev => ({ ...prev, progress: current, total }));
+            });
+
             setSuppliers(updatedSuppliers);
             // Optionally update appData global state if needed, but the service handles the DB. 
             // The polling/subscription or refresh would handle the rest, but for now local state is updated.
@@ -2253,6 +2258,40 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
                 {activeTab === 'financial' && <FinancialEntryTab entries={entries} budgetTree={budgetTree} onUpdate={handleUpdateEntries} savedSuppliers={suppliers} onSaveSuppliers={handleUpdateSuppliers} appData={appData} />}
                 {activeTab === 'analysis' && <AnalysisDashboardTab tree={budgetTree} entries={entries} />}
             </div>
+            {savingSuppliersState.isSaving && (
+                <LoadingOverlay
+                    message="Salvando Fornecedores..."
+                    progress={savingSuppliersState.progress}
+                    total={savingSuppliersState.total}
+                />
+            )}
         </div>
     );
 };
+
+// --- LOADING OVERLAY COMPONENT ---
+interface LoadingOverlayProps {
+    message: string;
+    progress: number;
+    total: number;
+}
+
+const LoadingOverlay = ({ message, progress, total }: LoadingOverlayProps) => (
+    <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 9999,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
+    }}>
+        <Loader2 className="w-12 h-12 animate-spin mb-4" />
+        <h3 className="text-xl font-bold mb-2">{message}</h3>
+        <div className="w-64 h-4 bg-gray-700 rounded-full overflow-hidden mb-2">
+            <div
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: total > 0 ? `${(progress / total) * 100}%` : '0%' }}
+            />
+        </div>
+        <p className="text-sm text-gray-300">Processando lote {progress} de {total}</p>
+    </div>
+);
+
+export default BudgetControlView;
