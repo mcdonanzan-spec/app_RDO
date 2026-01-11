@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { ProjectService } from './projectService';
 import { FinancialService } from './financialService';
 import { BudgetService } from './budgetService';
+import { SupplierService } from './supplierService';
 import { getVisualManagement, saveVisualManagement } from './db';
 
 export class ApiService {
@@ -35,7 +36,8 @@ export class ApiService {
                 budgetCore,
                 rdoCore,
                 masterPlanData,
-                budgetTree
+                budgetTree,
+                suppliers
             ] = await Promise.all([
                 ProjectService.getProjects(),
                 FinancialService.getEntries(projectId),
@@ -46,7 +48,8 @@ export class ApiService {
                 ApiService.getCoreBudget(projectId),
                 ApiService.getCoreRDO(projectId),
                 ApiService.getCoreData(projectId, 'project_master_plan_data'),
-                BudgetService.getBudgetTree(projectId)
+                BudgetService.getBudgetTree(projectId),
+                SupplierService.getSuppliers(projectId)
             ]);
 
             const activeProject = projects.find(p => p.id === projectId);
@@ -65,6 +68,7 @@ export class ApiService {
 
                 // Financials
                 financialEntries: financialEntries,
+                suppliers: suppliers,
 
                 // Budget & RDO (From Core Tables)
                 budget: budgetCore.data || [],
@@ -104,6 +108,7 @@ export class ApiService {
             rdoSheets: [],
             budgetSheets: [],
             financialEntries: [],
+            suppliers: [],
             visualManagement: {
                 config: { towers: 4, floors: 12, aptsPerFloor: 8 },
                 services: [],

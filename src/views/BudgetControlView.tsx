@@ -848,21 +848,34 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         return entries.filter(e => selectedIds.has(e.id)).reduce((acc, e) => acc + e.totalValue, 0);
     }, [entries, selectedIds]);
 
-    // Supplier Management (local state for this section)
-    const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-        // Try to load from localStorage first, then fall back to appData
-        const stored = localStorage.getItem('suppliers');
-        if (stored) {
-            try {
-                return JSON.parse(stored);
-            } catch (e) {
-                console.error('Error parsing stored suppliers:', e);
-            }
-        }
-        return appData.suppliers || [];
-    });
+    // Supplier Management - Load from appData (Supabase)
+    const [suppliers, setSuppliers] = useState<Supplier[]>(appData.suppliers || []);
     const [showSupplierImport, setShowSupplierImport] = useState(false);
     const [importText, setImportText] = useState('');
+
+    // Sync suppliers when appData changes (after Supabase load)
+    useEffect(() => {
+        if (appData.suppliers) {
+            setSuppliers(appData.suppliers);
+        }
+    }, [appData.suppliers]);
+
+    // Save suppliers to Supabase when they change
+    const saveSuppliers = useCallback(async (updatedSuppliers: Supplier[]) => {
+        if (!appData.activeProjectId) return;
+
+        try {
+            const { SupplierService } = await import('../services/supplierService');
+            // We use the service to save (upsert) the data
+            await SupplierService.saveSuppliers(appData.activeProjectId, updatedSuppliers);
+            setSuppliers(updatedSuppliers);
+            // Optionally update appData global state if needed, but the service handles the DB. 
+            // The polling/subscription or refresh would handle the rest, but for now local state is updated.
+        } catch (error) {
+            console.error('Error saving suppliers:', error);
+            alert('Erro ao salvar fornecedores. Tente novamente.');
+        }
+    }, [appData.activeProjectId]);
 
     const handleImportSuppliers = () => {
         const lines = importText.split('\n');
@@ -878,8 +891,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             }
         });
         const combined = [...suppliers, ...newSuppliers];
-        setSuppliers(combined);
-        localStorage.setItem('suppliers', JSON.stringify(combined));
+        saveSuppliers(combined);
         setShowSupplierImport(false);
         setImportText('');
         alert(`${newSuppliers.length} fornecedores importados com sucesso!`);
@@ -913,8 +925,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
 
             // Add to suppliers list
             const updatedSuppliers = [...suppliers, ...newSuppliers];
-            setSuppliers(updatedSuppliers);
-            localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers));
+            saveSuppliers(updatedSuppliers);
 
             setShowSupplierImport(false);
             alert(`✓ ${newSuppliers.length} fornecedores importados com sucesso!`);

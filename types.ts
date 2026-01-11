@@ -350,18 +350,19 @@ export interface AppData {
         serviceStatus?: Record<string, 'pending' | 'executing' | 'completed'>; // ServiceId -> Pipeline Status
     };
     purchaseRequests?: PurchaseRequest[];
+    // Aggregated Data
+    financialEntries?: FinancialEntry[];
+    suppliers?: Supplier[];
     budgetGroups?: BudgetGroup[];
     totvsItems?: TotvsItem[];
 
     // New Financial Control
-    financialEntries?: FinancialEntry[]; // New store for NFs
     financialDocuments?: FinancialDocument[]; // Keep for legacy compat if needed
     budgetTree?: BudgetNode[]; // Full hierarchical tree state if persisted
     activeProjectId?: string; // Supabase Project ID
     activeProject?: Project; // Full project details including settings
 
     budgetVersions?: BudgetSnapshot[];
-    suppliers?: Supplier[];
     consolidatedTree?: BudgetNode[];
 }
 
