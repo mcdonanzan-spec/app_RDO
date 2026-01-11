@@ -1159,9 +1159,14 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                         <div className="col-span-2 relative">
                             <div className="flex justify-between items-center mb-1">
                                 <label className={`block text-xs font-bold uppercase ${errors.supplier ? 'text-red-500' : 'text-slate-500'}`}>Fornecedor {errors.supplier && '*'}</label>
-                                <button onClick={() => setShowSupplierImport(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 uppercase">
-                                    <Upload size={10} /> Importar Lista
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
+                                        {suppliers.length} cadastrado{suppliers.length !== 1 ? 's' : ''}
+                                    </span>
+                                    <button onClick={() => setShowSupplierImport(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 uppercase">
+                                        <Upload size={10} /> Importar Lista
+                                    </button>
+                                </div>
                             </div>
                             <input
                                 className={`w-full border rounded p-2 uppercase focus:ring-2 focus:ring-indigo-100 outline-none ${errors.supplier ? 'border-red-500 bg-red-50' : ''}`}
