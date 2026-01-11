@@ -24,7 +24,7 @@ export class SupplierService {
         }
     }
 
-    static async saveSuppliers(projectId: string, suppliers: Supplier[]): Promise<void> {
+    static async saveSuppliers(projectId: string, suppliers: Supplier[], onProgress?: (current: number, total: number) => void): Promise<void> {
         if (!projectId) return;
 
         try {

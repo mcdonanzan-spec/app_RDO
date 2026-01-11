@@ -852,6 +852,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     const [suppliers, setSuppliers] = useState<Supplier[]>(appData.suppliers || []);
     const [showSupplierImport, setShowSupplierImport] = useState(false);
     const [importText, setImportText] = useState('');
+    const [savingSuppliersState, setSavingSuppliersState] = useState<{ isSaving: boolean; progress: number; total: number }>({ isSaving: false, progress: 0, total: 0 });
 
     // Sync suppliers when appData changes (after Supabase load)
     useEffect(() => {
