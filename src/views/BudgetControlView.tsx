@@ -224,21 +224,8 @@ const renderTreeRows = (
     showResources = true,
     isReadOnly = false
 ): React.ReactNode[] => {
-    // Sort nodes to ensure consistent resource order (MT -> ST -> EQ)
-    const sortedNodes = [...nodes].sort((a, b) => {
-        // If both have codes (groups), use code sort
-        if (a.code && b.code) {
-            return a.code.localeCompare(b.code, undefined, { numeric: true });
-        }
-
-        // If one is a resource (empty code), prioritize by type
-        const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
-        const orderA = resourceOrder[a.itemType || ''] || 0;
-        const orderB = resourceOrder[b.itemType || ''] || 0;
-        if (orderA !== orderB) return orderA - orderB;
-
-        return 0;
-    });
+    // Sort nodes using centralized BudgetService to ensure uniform MT > ST > EQ order
+    const sortedNodes = [...nodes].sort((a, b) => BudgetService.compareCodes(a.code, b.code));
 
     return sortedNodes.flatMap((node) => {
         // Um nó é considerado "recurso" se for MT, ST ou EQ (geralmente gerado pelo botão $$)
