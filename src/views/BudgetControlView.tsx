@@ -848,10 +848,24 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         return entries.filter(e => selectedIds.has(e.id)).reduce((acc, e) => acc + e.totalValue, 0);
     }, [entries, selectedIds]);
 
-    // Supplier Management
-    const [suppliers, setSuppliers] = useState<Supplier[]>(savedSuppliers || []);
+    // Supplier Management (local state for this section)
+    const [suppliers, setSuppliers] = useState<Supplier[]>(appData.suppliers || []);
     const [showSupplierImport, setShowSupplierImport] = useState(false);
     const [importText, setImportText] = useState('');
+
+    // Sync suppliers with appData
+    useEffect(() => {
+        if (appData.suppliers && appData.suppliers.length > 0) {
+            setSuppliers(appData.suppliers);
+        }
+    }, [appData.suppliers]);
+
+    // Update appData when suppliers change
+    useEffect(() => {
+        if (suppliers.length > 0 && JSON.stringify(suppliers) !== JSON.stringify(appData.suppliers)) {
+            onUpdate({ suppliers } as any);
+        }
+    }, [suppliers]);
 
     const handleImportSuppliers = () => {
         const lines = importText.split('\n');
@@ -868,7 +882,6 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         });
         const combined = [...suppliers, ...newSuppliers];
         setSuppliers(combined);
-        if (onSaveSuppliers) onSaveSuppliers(combined);
         setShowSupplierImport(false);
         setImportText('');
         alert(`${newSuppliers.length} fornecedores importados com sucesso!`);
@@ -903,7 +916,6 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             // Add to suppliers list
             const updatedSuppliers = [...suppliers, ...newSuppliers];
             setSuppliers(updatedSuppliers);
-            if (onSaveSuppliers) onSaveSuppliers(updatedSuppliers);
 
             setShowSupplierImport(false);
             alert(`✓ ${newSuppliers.length} fornecedores importados com sucesso!`);
