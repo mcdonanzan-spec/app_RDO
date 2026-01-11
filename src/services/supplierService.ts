@@ -44,20 +44,42 @@ export class SupplierService {
             // unless we explicitely handle deletion. 
             // For this specific requirement "save locallly -> save supabase", let's start with Upsert.
 
-            const { error } = await supabase
-                .from('suppliers')
-                .upsert(
-                    suppliers.map(s => ({
-                        project_id: projectId,
-                        razao_social: s.razaoSocial,
-                        cnpj: s.cnpj
-                        // id is auto-generated if match by unique constraint (project_id, cnpj)
-                    })),
-                    { onConflict: 'project_id, cnpj' }
-                );
+            // Batch processing to avoid payload limits (e.g., 500 records per batch)
+            const BATCH_SIZE = 500;
+            const chunks = [];
 
-            if (error) throw error;
+            for (let i = 0; i < suppliers.length; i += BATCH_SIZE) {
+                chunks.push(suppliers.slice(i, i + BATCH_SIZE));
+            }
 
+            console.log(`Saving ${suppliers.length} suppliers in ${chunks.length} batches...`);
+
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                const { error } = await supabase
+                    .from('suppliers')
+                    .upsert(
+                        chunk.map(s => ({
+                            project_id: projectId,
+                            razao_social: s.razaoSocial,
+                            cnpj: s.cnpj
+                        })),
+                        { onConflict: 'project_id, cnpj' }
+                    );
+
+                if (error) {
+                    console.error(`Error saving batch ${i + 1}/${chunks.length}:`, error);
+                    // Continue with other batches, but throw error at end?
+                    // Better to fail fast or try best effort? 
+                    // Let's throw to indicate failure.
+                    throw error;
+                }
+
+                // Optional: small delay to not overwhelm DB
+                // await new Promise(r => setTimeout(r, 100));
+            }
+
+            console.log('All supplier batches saved successfully.');
         } catch (error) {
             console.error('Error saving suppliers:', error);
             throw error;
