@@ -214,7 +214,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                 level: (line.code.match(/\./g) || []).length,
                 totalValue: line.total,
                 type: line.isGroup ? 'GROUP' : 'ITEM',
-                itemType: line.isGroup ? undefined : (line.type === 'mt' ? 'MT' : 'ST'),
+                itemType: BudgetService.getNormalizedItemType(line.type, line.code),
                 children: [],
                 budgetInitial: line.total,
                 budgetCurrent: line.total,

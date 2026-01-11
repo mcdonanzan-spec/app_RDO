@@ -45,7 +45,7 @@ function buildTreeFromBudget(budgetLines: import('../../types').BudgetLine[]): B
         level: (line.code.match(/\./g) || []).length,
         totalValue: line.total,
         type: line.isGroup ? 'GROUP' : 'ITEM',
-        itemType: line.isGroup ? undefined : (line.type === 'mt' ? 'MT' : 'ST'),
+        itemType: BudgetService.getNormalizedItemType(line.type, line.code),
         children: [],
         budgetInitial: line.total,
         budgetCurrent: line.total,
@@ -501,8 +501,8 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
                 // Secondary: Resource sort (MT -> ST -> EQ)
                 const resourceOrder: Record<string, number> = { 'MT': 1, 'ST': 2, 'EQ': 3 };
-                const orderA = resourceOrder[a.itemType || ''] || 0;
-                const orderB = resourceOrder[b.itemType || ''] || 0;
+                const orderA = resourceOrder[BudgetService.getNormalizedItemType(a.itemType, a.code) || ''] || 99;
+                const orderB = resourceOrder[BudgetService.getNormalizedItemType(b.itemType, b.code) || ''] || 99;
                 return orderA - orderB;
             });
             const rootNodes: BudgetNode[] = [];

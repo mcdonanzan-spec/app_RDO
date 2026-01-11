@@ -167,13 +167,13 @@ export const BudgetService = {
     },
 
     compareCodes(aCode: string, bCode: string): number {
-        const aParts = aCode.split('.');
-        const bParts = bCode.split('.');
+        const aParts = aCode.toUpperCase().split('.');
+        const bParts = bCode.toUpperCase().split('.');
         const minLen = Math.min(aParts.length, bParts.length);
 
         for (let i = 0; i < minLen; i++) {
-            const partA = aParts[i];
-            const partB = bParts[i];
+            const partA = aParts[i].trim();
+            const partB = bParts[i].trim();
 
             if (partA !== partB) {
                 // Custom order for resource suffixes: MT > ST > EQ
@@ -188,6 +188,20 @@ export const BudgetService = {
             }
         }
         return aParts.length - bParts.length;
+    },
+
+    getNormalizedItemType(type: string | undefined, code: string): 'MT' | 'ST' | 'EQ' | undefined {
+        const c = code.toUpperCase();
+        if (c.endsWith('.MT')) return 'MT';
+        if (c.endsWith('.ST')) return 'ST';
+        if (c.endsWith('.EQ')) return 'EQ';
+
+        const t = (type || '').trim().toUpperCase();
+        if (t === 'MT' || t === 'MATERIAL') return 'MT';
+        if (t === 'ST' || t === 'SERVIÇO' || t === 'SERVICO' || t === 'SERVIÇOS' || t === 'SERVICOS') return 'ST';
+        if (t === 'EQ' || t === 'EQUIPAMENTO' || t === 'EQUIPAMENTOS') return 'EQ';
+
+        return undefined;
     },
 
     sortTreeRecursively(nodes: BudgetNode[]): BudgetNode[] {
