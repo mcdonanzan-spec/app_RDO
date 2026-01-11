@@ -849,23 +849,20 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     }, [entries, selectedIds]);
 
     // Supplier Management (local state for this section)
-    const [suppliers, setSuppliers] = useState<Supplier[]>(appData.suppliers || []);
+    const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+        // Try to load from localStorage first, then fall back to appData
+        const stored = localStorage.getItem('suppliers');
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) {
+                console.error('Error parsing stored suppliers:', e);
+            }
+        }
+        return appData.suppliers || [];
+    });
     const [showSupplierImport, setShowSupplierImport] = useState(false);
     const [importText, setImportText] = useState('');
-
-    // Sync suppliers with appData
-    useEffect(() => {
-        if (appData.suppliers && appData.suppliers.length > 0) {
-            setSuppliers(appData.suppliers);
-        }
-    }, [appData.suppliers]);
-
-    // Update appData when suppliers change
-    useEffect(() => {
-        if (suppliers.length > 0 && JSON.stringify(suppliers) !== JSON.stringify(appData.suppliers)) {
-            onUpdate({ suppliers } as any);
-        }
-    }, [suppliers]);
 
     const handleImportSuppliers = () => {
         const lines = importText.split('\n');
@@ -882,6 +879,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         });
         const combined = [...suppliers, ...newSuppliers];
         setSuppliers(combined);
+        localStorage.setItem('suppliers', JSON.stringify(combined));
         setShowSupplierImport(false);
         setImportText('');
         alert(`${newSuppliers.length} fornecedores importados com sucesso!`);
@@ -916,6 +914,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             // Add to suppliers list
             const updatedSuppliers = [...suppliers, ...newSuppliers];
             setSuppliers(updatedSuppliers);
+            localStorage.setItem('suppliers', JSON.stringify(updatedSuppliers));
 
             setShowSupplierImport(false);
             alert(`✓ ${newSuppliers.length} fornecedores importados com sucesso!`);
