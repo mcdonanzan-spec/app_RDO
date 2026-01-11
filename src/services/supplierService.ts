@@ -44,8 +44,8 @@ export class SupplierService {
             // unless we explicitely handle deletion. 
             // For this specific requirement "save locallly -> save supabase", let's start with Upsert.
 
-            // Batch processing to avoid payload limits (e.g., 500 records per batch)
-            const BATCH_SIZE = 500;
+            // Batch processing to avoid payload limits 
+            const BATCH_SIZE = 100; // Reduced from 500 to 100 for safety
             const chunks = [];
 
             for (let i = 0; i < suppliers.length; i += BATCH_SIZE) {
@@ -75,8 +75,8 @@ export class SupplierService {
                     throw error;
                 }
 
-                // Optional: small delay to not overwhelm DB
-                // await new Promise(r => setTimeout(r, 100));
+                // Small delay to prevent rate limiting
+                await new Promise(r => setTimeout(r, 100));
             }
 
             console.log('All supplier batches saved successfully.');

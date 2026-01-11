@@ -871,9 +871,10 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             setSuppliers(updatedSuppliers);
             // Optionally update appData global state if needed, but the service handles the DB. 
             // The polling/subscription or refresh would handle the rest, but for now local state is updated.
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving suppliers:', error);
-            alert('Erro ao salvar fornecedores. Tente novamente.');
+            const msg = error?.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+            alert(`Erro ao salvar fornecedores: ${msg}. Verifique o console para mais detalhes.`);
         }
     }, [appData.activeProjectId]);
 
