@@ -420,94 +420,87 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
         <div className="flex flex-col h-full bg-white overflow-hidden">
             {/* Header / Toolbar */}
             <div className="bg-slate-900 text-white p-6 shadow-xl relative z-20">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-yellow-400 text-slate-900 rounded-xl shadow-lg shadow-yellow-400/20">
-                            <LayoutGrid size={28} />
+                <div className="flex flex-wrap items-center justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-yellow-400 rounded-2xl shadow-lg shadow-yellow-400/20">
+                                <LayoutGrid className="text-slate-900" size={28} />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-black text-white tracking-tight">
+                                    Fluxo de Caixa Analítico
+                                </h1>
+                                <p className="text-slate-400 text-xs font-medium">
+                                    Consolidação de Orçamento, RDO e Projeção Financeira
+                                </p>
+                            </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <h1 className="text-2xl font-bold tracking-tight">Fluxo de Caixa Analítico</h1>
-                            <p className="text-slate-400 text-sm mt-1 whitespace-nowrap overflow-hidden text-ellipsis mr-4">
-                                Consolidação de Orçamento, RDO e Projeção Financeira
-                            </p>
+
+                        <div className="hidden md:flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
+                            <button
+                                onClick={expandAll}
+                                title="Expandir todos os grupos"
+                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+                            >
+                                Expandir Tudo
+                            </button>
+                            <div className="w-px h-4 bg-slate-700 my-auto mx-1"></div>
+                            <button
+                                onClick={collapseAll}
+                                title="Recolher todos os grupos"
+                                className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
+                            >
+                                Agrupar
+                            </button>
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                        <div className="flex flex-wrap lg:flex-nowrap items-center gap-3">
-                            <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
-                                <button
-                                    onClick={expandAll}
-                                    title="Expandir todos os grupos"
-                                    className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
-                                >
-                                    Expandir Tudo
-                                </button>
-                                <div className="w-px h-4 bg-slate-700 my-auto mx-1"></div>
-                                <button
-                                    onClick={collapseAll}
-                                    title="Recolher todos os grupos"
-                                    className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-all"
-                                >
-                                    Agrupar
-                                </button>
-                            </div>
-
-                            <div className="flex items-center gap-3 bg-slate-800 rounded-lg p-1 border border-slate-700">
-                                <div className="relative group px-1">
-                                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={16} />
-                                    <input
-                                        type="month"
-                                        value={closedMonth}
-                                        onChange={(e) => setClosedMonth(e.target.value)}
-                                        className="bg-transparent text-white pl-10 pr-4 py-2 text-sm focus:outline-none transition-all font-bold min-w-[150px]"
-                                        title="Mês de Fechamento"
-                                    />
-                                </div>
-                                <div className="w-px h-6 bg-slate-700"></div>
-                                <div className="flex items-center gap-3 px-3 py-2">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:inline">Projetar</span>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="60"
-                                        value={projectionLength}
-                                        onChange={(e) => setProjectionLength(parseInt(e.target.value) || 1)}
-                                        className="w-14 bg-slate-700/50 border border-slate-600 text-white px-2 py-1 rounded text-center text-sm font-black focus:ring-2 focus:ring-yellow-400/50 outline-none transition-all"
-                                    />
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap hidden lg:inline">Meses</span>
-                                </div>
-                            </div>
-
-                            <div className="relative group">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={18} />
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-3 bg-slate-800 rounded-lg p-1 border border-slate-700">
+                            <div className="relative group px-1">
+                                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={16} />
                                 <input
-                                    type="text"
-                                    placeholder="Buscar..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="bg-slate-800 border border-slate-700 text-white pl-10 pr-4 py-2.5 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 outline-none transition-all w-full lg:w-48"
+                                    type="month"
+                                    value={closedMonth}
+                                    onChange={(e) => setClosedMonth(e.target.value)}
+                                    className="bg-transparent text-white pl-10 pr-4 py-2 text-sm focus:outline-none transition-all font-bold min-w-[150px]"
+                                    title="Mês de Fechamento"
                                 />
                             </div>
+                            <div className="w-px h-6 bg-slate-700"></div>
+                            <div className="flex items-center gap-3 px-3 py-2">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest hidden lg:inline">Projetar</span>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="60"
+                                    value={projectionLength}
+                                    onChange={(e) => setProjectionLength(parseInt(e.target.value) || 1)}
+                                    className="w-14 bg-slate-700/50 border border-slate-600 text-white px-2 py-1 rounded text-center text-sm font-black focus:ring-2 focus:ring-yellow-400/50 outline-none transition-all"
+                                />
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap hidden lg:inline">Meses</span>
+                            </div>
+                        </div>
 
-                            <button
-                                onClick={() => setShowResources(!showResources)}
-                                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold shadow-sm border transition-all ${showResources ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white' : 'bg-yellow-400 text-slate-900 border-yellow-500'}`}
-                                title={showResources ? "Ocultar detalhamento de recursos (MT, ST, EQ)" : "Mostrar detalhamento de recursos (MT, ST, EQ)"}
-                            >
-                                {showResources ? <EyeOff size={16} /> : <Eye size={16} />}
-                                <span className="hidden lg:inline">{showResources ? 'Ocultar' : 'Mostrar'}</span>
-                            </button>
+                        <button
+                            onClick={() => setShowResources(!showResources)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold shadow-sm border transition-all ${showResources ? 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white' : 'bg-yellow-400 text-slate-900 border-yellow-500'}`}
+                            title={showResources ? "Ocultar detalhamento de recursos (MT, ST, EQ)" : "Mostrar detalhamento de recursos (MT, ST, EQ)"}
+                        >
+                            {showResources ? <EyeOff size={16} /> : <Eye size={16} />}
+                            <span className="hidden lg:inline">{showResources ? 'Ocultar' : 'Mostrar'}</span>
+                        </button>
 
-                            <button
-                                onClick={() => setFreezeBudgetColumn(!freezeBudgetColumn)}
-                                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold shadow-sm border transition-all ${freezeBudgetColumn ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}`}
-                                title={freezeBudgetColumn ? "Descongelar colunas" : "Congelar Budget"}
-                            >
-                                <LayoutGrid size={16} />
-                                <span className="hidden lg:inline">{freezeBudgetColumn ? '❄️' : 'Congelar'}</span>
-                            </button>
+                        <button
+                            onClick={() => setFreezeBudgetColumn(!freezeBudgetColumn)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold shadow-sm border transition-all ${freezeBudgetColumn ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}`}
+                            title={freezeBudgetColumn ? "Descongelar colunas" : "Congelar Budget"}
+                        >
+                            <LayoutGrid size={16} />
+                            <span className="hidden lg:inline">{freezeBudgetColumn ? '❄️' : 'Congelar'}</span>
+                        </button>
 
+                        <div className="flex items-center bg-slate-800/50 rounded-xl p-1 border border-slate-700 backdrop-blur-sm">
                             <button
                                 onClick={(() => {
                                     const monthsHeaders = futureMonths.map(m => getMonthLabel(m));
@@ -556,88 +549,99 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                                     XLSX.utils.book_append_sheet(workbook, worksheet, "Fluxo de Caixa");
                                     XLSX.writeFile(workbook, `Mapa_Fluxo_Caixa_${new Date().toISOString().split('T')[0]}.xlsx`);
                                 })}
-                                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all shadow-lg active:scale-95 group"
+                                className="flex items-center gap-2 text-slate-300 hover:text-white hover:bg-slate-700 px-4 py-2 rounded-lg text-xs font-bold transition-all group"
                             >
-                                <Download size={18} className="group-hover:bounce-subtle" />
-                                <span className="hidden lg:inline">Excel</span>
+                                <Download size={16} className="group-hover:bounce-subtle" />
+                                <span>Excel</span>
                             </button>
-
+                            <div className="w-px h-6 bg-slate-700 mx-1"></div>
                             <button
                                 onClick={saveConferences}
-                                className="px-5 py-2.5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-lg text-sm font-black transition-all flex items-center gap-2 shadow-lg shadow-yellow-400/20 active:scale-95 whitespace-nowrap"
+                                className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 text-slate-900 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-lg active:scale-95 whitespace-nowrap"
                             >
-                                <CheckCircle2 size={18} />
+                                <CheckCircle2 size={16} />
                                 Salvar Conferência
                             </button>
                         </div>
-
-                        {/* Legend row */}
-                        <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 px-1">
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/20"></div>
-                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Gasto Abaixo</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm shadow-red-500/20"></div>
-                                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Gasto Acima</span>
-                            </div>
-                            <div className="hidden lg:block w-px h-3 bg-slate-700"></div>
-                            <span className="text-[10px] text-slate-500 font-medium italic">* O comprometimento deve ser lançado manualmente por G.O</span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 px-1 mt-6">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/20"></div>
+                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Gasto Abaixo</span>
                         </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm shadow-red-500/20"></div>
+                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none">Gasto Acima</span>
+                        </div>
+                        <div className="hidden lg:block w-px h-3 bg-slate-700"></div>
+                        <span className="text-[10px] text-slate-500 font-medium italic">* O comprometimento deve ser lançado manualmente por G.O</span>
                     </div>
                 </div>
+            </div>
 
-                {/* KPI Summary Strip */}
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 pt-6 border-t border-slate-800">
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Orçamento Total</p>
-                        <p className="text-xl font-bold text-blue-400 font-mono">
-                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0))}
-                        </p>
-                    </div>
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">RDO Consolidado (NFs)</p>
-                        <p className="text-xl font-bold text-yellow-400 font-mono">
-                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rdoTotal, 0))}
-                        </p>
-                    </div>
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Realizado até {getMonthLabel(closedMonth)}</p>
-                        <p className="text-xl font-bold text-orange-400 font-mono">
-                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rmo, 0))}
-                        </p>
-                    </div>
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors border-l-2 border-l-yellow-400/30">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Comprometido</p>
-                        <p className="text-xl font-bold text-white font-mono">
-                            {formatCurrency(
-                                budgetTree.reduce((sum: number, node: BudgetNode) => {
-                                    const v = getNodeValues(node);
-                                    const manual = commitmentValues[node.code] || 0;
-                                    return sum + v.futureTotal + manual;
-                                }, 0)
-                            )}
-                        </p>
-                    </div>
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Saldo Remanescente</p>
-                        <p className="text-xl font-bold text-emerald-400 font-mono">
-                            {formatCurrency(
-                                budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0) -
-                                budgetTree.reduce((sum: number, node: BudgetNode) => {
-                                    const v = getNodeValues(node);
-                                    const manual = commitmentValues[node.code] || 0;
-                                    return sum + v.rmo + v.futureTotal + manual;
-                                }, 0)
-                            )}
-                        </p>
-                    </div>
+            {/* KPI Summary Strip */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 pt-6 border-t border-slate-800">
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Orçamento Total</p>
+                    <p className="text-xl font-bold text-blue-400 font-mono">
+                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0))}
+                    </p>
+                </div>
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">RDO Consolidado (NFs)</p>
+                    <p className="text-xl font-bold text-yellow-400 font-mono">
+                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rdoTotal, 0))}
+                    </p>
+                </div>
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Realizado até {getMonthLabel(closedMonth)}</p>
+                    <p className="text-xl font-bold text-orange-400 font-mono">
+                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rmo, 0))}
+                    </p>
+                </div>
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors border-l-2 border-l-yellow-400/30">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Comprometido</p>
+                    <p className="text-xl font-bold text-white font-mono">
+                        {formatCurrency(
+                            budgetTree.reduce((sum: number, node: BudgetNode) => {
+                                const v = getNodeValues(node);
+                                const manual = commitmentValues[node.code] || 0;
+                                return sum + v.futureTotal + manual;
+                            }, 0)
+                        )}
+                    </p>
+                </div>
+                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Saldo Remanescente</p>
+                    <p className="text-xl font-bold text-emerald-400 font-mono">
+                        {formatCurrency(
+                            budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0) -
+                            budgetTree.reduce((sum: number, node: BudgetNode) => {
+                                const v = getNodeValues(node);
+                                const manual = commitmentValues[node.code] || 0;
+                                return sum + v.rmo + v.futureTotal + manual;
+                            }, 0)
+                        )}
+                    </p>
                 </div>
             </div>
 
             {/* Table Area */}
             <div className="flex-1 overflow-hidden bg-slate-100 p-4 lg:p-6 pb-2">
                 <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden h-full flex flex-col">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-4">
+                        <div className="relative group flex-1 max-w-md">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-yellow-400 transition-colors" size={18} />
+                            <input
+                                type="text"
+                                placeholder="Buscar por código ou descrição..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full bg-white border border-slate-200 text-slate-700 pl-10 pr-4 py-2 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 outline-none transition-all shadow-sm"
+                            />
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
                         <table className="w-full border-collapse text-left">
                             <thead className="sticky top-0 z-30 bg-slate-50 shadow-sm">
