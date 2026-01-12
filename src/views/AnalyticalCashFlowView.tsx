@@ -340,7 +340,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     <td className={`sticky left-[120px] z-10 px-4 py-3 text-sm text-slate-700 min-w-[350px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] ${!node.color ? (node.type === 'GROUP' ? 'bg-slate-50' : 'bg-white') : ''}`} style={node.color ? { backgroundColor: node.color } : {}}>
                         <span className={node.type === 'GROUP' ? 'font-bold text-slate-800' : ''}>{node.description}</span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-blue-700 bg-blue-50/30 min-w-[150px]">
+                    <td className={`px-4 py-3 text-sm text-right font-semibold text-blue-700 min-w-[150px] ${freezeBudgetColumn ? 'sticky left-[370px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] bg-blue-50' : 'bg-blue-50/30'}`} style={freezeBudgetColumn && node.color ? { backgroundColor: node.color } : {}}>
                         {formatCurrency(values.budget)}
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-slate-600 bg-yellow-50/30 font-medium min-w-[150px]">
@@ -644,7 +644,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                                 <tr>
                                     <th className="sticky left-0 z-40 bg-slate-50 px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Código</th>
                                     <th className="sticky left-[120px] z-40 bg-slate-50 px-4 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 min-w-[250px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Descrição</th>
-                                    <th className="px-4 py-4 text-[10px] font-bold text-blue-600 uppercase tracking-widest border-b border-slate-200 text-right bg-blue-50/50">Prev. (Orç.)</th>
+                                    <th className={`px-4 py-4 text-[10px] font-bold text-blue-600 uppercase tracking-widest border-b border-slate-200 text-right ${freezeBudgetColumn ? 'sticky left-[370px] z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] bg-blue-50' : 'bg-blue-50/50'}`}>Prev. (Orç.)</th>
                                     <th className="px-4 py-4 text-[10px] font-bold text-yellow-600 uppercase tracking-widest border-b border-slate-200 text-right bg-yellow-50/50">RDO (Consolidado)</th>
                                     <th className="px-4 py-4 text-[10px] font-bold text-orange-600 uppercase tracking-widest border-b border-slate-200 text-right bg-orange-50/50">RMO (Realizado Mês)</th>
 
