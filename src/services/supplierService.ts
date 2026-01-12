@@ -81,6 +81,20 @@ export class SupplierService {
         }
     }
 
+    static async deleteAllSuppliers(projectId: string): Promise<void> {
+        try {
+            const { error } = await supabase
+                .from('suppliers')
+                .delete()
+                .eq('project_id', projectId);
+
+            if (error) throw error;
+        } catch (error) {
+            console.error('Error deleting suppliers:', error);
+            throw error;
+        }
+    }
+
     static async addSupplier(projectId: string, supplier: Omit<Supplier, 'id'>): Promise<string> {
         try {
             const { data, error } = await supabase

@@ -1146,6 +1146,24 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         });
     };
 
+    const handleClearSuppliers = async () => {
+        if (!appData.activeProjectId) return;
+        if (!confirm('ATENÇÃO: Isso apagará TODOS os fornecedores desta obra para permitir uma nova importação limpa.\n\nFornecedores que já possuem lançamentos (NFs) NÃO serão apagados.\n\nDeseja continuar?')) return;
+
+        try {
+            const { SupplierService } = await import('../services/supplierService');
+            await SupplierService.deleteAllSuppliers(appData.activeProjectId);
+
+            // Refresh list
+            const newSuppliers = await SupplierService.getSuppliers(appData.activeProjectId);
+            setSuppliers(newSuppliers);
+            alert('Base de fornecedores limpa com sucesso! Agora você pode importar a nova lista.');
+        } catch (error) {
+            console.error(error);
+            alert('Erro ao limpar fornecedores. Verifique o console para mais detalhes.');
+        }
+    };
+
     if (viewMode === 'form') {
         return (
             <div className="flex-1 overflow-y-auto bg-slate-50">
@@ -1210,6 +1228,9 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                     </span>
                                     <button onClick={() => setShowSupplierImport(true)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 uppercase">
                                         <Upload size={10} /> Importar Lista
+                                    </button>
+                                    <button onClick={handleClearSuppliers} className="text-[10px] font-bold text-red-400 hover:text-red-600 flex items-center gap-1 uppercase ml-3" title="Apagar todos os fornecedores não utilizados">
+                                        <Trash size={10} /> Limpar Base
                                     </button>
                                 </div>
                             </div>
