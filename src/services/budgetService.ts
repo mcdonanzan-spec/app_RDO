@@ -11,7 +11,9 @@ interface DBBudgetItem {
     parent_id?: string;
     budget_initial: number;
     budget_current: number;
+
     cost_center?: string;
+    color?: string;
 }
 
 const isUUID = (str: string) => {
@@ -78,7 +80,9 @@ export const BudgetService = {
                 committed: 0,
                 children: [],
                 parentId: n.parent_id,
-                costCenter: n.cost_center
+
+                costCenter: n.cost_center,
+                color: n.color
             });
         });
 
@@ -148,7 +152,9 @@ export const BudgetService = {
                 parent_id: parentId,
                 budget_initial: node.budgetInitial,
                 budget_current: node.budgetCurrent,
-                cost_center: node.costCenter
+
+                cost_center: node.costCenter,
+                color: node.color
             });
 
             if (node.children) {
