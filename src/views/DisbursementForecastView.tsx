@@ -409,13 +409,8 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         const values = getNodeValues(node);
         const description = descriptionOverrides[node.code] !== undefined ? descriptionOverrides[node.code] : node.description;
 
-        // Calculate total projected for filtering
-        const retroVal = initialRealized[node.code] || 0;
-        let totalProjected = values.nfRealized + retroVal;
-        months.filter(m => m > startingMonth).forEach(m => {
-            totalProjected += (values.nfFuture[m] || 0) + (values.manualForecast[m] || 0);
-        });
-
+        // Use values.totalProjected directly for consistency with what's displayed
+        const totalProjected = values.totalProjected;
         const budget = values.budget;
 
         // Search term check
@@ -431,7 +426,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         if (hideEmpty && isEmpty) return false;
 
         // Status check
-        // Over: Projected > Budget
+        // Over: Projected > Budget (with small tolerance)
         const isOver = totalProjected > budget + 0.01;
         // Under: Projected <= Budget (but has some activity)
         const isUnder = totalProjected <= budget && (totalProjected > 0 || budget > 0);
@@ -804,7 +799,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                     };
                                     const total = sumBudgets(budgetTree);
                                     const projected = sumProjected(budgetTree);
-                                    return ((projected / (total || 1)) * 100).toFixed(1);
+                                    return ((projected / (total || 1)) * 100).toFixed(2);
                                 })())}%
                             </p>
                             <div className="flex-1 h-2 bg-slate-700 rounded-full mb-2 overflow-hidden min-w-[60px]">
