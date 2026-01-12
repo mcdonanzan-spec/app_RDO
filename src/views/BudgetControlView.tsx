@@ -1000,12 +1000,22 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             return;
         }
 
+        // Auto-resolve to specific resource node (e.g. .MT) if it exists
+        let finalCode = tempAllocGroup;
+        const resourceSuffix = `.${tempAllocType}`; // e.g. .MT
+        const candidateCode = `${tempAllocGroup}${resourceSuffix}`; // e.g. 01.04.03.MT
+
+        // Check if candidate exists in flatGroups
+        if (flatGroups.some(g => g.code === candidateCode)) {
+            finalCode = candidateCode;
+        }
+
         const newAlloc: FinancialAllocation = {
             id: Date.now().toString(),
-            budgetGroupCode: tempAllocGroup,
+            budgetGroupCode: finalCode,
             costType: tempAllocType,
             value: tempAllocValue,
-            description: flatGroups.find(g => g.code === tempAllocGroup)?.desc || ''
+            description: flatGroups.find(g => g.code === finalCode)?.desc || ''
         };
 
         setAllocations([...allocations, newAlloc]);
