@@ -413,28 +413,39 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
         const totalProjected = values.totalProjected;
         const budget = values.budget;
 
-        // Search term check
+        // Search term check for current node
         const matchesSearch = !searchTerm ||
             description.toLowerCase().includes(searchTerm.toLowerCase()) ||
             node.code.includes(searchTerm);
 
-        if (!matchesSearch) return false;
-
-        // Empty check
-        // Consider empty if Total Project is 0 AND Budget is 0
+        // Empty check for current node
         const isEmpty = totalProjected === 0 && budget === 0;
-        if (hideEmpty && isEmpty) return false;
 
-        // Status check
-        // Over: Projected > Budget (with small tolerance)
+        // Status check for current node
         const isOver = totalProjected > budget + 0.01;
-        // Under: Projected <= Budget (but has some activity)
         const isUnder = totalProjected <= budget && (totalProjected > 0 || budget > 0);
 
-        if (analysisFilter === 'OVER') return isOver;
-        if (analysisFilter === 'UNDER') return isUnder;
+        // Check if current node matches filter criteria
+        let nodeMatches = matchesSearch;
 
-        return true;
+        if (nodeMatches && hideEmpty && isEmpty) {
+            nodeMatches = false;
+        }
+
+        if (nodeMatches && analysisFilter !== 'ALL') {
+            if (analysisFilter === 'OVER') {
+                nodeMatches = isOver;
+            } else if (analysisFilter === 'UNDER') {
+                nodeMatches = isUnder;
+            }
+        }
+
+        // Check if any children match (recursive)
+        const hasMatchingChild = node.children && node.children.length > 0 &&
+            node.children.some(child => matchesFilters(child));
+
+        // Show node if either it matches OR any of its children match
+        return nodeMatches || hasMatchingChild;
     };
 
     const renderRows = (nodes: BudgetNode[], level: number = 0): React.ReactNode[] => {
