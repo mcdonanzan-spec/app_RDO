@@ -123,6 +123,7 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
     const [projectionLength, setProjectionLength] = useState<number>(12);
     const [commitmentValues, setCommitmentValues] = useState<Record<string, number>>({});
     const [showResources, setShowResources] = useState(true);
+    const [freezeBudgetColumn, setFreezeBudgetColumn] = useState(false);
 
     // Load commitments and closed month from Supabase
     React.useEffect(() => {
@@ -496,6 +497,15 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                             >
                                 {showResources ? <EyeOff size={16} /> : <Eye size={16} />}
                                 <span className="hidden lg:inline">{showResources ? 'Ocultar' : 'Mostrar'}</span>
+                            </button>
+
+                            <button
+                                onClick={() => setFreezeBudgetColumn(!freezeBudgetColumn)}
+                                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold shadow-sm border transition-all ${freezeBudgetColumn ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'}`}
+                                title={freezeBudgetColumn ? "Descongelar colunas" : "Congelar Budget"}
+                            >
+                                <LayoutGrid size={16} />
+                                <span className="hidden lg:inline">{freezeBudgetColumn ? '❄️' : 'Congelar'}</span>
                             </button>
 
                             <button

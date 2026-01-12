@@ -506,7 +506,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             onChange={(e) => setDescriptionOverrides(prev => ({ ...prev, [node.code]: e.target.value }))}
                         />
                     </td>
-                    <td className={`px-4 py-3 bg-blue-50/20 text-right min-w-[150px] ${freezeBudgetColumn ? 'sticky left-[400px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]' : ''}`} style={freezeBudgetColumn && node.color ? { backgroundColor: node.color } : {}}>
+                    <td className={`px-4 py-3 text-right min-w-[150px] ${freezeBudgetColumn ? 'sticky left-[400px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] bg-blue-50' : 'bg-blue-50/20'}`} style={freezeBudgetColumn && node.color ? { backgroundColor: node.color } : {}}>
                         <EditableCurrencyCell
                             value={values.budget}
                             onChange={(val) => setBudgetOverrides(prev => ({ ...prev, [node.code]: val }))}
