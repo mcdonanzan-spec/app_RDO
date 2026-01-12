@@ -132,6 +132,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
     const [isLoading, setIsLoading] = useState(true);
     const [implementationMode, setImplementationMode] = useState(false);
     const [initialRealized, setInitialRealized] = useState<Record<string, number>>({}); // code -> value
+    const [freezeBudgetColumn, setFreezeBudgetColumn] = useState(false);
 
     // Load forecast from DB
     useEffect(() => {
@@ -505,7 +506,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                             onChange={(e) => setDescriptionOverrides(prev => ({ ...prev, [node.code]: e.target.value }))}
                         />
                     </td>
-                    <td className="px-4 py-3 bg-blue-50/20 text-right min-w-[150px]">
+                    <td className={`px-4 py-3 bg-blue-50/20 text-right min-w-[150px] ${freezeBudgetColumn ? 'sticky left-[400px] z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]' : ''}`} style={freezeBudgetColumn && node.color ? { backgroundColor: node.color } : {}}>
                         <EditableCurrencyCell
                             value={values.budget}
                             onChange={(val) => setBudgetOverrides(prev => ({ ...prev, [node.code]: val }))}
@@ -692,6 +693,15 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                         >
                             <AlertTriangle size={16} />
                             {implementationMode ? 'Modo Implantação Ativo' : 'Modo Implantação'}
+                        </button>
+
+                        <button
+                            onClick={() => setFreezeBudgetColumn(!freezeBudgetColumn)}
+                            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-lg ${freezeBudgetColumn ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                            title={freezeBudgetColumn ? "Descongelar colunas (código, descrição, budget)" : "Congelar colunas até Budget"}
+                        >
+                            <LayoutGrid size={16} />
+                            {freezeBudgetColumn ? '❄️ Congelado' : 'Congelar Budget'}
                         </button>
 
                         <button
@@ -922,7 +932,7 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                                 <tr className="bg-slate-50 border-b border-slate-200">
                                     <th className="sticky left-0 z-40 bg-slate-50 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[120px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Estrutura</th>
                                     <th className="sticky left-[120px] z-40 bg-slate-50 px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[280px] border-r border-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Descrição do Item</th>
-                                    <th className="px-6 py-5 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] border-b border-slate-200 text-right bg-blue-50/50 whitespace-nowrap">Budget (Total)</th>
+                                    <th className={`px-6 py-5 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] border-b border-slate-200 text-right bg-blue-50/50 whitespace-nowrap ${freezeBudgetColumn ? 'sticky left-[400px] z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]' : ''}`}>Budget (Total)</th>
 
                                     {implementationMode && (
                                         <th className="px-6 py-5 text-[10px] font-black text-orange-600 uppercase tracking-[0.2em] border-b border-slate-200 text-right bg-orange-50/50 whitespace-nowrap border-l border-orange-200">
