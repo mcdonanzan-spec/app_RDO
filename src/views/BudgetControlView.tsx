@@ -1148,7 +1148,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
 
     const handleClearSuppliers = async () => {
         if (!appData.activeProjectId) return;
-        if (!confirm('ATENÇÃO: Isso apagará TODOS os fornecedores desta obra para permitir uma nova importação limpa.\n\nFornecedores que já possuem lançamentos (NFs) NÃO serão apagados.\n\nDeseja continuar?')) return;
+        if (!confirm('ATENÇÃO: Isso apagará TODOS os fornecedores desta obra.\n\nFornecedores que já possuem lançamentos (NFs) NÃO serão apagados.\n\nDeseja continuar?')) return;
 
         try {
             const { SupplierService } = await import('../services/supplierService');
@@ -1157,10 +1157,10 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             // Refresh list
             const newSuppliers = await SupplierService.getSuppliers(appData.activeProjectId);
             setSuppliers(newSuppliers);
-            alert('Base de fornecedores limpa com sucesso! Agora você pode importar a nova lista.');
+            alert('Base de fornecedores limpa com sucesso!');
         } catch (error) {
             console.error(error);
-            alert('Erro ao limpar fornecedores. Verifique o console para mais detalhes.');
+            alert('Erro ao limpar fornecedores. Verifique (Apenas fornecedores sem uso podem ser excluídos).');
         }
     };
 
@@ -1193,7 +1193,51 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                         <input
                                             type="file"
                                             accept=".xlsx,.xls"
-                                            onChange={handleExcelFileUpload}
+                                            onChange={async (e) => {
+                                                if (!e.target.files || e.target.files.length === 0) return;
+
+                                                try {
+                                                    const file = e.target.files[0];
+                                                    const { ExcelService } = await import('../services/excelService');
+                                                    const { SupplierService } = await import('../services/supplierService');
+
+                                                    const newSuppliersRaw = await ExcelService.parseSuppliers(file);
+
+                                                    if (newSuppliersRaw.length === 0) {
+                                                        alert("Nenhum fornecedor encontrado no arquivo.");
+                                                        return;
+                                                    }
+
+                                                    const newSuppliers = newSuppliersRaw.map(s => ({
+                                                        id: crypto.randomUUID(),
+                                                        razaoSocial: s.razaoSocial,
+                                                        cnpj: s.cnpj
+                                                    }));
+
+                                                    // Save
+                                                    if (appData.activeProjectId) {
+                                                        const savedCount = await SupplierService.saveSuppliers(appData.activeProjectId, newSuppliers, (current, total) => {
+                                                            setSavingSuppliersState(prev => ({ ...prev, progress: current, total }));
+                                                        });
+
+                                                        // Refresh
+                                                        const updatedList = await SupplierService.getSuppliers(appData.activeProjectId);
+                                                        setSuppliers(updatedList);
+
+                                                        const duplicates = newSuppliers.length - savedCount;
+                                                        if (duplicates > 0) {
+                                                            alert(`Importação Concluída!\n\nEncontrados no arquivo: ${newSuppliers.length}\nSalvos (Únicos): ${savedCount}\nDuplicados Removidos: ${duplicates}\n\nTotal na Base: ${updatedList.length}`);
+                                                        } else {
+                                                            alert(`Sucesso! ${savedCount} fornecedores importados.`);
+                                                        }
+                                                    }
+                                                } catch (error: any) {
+                                                    console.error(error);
+                                                    alert("Erro ao processar arquivo: " + error.message);
+                                                } finally {
+                                                    e.target.value = '';
+                                                }
+                                            }}
                                             className="hidden"
                                         />
                                     </label>
@@ -1214,7 +1258,62 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                 />
                                 <div className="flex gap-2">
                                     <button onClick={() => setShowSupplierImport(false)} className="px-4 py-2 text-slate-500 font-bold uppercase text-xs">Cancelar</button>
-                                    <button onClick={handleImportSuppliers} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold uppercase text-xs hover:bg-indigo-700" disabled={!importText.trim()}>Processar Cola</button>
+                                    <button onClick={async () => {
+                                        if (!appData.activeProjectId) return;
+                                        if (!importText.trim()) return;
+
+                                        try {
+                                            setSavingSuppliersState({ isSaving: true, progress: 0, total: 0 });
+
+                                            const lines = importText.split('\n');
+                                            const newSuppliers: any[] = [];
+
+                                            lines.forEach(line => {
+                                                const parts = line.split('\t');
+                                                if (parts.length >= 2) {
+                                                    const razao = parts[0].trim().toUpperCase();
+                                                    const cnpj = parts[1].trim();
+                                                    if (razao && cnpj) {
+                                                        newSuppliers.push({
+                                                            id: crypto.randomUUID(),
+                                                            razaoSocial: razao,
+                                                            cnpj: cnpj
+                                                        });
+                                                    }
+                                                }
+                                            });
+
+                                            if (newSuppliers.length === 0) {
+                                                alert("Nenhum dado válido encontrado.");
+                                                return;
+                                            }
+
+                                            const { SupplierService } = await import('../services/supplierService');
+                                            const savedCount = await SupplierService.saveSuppliers(appData.activeProjectId, newSuppliers as any, (current, total) => {
+                                                setSavingSuppliersState(prev => ({ ...prev, progress: current, total }));
+                                            });
+
+                                            const updatedList = await SupplierService.getSuppliers(appData.activeProjectId);
+                                            setSuppliers(updatedList);
+
+                                            const removed = newSuppliers.length - savedCount;
+
+                                            setShowSupplierImport(false);
+                                            setImportText('');
+
+                                            if (removed > 0) {
+                                                alert(`Importação manual concluída!\n\nProcessados: ${newSuppliers.length}\nSalvos: ${savedCount}\nDuplicados: ${removed}`);
+                                            } else {
+                                                alert(`Sucesso! ${savedCount} fornecedores adicionados.`);
+                                            }
+
+                                        } catch (error: any) {
+                                            console.error(error);
+                                            alert("Erro: " + error.message);
+                                        } finally {
+                                            setSavingSuppliersState({ isSaving: false, progress: 0, total: 0 });
+                                        }
+                                    }} className="px-4 py-2 bg-indigo-600 text-white rounded font-bold uppercase text-xs hover:bg-indigo-700" disabled={!importText.trim()}>Processar Cola</button>
                                 </div>
                             </div>
                         )}

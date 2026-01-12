@@ -41,7 +41,7 @@ export class SupplierService {
         }
     }
 
-    static async saveSuppliers(projectId: string, suppliers: Supplier[], onProgress?: (current: number, total: number) => void): Promise<void> {
+    static async saveSuppliers(projectId: string, suppliers: Supplier[], onProgress?: (current: number, total: number) => void): Promise<number> {
         if (!projectId) return;
 
         try {
@@ -92,6 +92,7 @@ export class SupplierService {
             }
 
             console.log('All supplier batches saved successfully.');
+            return cleanSuppliers.length;
         } catch (error) {
             console.error('Error saving suppliers:', error);
             throw error;
