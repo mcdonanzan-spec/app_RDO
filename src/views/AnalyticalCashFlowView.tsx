@@ -580,49 +580,63 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
             </div>
 
             {/* KPI Summary Strip */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 pt-6 border-t border-slate-800">
-                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Orçamento Total</p>
-                    <p className="text-xl font-bold text-blue-400 font-mono">
-                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0))}
-                    </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-6 border-t border-slate-800">
+                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-blue-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-blue-400/5 group">
+                    <div className="flex flex-col">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-blue-300 transition-colors">Orçamento Total</p>
+                        <p className="text-2xl font-black text-blue-400 font-mono tracking-tight leading-none py-1">
+                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0))}
+                        </p>
+                    </div>
                 </div>
-                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">RDO Consolidado (NFs)</p>
-                    <p className="text-xl font-bold text-yellow-400 font-mono">
-                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rdoTotal, 0))}
-                    </p>
+
+                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-yellow-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-yellow-400/5 group">
+                    <div className="flex flex-col">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-yellow-300 transition-colors">RDO Consolidado (NFs)</p>
+                        <p className="text-2xl font-black text-yellow-400 font-mono tracking-tight leading-none py-1">
+                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rdoTotal, 0))}
+                        </p>
+                    </div>
                 </div>
-                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Realizado até {getMonthLabel(closedMonth)}</p>
-                    <p className="text-xl font-bold text-orange-400 font-mono">
-                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rmo, 0))}
-                    </p>
+
+                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-orange-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-orange-400/5 group">
+                    <div className="flex flex-col">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-orange-300 transition-colors">Realizado até {getMonthLabel(closedMonth)}</p>
+                        <p className="text-2xl font-black text-orange-400 font-mono tracking-tight leading-none py-1">
+                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rmo, 0))}
+                        </p>
+                    </div>
                 </div>
-                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors border-l-2 border-l-yellow-400/30">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Total Comprometido</p>
-                    <p className="text-xl font-bold text-white font-mono">
-                        {formatCurrency(
-                            budgetTree.reduce((sum: number, node: BudgetNode) => {
-                                const v = getNodeValues(node);
-                                const manual = commitmentValues[node.code] || 0;
-                                return sum + v.futureTotal + manual;
-                            }, 0)
-                        )}
-                    </p>
+
+                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-slate-300 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-slate-300/5 group">
+                    <div className="flex flex-col">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-white transition-colors">Total Comprometido</p>
+                        <p className="text-2xl font-black text-white font-mono tracking-tight leading-none py-1">
+                            {formatCurrency(
+                                budgetTree.reduce((sum: number, node: BudgetNode) => {
+                                    const v = getNodeValues(node);
+                                    const manual = commitmentValues[node.code] || 0;
+                                    return sum + v.futureTotal + manual;
+                                }, 0)
+                            )}
+                        </p>
+                    </div>
                 </div>
-                <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 hover:bg-slate-800/80 transition-colors">
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1">Saldo Remanescente</p>
-                    <p className="text-xl font-bold text-emerald-400 font-mono">
-                        {formatCurrency(
-                            budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0) -
-                            budgetTree.reduce((sum: number, node: BudgetNode) => {
-                                const v = getNodeValues(node);
-                                const manual = commitmentValues[node.code] || 0;
-                                return sum + v.rmo + v.futureTotal + manual;
-                            }, 0)
-                        )}
-                    </p>
+
+                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-emerald-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-emerald-400/5 group">
+                    <div className="flex flex-col">
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-emerald-300 transition-colors">Saldo Remanescente</p>
+                        <p className="text-2xl font-black text-emerald-400 font-mono tracking-tight leading-none py-1">
+                            {formatCurrency(
+                                budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0) -
+                                budgetTree.reduce((sum: number, node: BudgetNode) => {
+                                    const v = getNodeValues(node);
+                                    const manual = commitmentValues[node.code] || 0;
+                                    return sum + v.rmo + v.futureTotal + manual;
+                                }, 0)
+                            )}
+                        </p>
+                    </div>
                 </div>
             </div>
 

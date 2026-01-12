@@ -738,114 +738,87 @@ export const DisbursementForecastView: React.FC<Props> = ({ appData, onUpdate })
                 </div>
 
                 {/* Dashboard Stats Strip */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8 pt-6 border-t border-slate-800/50">
-                    <div className="group cursor-help">
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <DollarSign size={10} className="text-blue-400" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 pt-6 border-t border-slate-800/50">
+                    <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-blue-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-blue-400/5">
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-blue-300 transition-colors">
+                            <DollarSign size={12} className="text-blue-400" />
                             CAPEX Total (Orçado)
                         </p>
-                        <p className="text-2xl font-black text-white font-mono group-hover:text-blue-400 transition-colors">
+                        <p className="text-2xl font-black text-white font-mono tracking-tight">
                             {formatCurrency((() => {
-                                // Recursive function to sum all budgets (ROOT level only, as getNodeValues handles recursion)
                                 const sumTotalBudget = (nodes: BudgetNode[]): number => {
-                                    return nodes.reduce((sum, n) => {
-                                        // Only sum root nodes or nodes that make up the top level of the displayed tree
-                                        // The budgetTree passed here contains root nodes.
-                                        // getNodeValues(n).budget returns the correct recursive sum for that node.
-                                        return sum + getNodeValues(n).budget;
-                                    }, 0);
+                                    return nodes.reduce((sum, n) => sum + getNodeValues(n).budget, 0);
                                 };
                                 return sumTotalBudget(budgetTree);
                             })())}
                         </p>
                     </div>
-                    <div className="group cursor-help">
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <TrendingUp size={10} className="text-yellow-400" />
+
+                    <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-yellow-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-yellow-400/5">
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-yellow-300 transition-colors">
+                            <TrendingUp size={12} className="text-yellow-400" />
                             Total Projetado (Real + Prev)
                         </p>
-                        <p className="text-2xl font-black text-white font-mono group-hover:text-yellow-400 transition-colors">
+                        <p className="text-2xl font-black text-white font-mono tracking-tight">
                             {formatCurrency((() => {
                                 const sumProjected = (nodes: BudgetNode[]): number => {
-                                    return nodes.reduce((sum, n) => {
-                                        const v = getNodeValues(n);
-                                        return sum + v.totalProjected;
-                                    }, 0);
+                                    return nodes.reduce((sum, n) => sum + getNodeValues(n).totalProjected, 0);
                                 };
                                 return sumProjected(budgetTree);
                             })())}
                         </p>
                     </div>
-                    <div className="group cursor-help">
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <LayoutGrid size={10} className="text-emerald-400" />
+
+                    <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-emerald-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-emerald-400/5">
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-emerald-300 transition-colors">
+                            <LayoutGrid size={12} className="text-emerald-400" />
                             Saldo Remanescente
                         </p>
-                        <p className={`text-2xl font-black font-mono text-white transition-colors`}>
+                        <p className="text-2xl font-black text-white font-mono tracking-tight">
                             {formatCurrency((() => {
                                 const sumBudgets = (nodes: BudgetNode[]): number => {
-                                    return nodes.reduce((sum, n) => {
-                                        // Correct logic: Sum root values only
-                                        return sum + getNodeValues(n).budget;
-                                    }, 0);
-                                }; const sumProjected = (nodes: BudgetNode[]): number => {
-                                    return nodes.reduce((sum, n) => {
-                                        const v = getNodeValues(n);
-                                        return sum + v.totalProjected;
-                                    }, 0);
+                                    return nodes.reduce((sum, n) => sum + getNodeValues(n).budget, 0);
+                                };
+                                const sumProjected = (nodes: BudgetNode[]): number => {
+                                    return nodes.reduce((sum, n) => sum + getNodeValues(n).totalProjected, 0);
                                 };
                                 return sumBudgets(budgetTree) - sumProjected(budgetTree);
                             })())}
                         </p>
                     </div>
-                    <div className="group cursor-help" title={`Indicador de Cobertura do Orçamento:\n\nMostra quanto do orçamento total já está "comprometido" (Soma do Realizado + Previsão Futura).\n\nCálculo: (Total Projetado / Budget Total) * 100\n\n• Se estiver muito baixo (< 20%): Indica que falta lançar as projeções financeiras para o restante da obra.\n• Se estiver próximo de 100%: O planejamento cobre todo o orçamento.\n• Se passar de 100%: Indica estouro previsto no custo da obra.`}>
-                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
-                            <CheckCircle2 size={10} className="text-purple-400" />
-                            Cobertura do Planejamento (Aderência)
+
+                    <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-purple-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-purple-400/5" title="Indicador de Cobertura do Orçamento: Soma do Realizado + Previsão Futura">
+                        <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-purple-300 transition-colors">
+                            <CheckCircle2 size={12} className="text-purple-400" />
+                            Cobertura do Planejamento
                         </p>
                         <div className="flex items-end gap-3">
-                            <p className="text-2xl font-black text-white font-mono">
+                            <p className="text-2xl font-black text-white font-mono leading-none tracking-tight">
                                 {((() => {
                                     const sumBudgets = (nodes: BudgetNode[]): number => {
-                                        return nodes.reduce((sum, n) => {
-                                            // Correct logic: Sum root values only
-                                            return sum + getNodeValues(n).budget;
-                                        }, 0);
+                                        return nodes.reduce((sum, n) => sum + getNodeValues(n).budget, 0);
                                     };
                                     const sumProjected = (nodes: BudgetNode[]): number => {
-                                        return nodes.reduce((sum, n) => {
-                                            const v = getNodeValues(n);
-                                            return sum + v.totalProjected;
-                                        }, 0);
+                                        return nodes.reduce((sum, n) => sum + getNodeValues(n).totalProjected, 0);
                                     };
                                     const total = sumBudgets(budgetTree);
                                     const projected = sumProjected(budgetTree);
                                     return ((projected / (total || 1)) * 100).toFixed(2);
                                 })())}%
                             </p>
-                            <div className="flex-1 h-2 bg-slate-700 rounded-full mb-2 overflow-hidden min-w-[60px]">
+                            <div className="flex-1 h-2 bg-slate-700 rounded-full mb-1 overflow-hidden min-w-[60px]">
                                 <div
                                     className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-1000"
                                     style={{
                                         width: `${Math.min((() => {
-                                            const sumBudgets = (nodes: BudgetNode[]): number => {
-                                                return nodes.reduce((sum, n) => {
-                                                    // Correct logic: Sum root values only, as getNodeValues already handles children recursively
-                                                    return sum + getNodeValues(n).budget;
-                                                }, 0);
-                                            };
-                                            const sumProjected = (nodes: BudgetNode[]): number => {
-                                                return nodes.reduce((sum, n) => {
-                                                    const v = getNodeValues(n);
-                                                    return sum + v.totalProjected;
-                                                }, 0);
-                                            };
+                                            const sumBudgets = (nodes: BudgetNode[]): number => nodes.reduce((sum, n) => sum + getNodeValues(n).budget, 0);
+                                            const sumProjected = (nodes: BudgetNode[]): number => nodes.reduce((sum, n) => sum + getNodeValues(n).totalProjected, 0);
                                             const total = sumBudgets(budgetTree);
                                             const projected = sumProjected(budgetTree);
                                             return (projected / (total || 1)) * 100;
                                         })(), 100)}%`
                                     }}
-                                ></div>
+                                />
                             </div>
                         </div>
                     </div>
