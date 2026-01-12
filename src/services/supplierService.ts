@@ -5,15 +5,32 @@ export class SupplierService {
 
     static async getSuppliers(projectId: string): Promise<Supplier[]> {
         try {
-            const { data, error } = await supabase
-                .from('suppliers')
-                .select('*')
-                .eq('project_id', projectId)
-                .order('razao_social', { ascending: true });
+            let allSuppliers: any[] = [];
+            let from = 0;
+            const step = 1000; // Supabase default limit
+            let more = true;
 
-            if (error) throw error;
+            while (more) {
+                const { data, error } = await supabase
+                    .from('suppliers')
+                    .select('*')
+                    .eq('project_id', projectId)
+                    .order('razao_social', { ascending: true })
+                    .range(from, from + step - 1);
 
-            return (data || []).map(s => ({
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    allSuppliers = [...allSuppliers, ...data];
+                    from += step;
+                    // If we got less than requested, we are done
+                    if (data.length < step) more = false;
+                } else {
+                    more = false;
+                }
+            }
+
+            return allSuppliers.map(s => ({
                 id: s.id,
                 razaoSocial: s.razao_social,
                 cnpj: s.cnpj
