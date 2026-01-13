@@ -37,7 +37,9 @@ export class ApiService {
                 rdoCore,
                 masterPlanData,
                 budgetTree,
-                suppliers
+                suppliers,
+                purchaseRequests,
+                itemCatalog
             ] = await Promise.all([
                 ProjectService.getProjects(),
                 FinancialService.getEntries(projectId),
@@ -49,7 +51,9 @@ export class ApiService {
                 ApiService.getCoreRDO(projectId),
                 ApiService.getCoreData(projectId, 'project_master_plan_data'),
                 BudgetService.getBudgetTree(projectId),
-                SupplierService.getSuppliers(projectId)
+                SupplierService.getSuppliers(projectId),
+                ApiService.getPurchaseRequests(projectId),
+                ApiService.getItemCatalog(projectId)
             ]);
 
             const activeProject = projects.find(p => p.id === projectId);
@@ -83,10 +87,11 @@ export class ApiService {
                 visualManagement: visualMgmt,
 
                 // Legacy / Computed placeholders
-                purchaseRequests: [],
+                purchaseRequests: purchaseRequests || [],
                 budgetGroups: [],
                 projectionData: [],
-                consolidatedTree: [] // can compute if needed
+                consolidatedTree: [], // can compute if needed
+                totvsItems: itemCatalog || []
             };
 
         } catch (error) {
@@ -157,6 +162,100 @@ export class ApiService {
             if (error) console.error("Error saving Visual Management:", error);
         } catch (err) {
             console.error("Error in saveVisualManagementData:", err);
+        }
+    }
+
+    // --- PURCHASE FLOW (Solicitações & Catálogo) ---
+
+    static async getPurchaseRequests(projectId: string): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('project_purchase_requests')
+            .select('*')
+            .eq('project_id', projectId);
+
+        if (error) {
+            console.error('Error fetching purchase requests:', error);
+            return [];
+        }
+
+        // Parse JSON fields (items, history)
+        return (data || []).map(row => ({
+            ...row,
+            items: row.items || [], // Items stored as JSONB
+            history: row.history || [] // History stored as JSONB
+        }));
+    }
+
+    static async savePurchaseRequest(projectId: string, request: any): Promise<void> {
+        const payload = {
+            project_id: projectId,
+            request_id: request.requestId,
+            description: request.description,
+            requester: request.requester,
+            priority: request.priority,
+            status: request.status,
+            date: request.date,
+            items: request.items,
+            history: request.history,
+            budget_group_code: request.budgetGroupCode,
+            totvs_order_number: request.totvsOrderNumber,
+            updated_at: new Date()
+        };
+
+        const { data: existing } = await supabase
+            .from('project_purchase_requests')
+            .select('id')
+            .eq('project_id', projectId)
+            .eq('request_id', request.requestId)
+            .single();
+
+        let operation;
+        if (existing) {
+            operation = supabase
+                .from('project_purchase_requests')
+                .update(payload)
+                .eq('id', existing.id);
+        } else {
+            operation = supabase
+                .from('project_purchase_requests')
+                .insert(payload);
+        }
+
+        const { error } = await operation;
+        if (error) console.error("Error saving Purchase Request:", error);
+    }
+
+    static async getItemCatalog(projectId: string): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('project_item_catalog')
+            .select('code, description, unit')
+            .eq('project_id', projectId);
+
+        if (error) {
+            console.error('Error fetching catalog:', error);
+            return [];
+        }
+        return data || [];
+    }
+
+    static async saveItemCatalog(projectId: string, items: any[]): Promise<void> {
+        // 1. Delete all for project (simple sync)
+        await supabase.from('project_item_catalog').delete().eq('project_id', projectId);
+
+        if (items.length === 0) return;
+
+        // 2. Insert all (chunks of 1000 to be safe)
+        const chunk = 1000;
+        for (let i = 0; i < items.length; i += chunk) {
+            const batch = items.slice(i, i + chunk).map(item => ({
+                project_id: projectId,
+                code: item.code,
+                description: item.description,
+                unit: item.unit
+            }));
+
+            const { error } = await supabase.from('project_item_catalog').insert(batch);
+            if (error) console.error('Error saving catalog batch:', error);
         }
     }
 

@@ -5,6 +5,7 @@ import { ExcelService } from '../services/excelService';
 import { PermissionService } from '../services/permissionService';
 import { UserService } from '../services/userService';
 import { supabase } from '../services/supabase';
+import { ApiService } from '../services/api'; // Import ApiService
 
 interface Props {
     appData: AppData;
@@ -33,10 +34,16 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
     // --- MOCK DATA GENERATOR FOR VISUALIZATION ---
     // In a real scenario, this would come from appData
 
-    const handleSaveRequest = (req: PurchaseRequest) => {
+    const handleSaveRequest = async (req: PurchaseRequest) => {
         const newRequests = [...requests, req];
         setRequests(newRequests);
         onUpdate({ purchaseRequests: newRequests });
+
+        // PERSIST CHANGE
+        if (appData.activeProjectId) {
+            await ApiService.savePurchaseRequest(appData.activeProjectId, req);
+        }
+
         setActiveTab('warehouse'); // Move to next step visualization
     };
 
@@ -102,6 +109,7 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                         setRequests(newReqs);
                         onUpdate({ purchaseRequests: newReqs });
                     }}
+                    activeProjectId={appData.activeProjectId || ''}
                 />}
                 {activeTab === 'warehouse' && <WarehouseCheckView requests={requests.filter(r => r.status === 'Aguardando Almoxarifado')} onUpdateRequests={(updated: PurchaseRequest[]) => {
                     const newReqs = requests.map((r) => updated.find((u) => u.id === r.id) || r);
@@ -166,7 +174,7 @@ const DEFAULT_TOTVS_ITEMS = [
     { code: '999.000.000', description: 'SERVICO DE PEDREIRO (H)', unit: 'H' },
 ];
 
-const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUpdateRequests }: { onSave: (r: PurchaseRequest) => void, requests: PurchaseRequest[], totvsItems: TotvsItem[], onUpdateAppData: (data: Partial<AppData>) => void, onUpdateRequests: (reqs: PurchaseRequest[]) => void }) => {
+const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUpdateRequests, activeProjectId }: { onSave: (r: PurchaseRequest) => void, requests: PurchaseRequest[], totvsItems: TotvsItem[], onUpdateAppData: (data: Partial<AppData>) => void, onUpdateRequests: (reqs: PurchaseRequest[]) => void, activeProjectId: string }) => {
     const [view, setView] = useState<'list' | 'form'>('list');
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -210,6 +218,7 @@ const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUp
 
         try {
             const items = await ExcelService.parseTotvsItems(file);
+            await ApiService.saveItemCatalog(activeProjectId || '', items); // SAVE TO DB
             onUpdateAppData({ totvsItems: items });
             alert(`${items.length} produtos carregados com sucesso!`);
         } catch (error) {
@@ -218,8 +227,9 @@ const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUp
         }
     };
 
-    const handleClearProducts = () => {
+    const handleClearProducts = async () => {
         if (window.confirm('Tem certeza que deseja remover todos os produtos carregados?')) {
+            await ApiService.saveItemCatalog(activeProjectId || '', []); // CLEAR DB
             onUpdateAppData({ totvsItems: [] });
             alert('Lista de produtos limpa com sucesso!');
         }
