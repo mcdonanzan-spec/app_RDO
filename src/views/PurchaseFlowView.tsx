@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppData, PurchaseRequest, PurchaseRequestItem, BudgetNode, TotvsItem } from '../../types';
-import { Plus, Check, X, AlertCircle, ShoppingCart, Archive, FileText, Search, Upload } from 'lucide-react';
+import { Plus, Check, X, AlertCircle, ShoppingCart, Archive, FileText, Search, Upload, Lock } from 'lucide-react';
 import { ExcelService } from '../services/excelService';
+import { PermissionService } from '../services/permissionService';
+import { UserService } from '../services/userService';
+import { supabase } from '../services/supabase';
 
 interface Props {
     appData: AppData;
@@ -11,6 +14,21 @@ interface Props {
 export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
     const [activeTab, setActiveTab] = useState<'create' | 'warehouse' | 'engineering' | 'manager' | 'totvs'>('create');
     const [requests, setRequests] = useState<PurchaseRequest[]>(appData.purchaseRequests || []);
+    const [userRole, setUserRole] = useState<string>('VIEWER');
+    const [loadingRole, setLoadingRole] = useState(true);
+
+    // Load user role
+    useEffect(() => {
+        const loadUserRole = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const profile = await UserService.getProfile(user.id);
+                setUserRole(profile?.role || 'VIEWER');
+            }
+            setLoadingRole(false);
+        };
+        loadUserRole();
+    }, []);
 
     // --- MOCK DATA GENERATOR FOR VISUALIZATION ---
     // In a real scenario, this would come from appData
@@ -38,6 +56,7 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                     onClick={() => setActiveTab('create')}
                     icon={<Plus size={18} />}
                     label="Solicitação (Eng)"
+                    disabled={!PermissionService.canCreatePurchaseRequests(userRole)}
                 />
                 <TabButton
                     active={activeTab === 'warehouse'}
@@ -45,6 +64,7 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                     icon={<Archive size={18} />}
                     label="Almoxarifado"
                     count={requests.filter(r => r.status === 'Aguardando Almoxarifado').length}
+                    disabled={!PermissionService.canEditWarehouse(userRole)}
                 />
                 <TabButton
                     active={activeTab === 'engineering'}
@@ -52,6 +72,7 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                     icon={<FileText size={18} />}
                     label="Vínculo Orçamentário"
                     count={requests.filter(r => r.status === 'Em Análise Engenharia').length}
+                    disabled={!PermissionService.canEditBudget(userRole)}
                 />
                 <TabButton
                     active={activeTab === 'manager'}
@@ -59,6 +80,7 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                     icon={<Check size={18} />}
                     label="Aprovação Gerente"
                     count={requests.filter(r => r.status === 'Aguardando Gerente').length}
+                    disabled={!PermissionService.canApprovePurchases(userRole)}
                 />
                 <TabButton
                     active={activeTab === 'totvs'}
@@ -115,15 +137,22 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
 
 // --- SUB COMPONENTS ---
 
-const TabButton = ({ active, onClick, icon, label, count }: any) => (
+const TabButton = ({ active, onClick, icon, label, count, disabled }: any) => (
     <button
-        onClick={onClick}
-        className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors ${active ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'
+        onClick={disabled ? undefined : onClick}
+        disabled={disabled}
+        className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors relative ${disabled
+                ? 'border-transparent text-slate-300 cursor-not-allowed opacity-50'
+                : active
+                    ? 'border-blue-600 text-blue-600 font-bold'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
+        title={disabled ? 'Você não tem permissão para acessar esta seção' : ''}
     >
         {icon}
         <span>{label}</span>
         {count > 0 && <span className="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">{count}</span>}
+        {disabled && <Lock size={14} className="ml-1" />}
     </button>
 );
 

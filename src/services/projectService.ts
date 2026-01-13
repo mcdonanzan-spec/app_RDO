@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 
+export type ProjectRole = 'GERENTE' | 'ENGENHEIRO' | 'ALMOXARIFE' | 'VIEWER';
+
 export interface Project {
     id: string;
     name: string;

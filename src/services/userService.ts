@@ -1,10 +1,12 @@
 import { supabase } from './supabase';
 
+export type UserRole = 'ADM' | 'GERENTE' | 'ENGENHEIRO' | 'ALMOXARIFE' | 'VIEWER';
+
 export interface Profile {
     id: string;
     email: string;
     full_name: string;
-    role: 'ADMIN' | 'EDITOR' | 'VIEWER';
+    role: UserRole;
     avatar_url?: string;
 }
 
@@ -19,7 +21,21 @@ export const UserService = {
         return data as Profile[];
     },
 
-    async updateRole(userId: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER'): Promise<void> {
+    async getProfile(userId: string): Promise<Profile | null> {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            console.error('Error fetching profile:', error);
+            return null;
+        }
+        return data as Profile;
+    },
+
+    async updateRole(userId: string, role: UserRole): Promise<void> {
         const { error } = await supabase
             .from('profiles')
             .update({ role })

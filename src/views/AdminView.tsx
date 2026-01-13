@@ -230,9 +230,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                                         onChange={e => setSelectedRoleToAdd(e.target.value)}
                                     >
                                         <option value="VIEWER">Visualizador</option>
-                                        <option value="EDITOR">Editor</option>
-                                        <option value="MANAGER">Gerente</option>
-                                        <option value="ADMIN">Admin</option>
+                                        <option value="ALMOXARIFE">Almoxarife</option>
+                                        <option value="ENGENHEIRO">Engenheiro</option>
+                                        <option value="GERENTE">Gerente</option>
                                     </select>
                                     <button
                                         onClick={handleAddMember}
@@ -264,11 +264,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                                                     <div className="text-xs text-slate-400">{member.profile?.email}</div>
                                                 </td>
                                                 <td className="py-3">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${member.role === 'ADMIN' ? 'bg-purple-100 text-purple-700' :
-                                                        member.role === 'MANAGER' ? 'bg-indigo-100 text-indigo-700' :
-                                                            'bg-slate-100 text-slate-600'
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${member.role === 'GERENTE' ? 'bg-purple-100 text-purple-700' :
+                                                        member.role === 'ENGENHEIRO' ? 'bg-blue-100 text-blue-700' :
+                                                            member.role === 'ALMOXARIFE' ? 'bg-orange-100 text-orange-700' :
+                                                                'bg-slate-100 text-slate-600'
                                                         }`}>
-                                                        {member.role === 'VIEWER' ? 'Visualizador' : member.role}
+                                                        {member.role}
                                                     </span>
                                                 </td>
                                                 <td className="py-3 text-right pr-2">
@@ -380,7 +381,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
         </div>
     );
 
-    const handleUpdateRole = async (userId: string, newRole: 'ADMIN' | 'EDITOR' | 'VIEWER') => {
+    const handleUpdateRole = async (userId: string, newRole: 'ADM' | 'GERENTE' | 'ENGENHEIRO' | 'ALMOXARIFE' | 'VIEWER') => {
         try {
             await UserService.updateRole(userId, newRole);
             await loadData();
@@ -427,8 +428,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                                         className="text-xs font-bold px-2 py-1 rounded border bg-white outline-none focus:ring-2 focus:ring-indigo-500"
                                     >
                                         <option value="VIEWER">VIEWER</option>
-                                        <option value="EDITOR">EDITOR</option>
-                                        <option value="ADMIN">ADMIN</option>
+                                        <option value="ALMOXARIFE">ALMOXARIFE</option>
+                                        <option value="ENGENHEIRO">ENGENHEIRO</option>
+                                        <option value="GERENTE">GERENTE</option>
+                                        <option value="ADM">ADM</option>
                                     </select>
                                 </td>
                                 <td className="p-4 text-center">
