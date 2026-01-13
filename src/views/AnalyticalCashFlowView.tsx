@@ -581,9 +581,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
 
             {/* KPI Summary Strip */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-6 border-t border-slate-800">
-                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-blue-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-blue-400/5">
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-blue-300 transition-colors">
-                        <DollarSign size={12} className="text-blue-400" />
+                <div className="bg-gradient-to-br from-blue-500/90 to-blue-600/90 backdrop-blur-sm p-5 rounded-2xl border border-blue-400/30 shadow-xl shadow-blue-500/20 group hover:shadow-2xl hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5">
+                    <p className="text-blue-100 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <DollarSign size={12} className="text-white" />
                         Orçamento Total
                     </p>
                     <p className="text-2xl font-black text-white font-mono tracking-tight">
@@ -591,9 +591,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-yellow-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-yellow-400/5">
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-yellow-300 transition-colors">
-                        <TrendingUp size={12} className="text-yellow-400" />
+                <div className="bg-gradient-to-br from-yellow-500/90 to-amber-600/90 backdrop-blur-sm p-5 rounded-2xl border border-yellow-400/30 shadow-xl shadow-yellow-500/20 group hover:shadow-2xl hover:shadow-yellow-500/30 transition-all transform hover:-translate-y-0.5">
+                    <p className="text-yellow-100 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <TrendingUp size={12} className="text-white" />
                         RDO Consolidado (NFs)
                     </p>
                     <p className="text-2xl font-black text-white font-mono tracking-tight">
@@ -601,9 +601,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-orange-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-orange-400/5">
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-orange-300 transition-colors">
-                        <Calendar size={12} className="text-orange-400" />
+                <div className="bg-gradient-to-br from-orange-500/90 to-orange-600/90 backdrop-blur-sm p-5 rounded-2xl border border-orange-400/30 shadow-xl shadow-orange-500/20 group hover:shadow-2xl hover:shadow-orange-500/30 transition-all transform hover:-translate-y-0.5">
+                    <p className="text-orange-100 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <Calendar size={12} className="text-white" />
                         Realizado até {getMonthLabel(closedMonth)}
                     </p>
                     <p className="text-2xl font-black text-white font-mono tracking-tight">
@@ -611,9 +611,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-slate-300 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-slate-300/5">
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-white transition-colors">
-                        <Clock size={12} className="text-slate-300" />
+                <div className="bg-gradient-to-br from-slate-600/90 to-slate-700/90 backdrop-blur-sm p-5 rounded-2xl border border-slate-500/30 shadow-xl shadow-slate-500/20 group hover:shadow-2xl hover:shadow-slate-500/30 transition-all transform hover:-translate-y-0.5">
+                    <p className="text-slate-200 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <Clock size={12} className="text-white" />
                         Total Comprometido
                     </p>
                     <p className="text-2xl font-black text-white font-mono tracking-tight leading-none py-1">
@@ -627,9 +627,9 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
                     </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-emerald-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-emerald-400/5">
-                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-emerald-300 transition-colors">
-                        <LayoutGrid size={12} className="text-emerald-400" />
+                <div className="bg-gradient-to-br from-emerald-500/90 to-emerald-600/90 backdrop-blur-sm p-5 rounded-2xl border border-emerald-400/30 shadow-xl shadow-emerald-500/20 group hover:shadow-2xl hover:shadow-emerald-500/30 transition-all transform hover:-translate-y-0.5">
+                    <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <LayoutGrid size={12} className="text-white" />
                         Saldo Remanescente
                     </p>
                     <p className="text-2xl font-black text-white font-mono tracking-tight leading-none py-1">
