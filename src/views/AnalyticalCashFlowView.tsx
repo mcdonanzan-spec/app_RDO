@@ -581,64 +581,70 @@ export const AnalyticalCashFlowView: React.FC<Props> = ({ appData, onUpdate }) =
 
             {/* KPI Summary Strip */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-6 border-t border-slate-800">
-                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-blue-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-blue-400/5 group">
-                    <div className="flex flex-col">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-blue-300 transition-colors">Orçamento Total</p>
-                        <p className="text-2xl font-black text-blue-400 font-mono tracking-tight leading-none py-1">
-                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0))}
-                        </p>
-                    </div>
+                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-blue-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-blue-400/5">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-blue-300 transition-colors">
+                        <DollarSign size={12} className="text-blue-400" />
+                        Orçamento Total
+                    </p>
+                    <p className="text-2xl font-black text-white font-mono tracking-tight">
+                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0))}
+                    </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-yellow-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-yellow-400/5 group">
-                    <div className="flex flex-col">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-yellow-300 transition-colors">RDO Consolidado (NFs)</p>
-                        <p className="text-2xl font-black text-yellow-400 font-mono tracking-tight leading-none py-1">
-                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rdoTotal, 0))}
-                        </p>
-                    </div>
+                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-yellow-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-yellow-400/5">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-yellow-300 transition-colors">
+                        <TrendingUp size={12} className="text-yellow-400" />
+                        RDO Consolidado (NFs)
+                    </p>
+                    <p className="text-2xl font-black text-white font-mono tracking-tight">
+                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rdoTotal, 0))}
+                    </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-orange-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-orange-400/5 group">
-                    <div className="flex flex-col">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-orange-300 transition-colors">Realizado até {getMonthLabel(closedMonth)}</p>
-                        <p className="text-2xl font-black text-orange-400 font-mono tracking-tight leading-none py-1">
-                            {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rmo, 0))}
-                        </p>
-                    </div>
+                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-orange-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-orange-400/5">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-orange-300 transition-colors">
+                        <Calendar size={12} className="text-orange-400" />
+                        Realizado até {getMonthLabel(closedMonth)}
+                    </p>
+                    <p className="text-2xl font-black text-white font-mono tracking-tight">
+                        {formatCurrency(budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).rmo, 0))}
+                    </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-slate-300 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-slate-300/5 group">
-                    <div className="flex flex-col">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-white transition-colors">Total Comprometido</p>
-                        <p className="text-2xl font-black text-white font-mono tracking-tight leading-none py-1">
-                            {formatCurrency(
-                                budgetTree.reduce((sum: number, node: BudgetNode) => {
-                                    const v = getNodeValues(node);
-                                    const manual = commitmentValues[node.code] || 0;
-                                    return sum + v.futureTotal + manual;
-                                }, 0)
-                            )}
-                        </p>
-                    </div>
+                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-slate-300 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-slate-300/5">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-white transition-colors">
+                        <Clock size={12} className="text-slate-300" />
+                        Total Comprometido
+                    </p>
+                    <p className="text-2xl font-black text-white font-mono tracking-tight leading-none py-1">
+                        {formatCurrency(
+                            budgetTree.reduce((sum: number, node: BudgetNode) => {
+                                const v = getNodeValues(node);
+                                const manual = commitmentValues[node.code] || 0;
+                                return sum + v.futureTotal + manual;
+                            }, 0)
+                        )}
+                    </p>
                 </div>
 
-                <div className="bg-slate-800/60 backdrop-blur-sm p-4 rounded-xl border border-slate-700/50 border-l-4 border-l-emerald-400 hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-emerald-400/5 group">
-                    <div className="flex flex-col">
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-1 group-hover:text-emerald-300 transition-colors">Saldo Remanescente</p>
-                        <p className="text-2xl font-black text-emerald-400 font-mono tracking-tight leading-none py-1">
-                            {formatCurrency(
-                                budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0) -
-                                budgetTree.reduce((sum: number, node: BudgetNode) => {
-                                    const v = getNodeValues(node);
-                                    const manual = commitmentValues[node.code] || 0;
-                                    return sum + v.rmo + v.futureTotal + manual;
-                                }, 0)
-                            )}
-                        </p>
-                    </div>
+                <div className="bg-slate-800/60 backdrop-blur-sm p-5 rounded-2xl border border-slate-700/50 border-l-4 border-l-emerald-400 group hover:bg-slate-800/80 transition-all shadow-lg hover:shadow-emerald-400/5">
+                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-2 flex items-center gap-2 group-hover:text-emerald-300 transition-colors">
+                        <LayoutGrid size={12} className="text-emerald-400" />
+                        Saldo Remanescente
+                    </p>
+                    <p className="text-2xl font-black text-white font-mono tracking-tight leading-none py-1">
+                        {formatCurrency(
+                            budgetTree.reduce((sum: number, node: BudgetNode) => sum + getNodeValues(node).budget, 0) -
+                            budgetTree.reduce((sum: number, node: BudgetNode) => {
+                                const v = getNodeValues(node);
+                                const manual = commitmentValues[node.code] || 0;
+                                return sum + v.rmo + v.futureTotal + manual;
+                            }, 0)
+                        )}
+                    </p>
                 </div>
             </div>
+
 
             {/* Table Area */}
             <div className="flex-1 overflow-hidden bg-slate-100 p-4 lg:p-6 pb-2">
