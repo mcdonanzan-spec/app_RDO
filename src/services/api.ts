@@ -226,16 +226,31 @@ export class ApiService {
     }
 
     static async getItemCatalog(projectId: string): Promise<any[]> {
-        const { data, error } = await supabase
-            .from('project_item_catalog')
-            .select('code, description, unit')
-            .eq('project_id', projectId);
+        let allItems: any[] = [];
+        let page = 0;
+        const size = 1000;
 
-        if (error) {
-            console.error('Error fetching catalog:', error);
-            return [];
+        while (true) {
+            const { data, error } = await supabase
+                .from('project_item_catalog')
+                .select('code, description, unit')
+                .eq('project_id', projectId)
+                .range(page * size, (page + 1) * size - 1);
+
+            if (error) {
+                console.error('Error fetching catalog:', error);
+                break;
+            }
+
+            if (!data || data.length === 0) break;
+
+            allItems = allItems.concat(data);
+
+            if (data.length < size) break;
+            page++;
         }
-        return data || [];
+
+        return allItems;
     }
 
     static async saveItemCatalog(projectId: string, items: any[]): Promise<void> {
