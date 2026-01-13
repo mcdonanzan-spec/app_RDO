@@ -899,9 +899,9 @@ export class ExcelService {
 
                 row.forEach((cell, idx) => {
                     const val = String(cell || '').toUpperCase().trim();
-                    if (val.includes('COD') || val === 'ID' || val === 'IDPRODUTO') headers.code = idx;
-                    if (val.includes('DESC') || val.includes('NOME') || val === 'PRODUTO') headers.desc = idx;
-                    if (val.includes('UN') || val.includes('UNID')) headers.unit = idx;
+                    if (val === 'CODIGO' || val === 'CÓDIGO' || val.includes('COD') || val === 'ID') headers.code = idx;
+                    if (val === 'DESCRIÇÃO' || val === 'DESCRICAO' || val.includes('DESC') || val.includes('NOME') || val === 'PRODUTO') headers.desc = idx;
+                    if (val === 'UNIDADE' || val === 'UN' || val.includes('UNID')) headers.unit = idx;
                 });
 
                 if (headers.desc !== undefined && (headers.code !== undefined || headers.unit !== undefined)) {

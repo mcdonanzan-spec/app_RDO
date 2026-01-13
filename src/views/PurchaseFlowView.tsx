@@ -142,10 +142,10 @@ const TabButton = ({ active, onClick, icon, label, count, disabled }: any) => (
         onClick={disabled ? undefined : onClick}
         disabled={disabled}
         className={`flex items-center space-x-2 px-4 py-3 border-b-2 transition-colors relative ${disabled
-                ? 'border-transparent text-slate-300 cursor-not-allowed opacity-50'
-                : active
-                    ? 'border-blue-600 text-blue-600 font-bold'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
+            ? 'border-transparent text-slate-300 cursor-not-allowed opacity-50'
+            : active
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
         title={disabled ? 'Você não tem permissão para acessar esta seção' : ''}
     >
@@ -218,6 +218,13 @@ const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUp
         }
     };
 
+    const handleClearProducts = () => {
+        if (window.confirm('Tem certeza que deseja remover todos os produtos carregados?')) {
+            onUpdateAppData({ totvsItems: [] });
+            alert('Lista de produtos limpa com sucesso!');
+        }
+    };
+
     const handleAddItem = () => {
         if (!newItemDesc || newItemQty <= 0) return;
         setItems([...items, {
@@ -281,6 +288,14 @@ const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUp
                         <p className="text-xs text-slate-500 uppercase font-bold">Total de {totvsItems.length || DEFAULT_TOTVS_ITEMS.length} itens cadastrados no catálogo TOTVS</p>
                     </div>
                     <div className="flex gap-3">
+                        {totvsItems.length > 0 && (
+                            <button
+                                onClick={handleClearProducts}
+                                className="bg-red-50 text-red-600 px-4 py-2 rounded flex items-center gap-2 border border-red-200 hover:bg-red-100 font-bold uppercase text-sm shadow-sm transition-all active:scale-95"
+                            >
+                                <X size={18} /> Limpar
+                            </button>
+                        )}
                         <label className="bg-white border border-slate-300 text-slate-600 px-4 py-2 rounded flex items-center gap-2 hover:bg-slate-50 font-bold uppercase text-sm cursor-pointer shadow-sm transition-all active:scale-95">
                             <Upload size={18} /> Subir Planilha Produtos
                             <input type="file" className="hidden" accept=".xlsx,.xls" onChange={handleProductUpload} />
