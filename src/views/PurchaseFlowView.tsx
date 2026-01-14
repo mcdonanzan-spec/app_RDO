@@ -44,7 +44,7 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
     const handleSaveRequest = async (req: PurchaseRequest) => {
         const newRequests = [...requests, req];
         setRequests(newRequests);
-        onUpdate({ purchaseRequests: newRequests });
+        onUpdate({ purchaseRequests: newRequests, activeProjectId: appData.activeProjectId || undefined });
 
         // PERSIST CHANGE
         if (appData.activeProjectId) {
@@ -114,14 +114,14 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                     onUpdateRequests={(updated) => {
                         const newReqs = requests.map(r => updated.find(u => u.id === r.id) || r);
                         setRequests(newReqs);
-                        onUpdate({ purchaseRequests: newReqs });
+                        onUpdate({ purchaseRequests: newReqs, activeProjectId: appData.activeProjectId || undefined });
                     }}
                     activeProjectId={appData.activeProjectId || ''}
                 />}
                 {activeTab === 'warehouse' && <WarehouseCheckView requests={requests.filter(r => r.status === 'Aguardando Almoxarifado')} onUpdateRequests={(updated: PurchaseRequest[]) => {
                     const newReqs = requests.map((r) => updated.find((u) => u.id === r.id) || r);
                     setRequests(newReqs);
-                    onUpdate({ purchaseRequests: newReqs });
+                    onUpdate({ purchaseRequests: newReqs, activeProjectId: appData.activeProjectId || undefined });
                 }} />}
                 {activeTab === 'engineering' && <BudgetLinkView
                     requests={requests.filter(r => r.status === 'Em Análise Engenharia')}
@@ -129,20 +129,20 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
                     onUpdateRequests={(updated) => {
                         const newReqs = requests.map(r => updated.find(u => u.id === r.id) || r);
                         setRequests(newReqs);
-                        onUpdate({ purchaseRequests: newReqs });
+                        onUpdate({ purchaseRequests: newReqs, activeProjectId: appData.activeProjectId || undefined });
                     }}
                 />}
                 {activeTab === 'manager' && <ManagerApprovalView requests={requests.filter(r => r.status === 'Aguardando Gerente')} onUpdateRequests={(updated: PurchaseRequest[]) => {
                     const newReqs = requests.map(r => updated.find(u => u.id === r.id) || r);
                     setRequests(newReqs);
-                    onUpdate({ purchaseRequests: newReqs });
+                    onUpdate({ purchaseRequests: newReqs, activeProjectId: appData.activeProjectId || undefined });
                 }} />}
                 {activeTab === 'totvs' && <TotvsIntegrationView
                     requests={requests.filter(r => r.status === 'Aprovado' || r.status === 'No TOTVS' || r.status === 'Finalizado')}
                     onUpdateRequests={(updatedRequests) => {
                         const newReqs = requests.map(r => updatedRequests.find(u => u.id === r.id) || r);
                         setRequests(newReqs);
-                        onUpdate({ purchaseRequests: newReqs });
+                        onUpdate({ purchaseRequests: newReqs, activeProjectId: appData.activeProjectId || undefined });
                     }}
                 />}
             </div>
@@ -280,7 +280,7 @@ const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUp
         } else {
             // Create new
             onSave({
-                id: Date.now().toString(),
+                id: crypto.randomUUID(),
                 requestId: `REQ-${Math.floor(Math.random() * 10000)}`,
                 description: description.toUpperCase(),
                 date: new Date().toISOString(),

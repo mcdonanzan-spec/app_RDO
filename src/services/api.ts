@@ -184,9 +184,17 @@ export class ApiService {
         (data || []).forEach(row => {
             if (!uniqueMap.has(row.request_id)) {
                 uniqueMap.set(row.request_id, {
-                    ...row,
+                    id: row.id,
+                    requestId: row.request_id,
+                    description: row.description,
+                    requester: row.requester,
+                    priority: row.priority,
+                    status: row.status,
+                    date: row.date,
                     items: row.items || [],
-                    history: row.history || []
+                    history: row.history || [],
+                    budgetGroupCode: row.budget_group_code,
+                    totvsOrderNumber: row.totvs_order_number
                 });
             }
         });

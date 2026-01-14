@@ -92,6 +92,13 @@ const App = () => {
 
   const handleDataLoaded = async (data: Partial<AppData>) => {
     setAppData(prev => {
+      // DATA SAFETY: Prevent race conditions when switching projects.
+      // If the incoming update explicitly targets a different project, ignore it.
+      if (data.activeProjectId && data.activeProjectId !== prev.activeProjectId) {
+        console.warn("⚠️ Ignoring stale update for project:", data.activeProjectId, "current is:", prev.activeProjectId);
+        return prev;
+      }
+
       let newData = { ...prev, ...data };
 
       // If budgetTree is being updated, automatically update consolidatedTree
