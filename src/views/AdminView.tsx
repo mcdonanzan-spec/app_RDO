@@ -233,6 +233,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                                         <option value="ALMOXARIFE">Almoxarife</option>
                                         <option value="ENGENHEIRO">Engenheiro</option>
                                         <option value="GERENTE">Gerente</option>
+                                        <option value="ADM">ADM</option>
                                     </select>
                                     <button
                                         onClick={handleAddMember}
@@ -264,10 +265,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ onProjectCreated }) => {
                                                     <div className="text-xs text-slate-400">{member.profile?.email}</div>
                                                 </td>
                                                 <td className="py-3">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${member.role === 'GERENTE' ? 'bg-purple-100 text-purple-700' :
-                                                        member.role === 'ENGENHEIRO' ? 'bg-blue-100 text-blue-700' :
-                                                            member.role === 'ALMOXARIFE' ? 'bg-orange-100 text-orange-700' :
-                                                                'bg-slate-100 text-slate-600'
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${member.role === 'ADM' ? 'bg-slate-900 text-white' :
+                                                            member.role === 'GERENTE' ? 'bg-purple-100 text-purple-700' :
+                                                                member.role === 'ENGENHEIRO' ? 'bg-blue-100 text-blue-700' :
+                                                                    member.role === 'ALMOXARIFE' ? 'bg-orange-100 text-orange-700' :
+                                                                        'bg-slate-100 text-slate-600'
                                                         }`}>
                                                         {member.role}
                                                     </span>

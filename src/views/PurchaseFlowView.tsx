@@ -773,8 +773,8 @@ const TotvsIntegrationView = ({ requests, onUpdateRequests }: { requests: Purcha
 
     // Filter requests by search query (Search by OC or Description)
     const filteredRequests = requests.filter(req =>
-        req.requestId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        req.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (req.requestId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (req.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (req.totvsOrderNumber && req.totvsOrderNumber.toLowerCase().includes(searchQuery.toLowerCase()))
     );
 
