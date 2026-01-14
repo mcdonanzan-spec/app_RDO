@@ -100,7 +100,7 @@ const App = () => {
       }
 
       // Trigger background save (fire and forget for UI responsiveness, or await if critical)
-      ApiService.saveAppData(newData).catch(err => console.error("Auto-save failed", err));
+      ApiService.saveAppData(newData, data).catch(err => console.error("Auto-save failed", err));
       return newData;
     });
   };

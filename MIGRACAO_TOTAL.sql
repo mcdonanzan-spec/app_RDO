@@ -433,7 +433,8 @@ CREATE TABLE IF NOT EXISTS project_purchase_requests (
     budget_group_code TEXT,
     totvs_order_number TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_request_per_project UNIQUE (project_id, request_id)
 );
 
 -- Add indexes

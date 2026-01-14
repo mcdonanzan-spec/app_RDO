@@ -202,27 +202,36 @@ export class ApiService {
             updated_at: new Date()
         };
 
-        const { data: existing } = await supabase
+        const { error } = await supabase
             .from('project_purchase_requests')
-            .select('id')
-            .eq('project_id', projectId)
-            .eq('request_id', request.requestId)
-            .single();
+            .upsert(payload, { onConflict: 'project_id, request_id' });
 
-        let operation;
-        if (existing) {
-            operation = supabase
-                .from('project_purchase_requests')
-                .update(payload)
-                .eq('id', existing.id);
-        } else {
-            operation = supabase
-                .from('project_purchase_requests')
-                .insert(payload);
-        }
-
-        const { error } = await operation;
         if (error) console.error("Error saving Purchase Request:", error);
+    }
+
+    static async saveAllPurchaseRequests(projectId: string, requests: any[]): Promise<void> {
+        if (!requests || requests.length === 0) return;
+
+        const batch = requests.map(req => ({
+            project_id: projectId,
+            request_id: req.requestId,
+            description: req.description,
+            requester: req.requester,
+            priority: req.priority,
+            status: req.status,
+            date: req.date,
+            items: req.items,
+            history: req.history,
+            budget_group_code: req.budgetGroupCode,
+            totvs_order_number: req.totvsOrderNumber,
+            updated_at: new Date()
+        }));
+
+        const { error } = await supabase
+            .from('project_purchase_requests')
+            .upsert(batch, { onConflict: 'project_id, request_id' });
+
+        if (error) console.error("Error saving All Purchase Requests:", error);
     }
 
     static async getItemCatalog(projectId: string): Promise<any[]> {
@@ -274,41 +283,53 @@ export class ApiService {
         }
     }
 
-    static async saveAppData(data: AppData): Promise<void> {
-        if (!data.activeProjectId) {
+    static async saveAppData(allData: AppData, partial?: Partial<AppData>): Promise<void> {
+        if (!allData.activeProjectId) {
             console.error("Save skipped: Missing Project ID");
             return;
         }
 
-        const pid = data.activeProjectId;
+        const pid = allData.activeProjectId;
+        const target = partial || allData; // If partial is provided, we only save those keys. Otherwise save all.
+
         console.log(`Saving App Data for Project: ${pid}`);
 
         const promises: Promise<any>[] = [];
 
         // 1. Visual Management
-        if (data.visualManagement) {
-            promises.push(this.saveVisualManagementData(pid, data.visualManagement));
+        if (target.visualManagement) {
+            promises.push(this.saveVisualManagementData(pid, allData.visualManagement));
         }
 
         // 2. Core Data Lists (JSONB)
-        if (data.rhPremises) promises.push(this.saveCoreData(pid, 'project_rh_data', data.rhPremises));
-        if (data.contractorData?.contracts) promises.push(this.saveCoreData(pid, 'project_contracts_data', data.contractorData.contracts));
-        if (data.supplyChainData?.orders) promises.push(this.saveCoreData(pid, 'project_supply_data', data.supplyChainData.orders));
-        if (data.masterPlanSheets) promises.push(this.saveCoreData(pid, 'project_master_plan_data', data.masterPlanSheets));
+        if (target.rhPremises) promises.push(this.saveCoreData(pid, 'project_rh_data', allData.rhPremises));
+        if (target.contractorData?.contracts) promises.push(this.saveCoreData(pid, 'project_contracts_data', allData.contractorData.contracts));
+        if (target.supplyChainData?.orders) promises.push(this.saveCoreData(pid, 'project_supply_data', allData.supplyChainData.orders));
+        if (target.masterPlanSheets) promises.push(this.saveCoreData(pid, 'project_master_plan_data', allData.masterPlanSheets));
 
         // 3. Complex Core Data (Budget & RDO)
-        if (data.budget) {
-            promises.push(this.saveCoreBudget(pid, data.budget, data.budgetSheets));
+        if (target.budget || target.budgetSheets) {
+            promises.push(this.saveCoreBudget(pid, allData.budget, allData.budgetSheets));
         }
-        if (data.rdoData) {
-            promises.push(this.saveCoreRDO(pid, data.rdoData, data.rdoSheets, data.costSummary));
+        if (target.rdoData || target.rdoSheets) {
+            promises.push(this.saveCoreRDO(pid, allData.rdoData, allData.rdoSheets, allData.costSummary));
+        }
+
+        // 4. Purchase Flow
+        if (target.purchaseRequests) {
+            promises.push(this.saveAllPurchaseRequests(pid, allData.purchaseRequests!));
+        }
+
+        // 5. Item Catalog
+        if (target.totvsItems && target.totvsItems.length > 0) {
+            promises.push(this.saveItemCatalog(pid, allData.totvsItems!));
         }
 
         try {
             await Promise.all(promises);
-            console.log("✅ All Core Data Saved to Supabase Successfully");
+            console.log("✅ Changes Saved to Supabase Successfully");
         } catch (err) {
-            console.error("❌ Partial Error saving Core Data:", err);
+            console.error("❌ Partial Error saving Data:", err);
         }
     }
 
