@@ -171,19 +171,27 @@ export class ApiService {
         const { data, error } = await supabase
             .from('project_purchase_requests')
             .select('*')
-            .eq('project_id', projectId);
+            .eq('project_id', projectId)
+            .order('updated_at', { ascending: false });
 
         if (error) {
             console.error('Error fetching purchase requests:', error);
             return [];
         }
 
-        // Parse JSON fields (items, history)
-        return (data || []).map(row => ({
-            ...row,
-            items: row.items || [], // Items stored as JSONB
-            history: row.history || [] // History stored as JSONB
-        }));
+        // Deduplicate by request_id (keeping the most recently updated)
+        const uniqueMap = new Map();
+        (data || []).forEach(row => {
+            if (!uniqueMap.has(row.request_id)) {
+                uniqueMap.set(row.request_id, {
+                    ...row,
+                    items: row.items || [],
+                    history: row.history || []
+                });
+            }
+        });
+
+        return Array.from(uniqueMap.values());
     }
 
     static async savePurchaseRequest(projectId: string, request: any): Promise<void> {

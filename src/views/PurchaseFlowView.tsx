@@ -31,6 +31,13 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
         loadUserRole();
     }, []);
 
+    // Sync requests with props when appData changes (e.g. after a reload or project switch)
+    useEffect(() => {
+        if (appData.purchaseRequests) {
+            setRequests(appData.purchaseRequests);
+        }
+    }, [appData.purchaseRequests]);
+
     // --- MOCK DATA GENERATOR FOR VISUALIZATION ---
     // In a real scenario, this would come from appData
 
