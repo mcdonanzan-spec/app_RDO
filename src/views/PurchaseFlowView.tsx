@@ -397,7 +397,10 @@ const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUp
                             {showSuggestions && newItemDesc.length > 0 && (
                                 <div className="absolute top-full left-0 w-full bg-white border border-slate-200 shadow-lg rounded-b max-h-48 overflow-auto z-50">
                                     {(totvsItems.length > 0 ? totvsItems : DEFAULT_TOTVS_ITEMS)
-                                        .filter(i => i.description.includes(newItemDesc) || i.code.includes(newItemDesc))
+                                        .filter(i => {
+                                            const keywords = newItemDesc.toUpperCase().split(' ').filter(k => k.trim() !== '');
+                                            return keywords.every(k => i.description.includes(k) || i.code.includes(k));
+                                        })
                                         .map(item => (
                                             <button
                                                 key={item.code}
@@ -811,11 +814,16 @@ const TotvsIntegrationView = ({ requests, onUpdateRequests }: { requests: Purcha
     const [searchQuery, setSearchQuery] = useState('');
 
     // Filter requests by search query (Search by OC or Description)
-    const filteredRequests = requests.filter(req =>
-        (req.requestId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.description || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.totvsOrderNumber && req.totvsOrderNumber.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+    const filteredRequests = requests.filter(req => {
+        const keywords = searchQuery.toLowerCase().split(' ').filter(k => k.trim() !== '');
+        if (keywords.length === 0) return true;
+
+        const id = (req.requestId || '').toLowerCase();
+        const desc = (req.description || '').toLowerCase();
+        const oc = (req.totvsOrderNumber || '').toLowerCase();
+
+        return keywords.every(k => id.includes(k) || desc.includes(k) || oc.includes(k));
+    });
 
     // Edit State
     const [editDesc, setEditDesc] = useState('');
