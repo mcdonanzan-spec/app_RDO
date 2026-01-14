@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid references auth.users not null primary key,
   email text,
   full_name text,
-  role text check (role in ('ADMIN', 'EDITOR', 'VIEWER')) default 'VIEWER',
+  role text check (role in ('ADM', 'GERENTE', 'ENGENHEIRO', 'ALMOXARIFE', 'VIEWER')) default 'VIEWER',
   avatar_url text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.projects (
   status text check (status in ('ACTIVE', 'PLANNING', 'COMPLETED')) default 'PLANNING',
   units integer default 0,
   progress integer default 0,
+  settings jsonb default '{"cost_centers": []}'::jsonb,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -50,7 +51,7 @@ CREATE TABLE IF NOT EXISTS public.project_members (
   id uuid default gen_random_uuid() primary key,
   project_id uuid references public.projects(id) on delete cascade not null,
   user_id uuid references public.profiles(id) on delete cascade not null,
-  role text check (role in ('ADMIN', 'EDITOR', 'VIEWER')) default 'VIEWER',
+  role text check (role in ('ADM', 'GERENTE', 'ENGENHEIRO', 'ALMOXARIFE', 'VIEWER')) default 'VIEWER',
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   unique(project_id, user_id)
 );
@@ -110,7 +111,7 @@ DROP POLICY IF EXISTS "Authenticated users can view projects" ON projects; -- Dr
 DROP POLICY IF EXISTS "Users can view assigned projects" ON projects;
 CREATE POLICY "Users can view assigned projects" ON projects
    FOR SELECT USING (
-       EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADMIN')
+       EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADM')
        OR
        EXISTS (SELECT 1 FROM project_members WHERE project_id = projects.id AND user_id = auth.uid())
    );
@@ -119,22 +120,22 @@ DROP POLICY IF EXISTS "Admins and Editors can insert projects" ON projects; -- D
 DROP POLICY IF EXISTS "Global Admins can insert projects" ON projects;
 CREATE POLICY "Global Admins can insert projects" ON projects
     FOR INSERT WITH CHECK (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADMIN')
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADM')
     );
 
 DROP POLICY IF EXISTS "Admins and Editors can update projects" ON projects; -- Drop old
 DROP POLICY IF EXISTS "Admins and Managers can update projects" ON projects;
 CREATE POLICY "Admins and Managers can update projects" ON projects
     FOR UPDATE USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADMIN')
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADM')
         OR
-        EXISTS (SELECT 1 FROM project_members WHERE project_id = projects.id AND user_id = auth.uid() AND role IN ('ADMIN', 'EDITOR'))
+        EXISTS (SELECT 1 FROM project_members WHERE project_id = projects.id AND user_id = auth.uid() AND role IN ('ADM', 'GERENTE'))
     );
 
 DROP POLICY IF EXISTS "Global Admins can delete projects" ON projects;
 CREATE POLICY "Global Admins can delete projects" ON projects
     FOR DELETE USING (
-        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADMIN')
+        EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'ADM')
     );
 
 -- FINANCIAL ENTRIES POLICIES

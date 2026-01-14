@@ -679,20 +679,27 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                         onClick={async () => {
                             const name = prompt("Nome do novo Centro de Custo / Aba (ex: Torres 01 & 02):");
                             if (!name) return;
-                            const newCc = { id: `cc_${Date.now()}`, name: name.toUpperCase() };
-                            const currentCcs = appData.activeProject?.settings?.cost_centers || [];
-                            const updatedSettings = {
-                                ...appData.activeProject?.settings,
-                                cost_centers: [...currentCcs, newCc]
-                            };
 
-                            // Save to Supabase (indirectly via ProjectService in this simple implementation or direct update)
-                            const { ProjectService } = await import('../services/projectService');
-                            await ProjectService.updateProject(appData.activeProjectId!, { settings: updatedSettings });
+                            try {
+                                const newCc = { id: `cc_${Date.now()}`, name: name.toUpperCase() };
+                                const currentCcs = appData.activeProject?.settings?.cost_centers || [];
+                                const updatedSettings = {
+                                    ...appData.activeProject?.settings,
+                                    cost_centers: [...currentCcs, newCc]
+                                };
 
-                            // Update local state by forcing a refresh or optimistic update
-                            onGlobalUpdate({ activeProject: { ...appData.activeProject!, settings: updatedSettings } });
-                            setActiveSubTab(newCc.id);
+                                // Save to Supabase (indirectly via ProjectService in this simple implementation or direct update)
+                                const { ProjectService } = await import('../services/projectService');
+                                await ProjectService.updateProject(appData.activeProjectId!, { settings: updatedSettings });
+
+                                // Update local state by forcing a refresh or optimistic update
+                                onGlobalUpdate({ activeProject: { ...appData.activeProject!, settings: updatedSettings } });
+                                setActiveSubTab(newCc.id);
+                                console.log("New tab created and saved successfully");
+                            } catch (err: any) {
+                                console.error("Failed to create new tab:", err);
+                                alert(`Erro ao criar nova aba: ${err.message || 'Verifique se a coluna "settings" existe na tabela projects no Supabase.'}`);
+                            }
                         }}
                         className="px-4 py-2 text-sm font-bold text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1 border-b border-b-slate-200 mb-px"
                     >
