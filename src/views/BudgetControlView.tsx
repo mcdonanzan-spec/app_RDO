@@ -161,14 +161,19 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
                 {hasChildren ?
                     <span>{node.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'BRL' })}</span>
                     :
-                    <input
-                        type="number"
-                        step="0.01"
-                        className={`w-full text-right bg-transparent outline-none border-b border-transparent focus:border-orange-400 transition-colors ${isReadOnly ? 'cursor-not-allowed' : ''}`}
-                        value={node.totalValue}
-                        onChange={(e) => handleValueChange(Number(e.target.value))}
-                        disabled={isReadOnly}
-                    />
+                    <div className="flex items-center justify-end">
+                        {!['MT', 'ST', 'EQ', 'MAT', 'SRV', 'EQP'].includes(node.itemType || '') && (
+                            <span className="mr-1 text-[10px] text-orange-400 font-bold">R$</span>
+                        )}
+                        <input
+                            type="number"
+                            step="0.01"
+                            className={`w-full text-right bg-transparent outline-none border-b border-transparent focus:border-orange-400 transition-colors ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                            value={node.totalValue}
+                            onChange={(e) => handleValueChange(Number(e.target.value))}
+                            disabled={isReadOnly}
+                        />
+                    </div>
                 }
             </td>
             <td className="p-2 text-right flex justify-end gap-1 items-center">
