@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS public.financial_entries (
   issue_date date,
   total_value numeric,
   status text check (status in ('DRAFT', 'APPROVED', 'PAID', 'PARTIAL')),
+  purchase_order text,
+  id_mov text,
+  n_mov text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   created_by uuid references auth.users(id)
 );
@@ -202,6 +205,7 @@ CREATE TABLE IF NOT EXISTS public.budget_items (
   budget_initial numeric default 0,
   budget_current numeric default 0,
   cost_center text,
+  color text,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -209,8 +213,8 @@ ALTER TABLE public.budget_items ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Authenticated users can view budget" ON budget_items;
 CREATE POLICY "Authenticated users can view budget" ON budget_items FOR SELECT USING (auth.role() = 'authenticated');
 DROP POLICY IF EXISTS "Editors can modify budget" ON budget_items;
-CREATE POLICY "Editors can modify budget" ON budget_items FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADMIN', 'EDITOR'))
+CREATE POLICY "Editors can modify budget" ON budget_items FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADM', 'GERENTE', 'ENGENHEIRO'))
 );
 
 -- RDO Items (Relational fallback)
