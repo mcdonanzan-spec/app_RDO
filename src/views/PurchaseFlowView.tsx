@@ -749,7 +749,24 @@ const ManagerApprovalView = ({ requests, onUpdateRequests }: { requests: Purchas
 
                                     {/* Actions */}
                                     <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                                        <button className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-bold flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                const motive = prompt("Motivo da devolução:");
+                                                if (motive === null) return; // Cancelled
+
+                                                const updated: PurchaseRequest = {
+                                                    ...req,
+                                                    status: 'Em Análise Engenharia',
+                                                    history: [...req.history, {
+                                                        date: new Date().toISOString(),
+                                                        user: 'Gerente',
+                                                        action: `Devolução: ${motive.toUpperCase()}`
+                                                    }]
+                                                };
+                                                onUpdateRequests([updated]);
+                                            }}
+                                            className="px-4 py-2 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 text-sm font-bold flex items-center gap-2"
+                                        >
                                             <X size={16} /> Rejeitar / Devolver
                                         </button>
                                         <button onClick={() => {
