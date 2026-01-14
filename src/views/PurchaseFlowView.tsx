@@ -582,6 +582,21 @@ const BudgetLinkView = ({ requests, onUpdateRequests, budgetTree }: { requests: 
                         </div>
                     </div>
 
+                    {/* Exibe o motivo da devolução se houver */}
+                    {req.history.some(h => h.action.startsWith('Devolução:')) && (
+                        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                            <div className="bg-red-100 p-2 rounded-full text-red-600">
+                                <AlertCircle size={20} />
+                            </div>
+                            <div>
+                                <div className="font-bold text-red-800 text-sm uppercase">Solicitação Devolvida pelo Gerente</div>
+                                <div className="text-red-700 text-sm mt-1 font-bold">
+                                    MOTIVO: {req.history.filter(h => h.action.includes('Devolução:')).pop()?.action.split('Devolução:').pop()?.trim()}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 gap-6">
                         {/* Items List with Per-Item Budget Link */}
                         <div>
@@ -670,9 +685,9 @@ const BudgetLinkView = ({ requests, onUpdateRequests, budgetTree }: { requests: 
                             <Check size={18} /> Confirmar Vínculo e Enviar
                         </button>
                     </div>
-                </div>
+                </div >
             ))}
-        </div>
+        </div >
     );
 };
 
