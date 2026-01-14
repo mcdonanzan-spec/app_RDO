@@ -108,6 +108,7 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
 }) => {
     const isGroup = node.type === 'GROUP' || (node.children && node.children.length > 0);
     const hasChildren = node.children && node.children.length > 0;
+    const [isEditingValue, setIsEditingValue] = useState(false);
 
     // Indentation and Styling
     const paddingLeft = `${level * 24 + 12}px`;
@@ -161,19 +162,26 @@ const BudgetRow = ({ node, level, onUpdateNode, onAddChild, onAddResources, onRe
                 {hasChildren ?
                     <span>{node.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'BRL' })}</span>
                     :
-                    <div className="flex items-center justify-end">
-                        {!['MT', 'ST', 'EQ', 'MAT', 'SRV', 'EQP'].includes(node.itemType || '') && (
-                            <span className="mr-1 text-[10px] text-orange-400 font-bold">R$</span>
-                        )}
+                    (isEditingValue && !isReadOnly ?
                         <input
+                            autoFocus
                             type="number"
                             step="0.01"
-                            className={`w-full text-right bg-transparent outline-none border-b border-transparent focus:border-orange-400 transition-colors ${isReadOnly ? 'cursor-not-allowed' : ''}`}
+                            className="w-full text-right bg-transparent outline-none border-b border-orange-500 font-bold"
                             value={node.totalValue}
                             onChange={(e) => handleValueChange(Number(e.target.value))}
-                            disabled={isReadOnly}
+                            onBlur={() => setIsEditingValue(false)}
+                            onKeyDown={(e) => e.key === 'Enter' && setIsEditingValue(false)}
                         />
-                    </div>
+                        :
+                        <div onClick={() => !isReadOnly && setIsEditingValue(true)} className={`cursor-pointer w-full h-full ${!isReadOnly ? 'hover:text-orange-900' : ''}`}>
+                            {['MT', 'ST', 'EQ', 'MAT', 'SRV', 'EQP'].includes(node.itemType || '') ?
+                                node.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                :
+                                node.totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, style: 'currency', currency: 'BRL' })
+                            }
+                        </div>
+                    )
                 }
             </td>
             <td className="p-2 text-right flex justify-end gap-1 items-center">
