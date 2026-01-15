@@ -45,7 +45,7 @@ export const FinancialService = {
         const { data: header, error: headerError } = await supabase
             .from('financial_entries')
             .insert([{
-                id: entry.id, // Use existing ID if provided, or let Supabase gen? App usually provides UUID.
+                id: entry.id,
                 project_id: projectId,
                 supplier: entry.supplier,
                 document_number: entry.documentNumber,
@@ -53,6 +53,9 @@ export const FinancialService = {
                 issue_date: entry.issueDate,
                 total_value: entry.totalValue,
                 status: entry.status,
+                purchase_order: entry.purchaseOrder,
+                id_mov: entry.idMov,
+                n_mov: entry.nMov,
                 created_by: userId
             }])
             .select()
@@ -60,10 +63,52 @@ export const FinancialService = {
 
         if (headerError) throw headerError;
 
-        // 2. Insert Allocations
+        await this.saveDetails(header.id, entry);
+        return entry;
+    },
+
+    async updateEntry(entry: FinancialEntry, projectId: string): Promise<FinancialEntry> {
+        // 1. Update Header
+        const { error: headerError } = await supabase
+            .from('financial_entries')
+            .update({
+                supplier: entry.supplier,
+                document_number: entry.documentNumber,
+                description: entry.description,
+                issue_date: entry.issueDate,
+                total_value: entry.totalValue,
+                status: entry.status,
+                purchase_order: entry.purchaseOrder,
+                id_mov: entry.idMov,
+                n_mov: entry.nMov
+            })
+            .eq('id', entry.id);
+
+        if (headerError) throw headerError;
+
+        // 2. Clear old details
+        await supabase.from('financial_allocations').delete().eq('entry_id', entry.id);
+        await supabase.from('financial_installments').delete().eq('entry_id', entry.id);
+
+        // 3. Save new details
+        await this.saveDetails(entry.id, entry);
+        return entry;
+    },
+
+    async deleteEntry(entryId: string): Promise<void> {
+        const { error } = await supabase
+            .from('financial_entries')
+            .delete()
+            .eq('id', entryId);
+        if (error) throw error;
+    },
+
+    // Helper to save sub-tables
+    async saveDetails(entryId: string, entry: FinancialEntry) {
+        // Allocations
         if (entry.allocations?.length > 0) {
             const allocsParams = entry.allocations.map(a => ({
-                entry_id: header.id,
+                entry_id: entryId,
                 budget_group_code: a.budgetGroupCode,
                 cost_type: a.costType,
                 value: a.value,
@@ -73,10 +118,10 @@ export const FinancialService = {
             if (allocError) throw allocError;
         }
 
-        // 3. Insert Installments
+        // Installments
         if (entry.installments?.length > 0) {
             const instParams = entry.installments.map(i => ({
-                entry_id: header.id,
+                entry_id: entryId,
                 number: i.number,
                 due_date: i.dueDate,
                 value: i.value,
@@ -85,7 +130,5 @@ export const FinancialService = {
             const { error: instError } = await supabase.from('financial_installments').insert(instParams);
             if (instError) throw instError;
         }
-
-        return entry; // Return original for optimistic UI, or re-fetch
     }
 };

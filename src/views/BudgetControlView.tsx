@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { AppData, BudgetGroup, BudgetNode, FinancialEntry, Installment, FinancialAllocation, BudgetSnapshot, Supplier } from '../../types';
-import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers, CheckCircle, XCircle, MoreHorizontal, PaintBucket, Loader2 } from 'lucide-react';
+import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, DollarSign, FileText, BarChart, Trash, Trash2, AlertTriangle, Check, Edit2, X, Eye, EyeOff, Filter, Save, History, Layers, CheckCircle, XCircle, MoreHorizontal, PaintBucket, Loader2, PlusCircle, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { FinancialService } from '../services/financialService';
 import { BudgetService } from '../services/budgetService';
@@ -758,6 +758,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
 
 const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSaveSuppliers, appData }: { entries: FinancialEntry[], budgetTree: BudgetNode[], onUpdate: (e: FinancialEntry[]) => void, savedSuppliers?: Supplier[], onSaveSuppliers?: (s: Supplier[]) => void, appData: AppData }) => {
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+    const [editingEntry, setEditingEntry] = useState<FinancialEntry | null>(null);
 
     // Form State for Header
     const [supplier, setSupplier] = useState('');
@@ -862,6 +863,42 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             setSelectedIds(new Set());
         } else {
             setSelectedIds(new Set(filteredEntries.map(e => e.id)));
+        }
+    };
+
+    const handleEdit = (entry: FinancialEntry) => {
+        setEditingEntry(entry);
+        setSupplier(entry.supplier);
+        setDocNum(entry.documentNumber);
+        setTotalValue(entry.totalValue);
+        setIssueDate(entry.issueDate);
+        setObservation(entry.observation || '');
+        setPurchaseOrder(entry.purchaseOrder || '');
+        setIdMov(entry.idMov || '');
+        setNMov(entry.nMov || '');
+        setAllocations(entry.allocations);
+        setInstallments(entry.installments);
+        setInstallmentsCount(entry.installments.length);
+
+        // Find CNPJ if exists
+        const found = suppliers.find(s => s.razaoSocial === entry.supplier.toUpperCase());
+        if (found) setCnpj(found.cnpj);
+        else setCnpj('');
+
+        setViewMode('form');
+    };
+
+    const handleDeleteSingle = async (id: string) => {
+        if (!window.confirm("Deseja realmente excluir este lançamento? Esta ação não pode ser desfeita.")) return;
+
+        try {
+            const { FinancialService } = await import('../services/financialService');
+            await FinancialService.deleteEntry(id);
+            onUpdate(entries.filter(e => e.id !== id));
+            alert("Lançamento excluído com sucesso!");
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao excluir lançamento.");
         }
     };
 
@@ -1121,7 +1158,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         }
 
         const newEntry: FinancialEntry = {
-            id: crypto.randomUUID(), // Use UUID for correct DB insertion
+            id: editingEntry ? editingEntry.id : crypto.randomUUID(),
             supplier: supplier.toUpperCase(),
             documentNumber: docNum,
             description: `NF ${docNum} - ${supplier.toUpperCase()}`,
@@ -1172,14 +1209,22 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             }
 
             // 2. Save the NF
-            await FinancialService.createEntry(newEntry, appData.activeProjectId, user.id);
-            onUpdate([...entries, newEntry]);
+            if (editingEntry) {
+                await FinancialService.updateEntry(newEntry, appData.activeProjectId);
+                onUpdate(entries.map(e => e.id === editingEntry.id ? newEntry : e));
+                alert("Lançamento atualizado com sucesso!");
+            } else {
+                await FinancialService.createEntry(newEntry, appData.activeProjectId, user.id);
+                onUpdate([...entries, newEntry]);
+                alert("Lançamento salvo com sucesso no banco de dados!");
+            }
+
             setViewMode('list');
             // Reset form
+            setEditingEntry(null);
             setSupplier(''); setDocNum(''); setCnpj(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
             setTotalValue(0); setAllocations([]); setInstallments([]);
             setErrors({});
-            alert("Lançamento salvo com sucesso no banco de dados!");
         } catch (error) {
             console.error(error);
             alert("Erro ao salvar no banco de dados. Tente novamente.");
@@ -1219,10 +1264,10 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
             <div className="flex-1 overflow-y-auto bg-slate-50">
                 <div className="p-6 max-w-5xl mx-auto w-full">
                     <div className="flex items-center gap-4 mb-6">
-                        <button onClick={() => setViewMode('list')} className="text-slate-500 hover:text-slate-800 font-bold uppercase text-xs flex items-center gap-1">
+                        <button onClick={() => { setViewMode('list'); setEditingEntry(null); }} className="text-slate-500 hover:text-slate-800 font-bold uppercase text-xs flex items-center gap-1">
                             <ChevronRight className="rotate-180" size={14} /> Voltar
                         </button>
-                        <h2 className="text-xl font-bold uppercase text-slate-800">Lançamento de Nota Fiscal (Multi-G.O.)</h2>
+                        <h2 className="text-xl font-bold uppercase text-slate-800">{editingEntry ? 'Editar Lançamento (ERP)' : 'Novo Lançamento de Nota Fiscal (Multi-G.O.)'}</h2>
                     </div>
 
                     {/* Header Data */}
@@ -1922,8 +1967,10 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                     </div>
 
                     <div className="flex justify-end gap-3 pb-10">
-                        <button onClick={() => setViewMode('list')} className="px-6 py-3 text-slate-600 font-bold uppercase hover:bg-slate-100 rounded">Cancelar</button>
-                        <button onClick={handleSaveEntry} className="px-6 py-3 bg-green-600 text-white font-bold uppercase hover:bg-green-700 rounded shadow-sm disabled:opacity-50" disabled={Math.abs(remainingToAllocate) > 0.1}>Confirmar Lançamento</button>
+                        <button onClick={() => { setViewMode('list'); setEditingEntry(null); }} className="px-6 py-3 text-slate-600 font-bold uppercase hover:bg-slate-100 rounded">Cancelar</button>
+                        <button onClick={handleSaveEntry} className="px-6 py-3 bg-green-600 text-white font-bold uppercase hover:bg-green-700 rounded shadow-sm disabled:opacity-50" disabled={Math.abs(remainingToAllocate) > 0.1}>
+                            {editingEntry ? 'Salvar Alterações' : 'Confirmar Lançamento'}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -2174,6 +2221,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                             <th className="p-3 border-b text-center">Detalhes</th>
                             <th className="p-3 border-b text-right">Valor Total</th>
                             <th className="p-3 border-b text-center">Status</th>
+                            <th className="p-3 border-b text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2217,6 +2265,24 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                 <td className="p-3 text-right font-bold text-slate-800">{entry.totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                                 <td className="p-3 text-center">
                                     <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">{entry.status}</span>
+                                </td>
+                                <td className="p-3 text-center">
+                                    <div className="flex justify-center items-center gap-2">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleEdit(entry); }}
+                                            className="p-1.5 text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                            title="Editar Lançamento"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteSingle(entry.id); }}
+                                            className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                                            title="Excluir Lançamento"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
