@@ -158,6 +158,27 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         }
     };
 
+    const handleListModels = async () => {
+        if (!apiKey) {
+            alert("❌ Insira uma Chave API primeiro.");
+            return;
+        }
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            const data = await response.json();
+
+            if (data.models) {
+                const modelNames = data.models.map((m: any) => m.name).join('\n');
+                alert(`✅ Modelos Disponíveis para sua Chave:\n\n${modelNames}`);
+                console.log("Available Models:", data.models);
+            } else {
+                alert(`⚠️ Nenhum modelo listado. Resposta da API:\n${JSON.stringify(data, null, 2)}`);
+            }
+        } catch (error: any) {
+            alert(`❌ Erro ao listar modelos:\n${error.message}`);
+        }
+    };
+
 
 
     const getContextData = () => {
@@ -459,16 +480,30 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
                                 <div className="pt-4 border-t border-slate-100">
                                     <h4 className="font-bold text-slate-800 mb-2">Diagnóstico de Conexão</h4>
-                                    <div className="flex items-center gap-4">
-                                        <button
-                                            onClick={handleTestConnection}
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
-                                        >
-                                            <BrainCircuit size={16} /> Testar Conexão Agora
-                                        </button>
-                                        <span className="text-xs text-slate-400">
-                                            Isso enviará um comando simples "Hello" para verificar se sua chave e o modelo selecionado estão funcionando.
-                                        </span>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <button
+                                                onClick={handleTestConnection}
+                                                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                                            >
+                                                <BrainCircuit size={16} /> Testar Conexão Agora
+                                            </button>
+                                            <span className="text-xs text-slate-400">
+                                                Testa envio de mensagem simples.
+                                            </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-4">
+                                            <button
+                                                onClick={handleListModels}
+                                                className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                                            >
+                                                <FileText size={16} /> Listar Modelos Disponíveis
+                                            </button>
+                                            <span className="text-xs text-slate-400">
+                                                Consulta a API para ver quais modelos sua chave tem permissão para acessar.
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
