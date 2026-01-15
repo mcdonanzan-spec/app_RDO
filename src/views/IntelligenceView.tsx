@@ -431,7 +431,16 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                             value={manualApiKey}
                                             onChange={(e) => setManualApiKey(e.target.value)}
                                         />
-                                        <button className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100">Ativar</button>
+                                        <button
+                                            onClick={() => {
+                                                if (manualApiKey) {
+                                                    alert("✅ Chave ativada localmente!");
+                                                }
+                                            }}
+                                            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors"
+                                        >
+                                            Ativar
+                                        </button>
                                     </div>
                                 </div>
                             )}
