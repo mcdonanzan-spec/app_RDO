@@ -369,18 +369,22 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
             let result;
             try {
-                // Tentativa 1: Gemini Pro (Mais estável e amplamente disponível)
-                console.log("Attempting Gemini Pro...");
-                const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+                // Use selected model from validation tool
+                console.log(`Attempting Selected Model: ${selectedModel}...`);
+                const model = genAI.getGenerativeModel({ model: selectedModel });
                 result = await model.generateContent(prompt);
             } catch (err: any) {
-                console.warn("Gemini Pro failed:", err.message);
+                console.warn(`${selectedModel} failed:`, err.message);
 
                 if (err.message && (err.message.includes('404') || err.message.includes('not found'))) {
-                    // Tentativa 2: Gemini 1.5 Flash (Tentativa se o Pro falhar)
-                    console.log("Attempting Gemini 1.5 Flash...");
-                    const modelFallback = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-                    result = await modelFallback.generateContent(prompt);
+                    // Fallback only if different
+                    if (selectedModel !== 'gemini-1.5-flash') {
+                        console.log("Attempting Fallback to Gemini 1.5 Flash...");
+                        const modelFallback = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                        result = await modelFallback.generateContent(prompt);
+                    } else {
+                        throw err;
+                    }
                 } else {
                     throw err;
                 }
