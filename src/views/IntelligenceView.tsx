@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2 } from 'lucide-react';
+import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2, AlertTriangle, ChevronRight, CheckCircle } from 'lucide-react';
 import { AppData, AIResponse, SavedAnalysis } from '../../types';
 import { ApiService } from '../services/api';
 
@@ -384,78 +384,169 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     )}
 
                     {showHistory ? (
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-bold flex items-center gap-2"><History size={20} /> Histórico</h3>
-                            {savedAnalyses.map((item) => (
-                                <div key={item.id} className="bg-white p-4 rounded-xl border cursor-pointer" onClick={() => { setQuery(item.query); setResponse(item.response); setShowHistory(false); }}>
-                                    <h4 className="font-bold">"{item.query}"</h4>
-                                    <p className="text-xs text-slate-500">{new Date(item.date).toLocaleString()}</p>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        loading ? (
-                            <div className="text-center p-8 animate-pulse">
-                                <BrainCircuit className="text-yellow-600 animate-spin-slow mx-auto mb-4" size={48} />
-                                <h3>Analisando Dados Complexos...</h3>
-                            </div>
-                        ) : response ? (
-                            <div className="space-y-6">
-                                {response.kpis && (
-                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                        {response.kpis.map((kpi, idx) => (
-                                            <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
-                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1 group-hover:text-indigo-500 transition-colors">{kpi.label}</p>
-                                                <p className="text-xl font-black text-slate-800 font-mono">{kpi.value}</p>
-                                            </div>
-                                        ))}
+                        <div className="space-y-4 max-w-4xl mx-auto">
+                            <h3 className="text-lg font-bold flex items-center gap-2 text-slate-700">
+                                <History size={20} className="text-indigo-500" /> Histórico de Análises
+                            </h3>
+                            <div className="grid grid-cols-1 gap-3">
+                                {savedAnalyses.length > 0 ? savedAnalyses.map((item) => (
+                                    <div
+                                        key={item.id}
+                                        className="bg-white p-5 rounded-2xl border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
+                                        onClick={() => { setQuery(item.query); setResponse(item.response); setShowHistory(false); }}
+                                    >
+                                        <div className="flex justify-between items-start">
+                                            <h4 className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">"{item.query}"</h4>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-2 py-1 rounded-md">{new Date(item.date).toLocaleDateString()}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-2 line-clamp-2">{item.response.analysis.substring(0, 150)}...</p>
+                                    </div>
+                                )) : (
+                                    <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">
+                                        <Clock size={48} className="text-slate-200 mx-auto mb-4" />
+                                        <p className="text-slate-400 font-medium">Nenhuma análise salva no histórico deste projeto.</p>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    ) : !response && !loading ? (
+                        <div className="max-w-4xl mx-auto space-y-12 py-10">
+                            {/* Empty State / Welcome */}
+                            <div className="text-center space-y-4">
+                                <div className="w-20 h-20 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-3xl shadow-xl shadow-yellow-100 flex items-center justify-center mx-auto mb-6 transform -rotate-6">
+                                    <BrainCircuit size={40} className="text-white" />
+                                </div>
+                                <h2 className="text-4xl font-black text-slate-900 tracking-tight">O que vamos analisar hoje?</h2>
+                                <p className="text-slate-500 max-w-lg mx-auto leading-relaxed">
+                                    Eu sou o seu copiloto de gestão. Tenho acesso a todos os dados de orçamento,
+                                    RDO, produção física e fluxo de caixa do projeto.
+                                </p>
+                            </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
-                                        <div className="flex items-center gap-3 mb-8">
-                                            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                                                <Bot size={24} />
+                            {/* API Key Setup (Visual Alert) */}
+                            {!apiKey && (
+                                <div className="bg-white p-8 rounded-[32px] border-2 border-dashed border-indigo-200 shadow-xl shadow-indigo-50/50 flex flex-col items-center text-center space-y-6">
+                                    <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl">
+                                        <Bot size={32} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h3 className="text-xl font-bold text-slate-800">Cérebro Desconectado</h3>
+                                        <p className="text-sm text-slate-500 max-w-sm">Para ativar a análise avançada, insira sua chave do Google Gemini no campo abaixo ou configure nas variáveis de ambiente.</p>
+                                    </div>
+                                    <div className="flex gap-2 w-full max-w-md">
+                                        <input
+                                            type="password"
+                                            placeholder="Cole sua API Key aqui..."
+                                            className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm"
+                                            value={manualApiKey}
+                                            onChange={(e) => setManualApiKey(e.target.value)}
+                                        />
+                                        <button className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100">Ativar</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Quick Prompts */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {[
+                                    { q: "Qual o resumo financeiro?", icon: <FileText size={18} /> },
+                                    { q: "Quais os riscos de estouro?", icon: <AlertTriangle size={18} /> },
+                                    { q: "Previsão para o próximo mês?", icon: <PieChart size={18} /> }
+                                ].map((item, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => handleQuickPrompt(item.q)}
+                                        className="p-6 bg-white rounded-2xl border border-slate-100 hover:border-yellow-400 hover:shadow-xl hover:shadow-yellow-50 text-left transition-all group relative overflow-hidden"
+                                    >
+                                        <div className="mb-4 text-slate-400 group-hover:text-yellow-500 transition-colors">
+                                            {item.icon}
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-700 block group-hover:text-slate-900">{item.q}</span>
+                                        <ChevronRight size={16} className="absolute right-4 bottom-4 text-slate-200 group-hover:text-yellow-500 group-hover:translate-x-1 transition-all" />
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-500">
+                            <div className="relative mb-10">
+                                <div className="absolute inset-0 bg-yellow-400/20 blur-3xl rounded-full scale-150 animate-pulse"></div>
+                                <div className="relative w-24 h-24 bg-white rounded-[32px] shadow-2xl flex items-center justify-center border border-slate-50">
+                                    <BrainCircuit className="text-yellow-500 animate-spin-slow" size={48} />
+                                </div>
+                                <div className="absolute -top-2 -right-2 w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                                    <Sparkles size={14} className="text-white animate-pulse" />
+                                </div>
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-800 mb-2">Processando Inteligência...</h3>
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px] animate-pulse">Analisando Orçamento vs Realizado vs Chronograma</p>
+                        </div>
+                    ) : response ? (
+                        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+                            {response.kpis && (
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {response.kpis.map((kpi, idx) => (
+                                        <div key={idx} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1 group-hover:text-indigo-600 transition-colors">{kpi.label}</p>
+                                            <p className="text-2xl font-black text-slate-900 font-mono tracking-tight">{kpi.value}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div className="lg:col-span-2 bg-white p-10 rounded-[40px] border border-slate-100 shadow-xl shadow-slate-100/50">
+                                    <div className="flex items-center justify-between mb-10">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-inner">
+                                                <Bot size={32} />
                                             </div>
                                             <div>
-                                                <h3 className="text-xl font-black text-slate-800">Relatório Executivo</h3>
-                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Construction Brain AI</p>
+                                                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Relatório Executivo</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Construction Brain AI • Online</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <MarkdownText text={response.analysis} />
-
-                                        <div className="mt-8 pt-6 border-t border-slate-50 flex justify-between items-center">
-                                            <p className="text-[10px] text-slate-400 font-bold italic italic">Análise gerada em tempo real com base nos dados integrados da obra.</p>
-                                            <button
-                                                onClick={handleSaveAnalysis}
-                                                className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-800 transition-all shadow-lg"
-                                            >
-                                                <Save size={16} /> Salvar no Histórico
-                                            </button>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-6">
-                                        {response.chart && <AIInsightChart data={response.chart} />}
+                                    <MarkdownText text={response.analysis} />
 
-                                        <div className="bg-indigo-600 p-6 rounded-3xl text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
-                                            <div className="relative z-10">
-                                                <h4 className="font-bold flex items-center gap-2 mb-2">
-                                                    <Sparkles size={18} />
-                                                    Dica Premium
-                                                </h4>
-                                                <p className="text-xs text-indigo-100 leading-relaxed font-medium">
-                                                    Você pode pedir para a IA comparar o cenário de projeção manual com o realizado oficial das notas fiscais para identificar desvios de provisionamento.
-                                                </p>
-                                            </div>
-                                            <BrainCircuit className="absolute -right-4 -bottom-4 text-indigo-500 opacity-30 group-hover:scale-125 transition-transform duration-700" size={120} />
+                                    <div className="mt-10 pt-8 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                                        <div className="flex items-center gap-2">
+                                            <CheckCircle size={16} className="text-green-500" />
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dados integrados com sucesso da base de produção</p>
                                         </div>
+                                        <button
+                                            onClick={handleSaveAnalysis}
+                                            className="w-full md:w-auto flex items-center justify-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-2xl text-xs font-bold hover:bg-indigo-600 transition-all shadow-xl shadow-indigo-100 active:scale-95"
+                                        >
+                                            <Save size={18} /> Salvar no Histórico
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {response.chart && <AIInsightChart data={response.chart} />}
+
+                                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[40px] text-white shadow-2xl shadow-indigo-200 relative overflow-hidden group">
+                                        <div className="relative z-10">
+                                            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-md">
+                                                <Sparkles size={20} />
+                                            </div>
+                                            <h4 className="text-lg font-black tracking-tight mb-2 uppercase">Dica Premium</h4>
+                                            <p className="text-sm text-indigo-100 leading-relaxed font-medium">
+                                                Você pode pedir para a IA comparar o cenário de projeção manual com o realizado oficial das notas fiscais para identificar desvios de provisionamento.
+                                            </p>
+                                        </div>
+                                        <BrainCircuit className="absolute -right-8 -bottom-8 text-white opacity-10 group-hover:scale-125 group-hover:rotate-12 transition-all duration-1000" size={180} />
                                     </div>
                                 </div>
                             </div>
-                        ) : null
-                    )}
+                        </div>
+                    ) : null}
                 </div>
             </div>
 
