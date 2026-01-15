@@ -373,16 +373,6 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
             <div className="flex-1 overflow-auto p-6">
                 <div className="w-full space-y-6">
-                    {!response && !loading && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                            {["Qual o resumo financeiro?", "Riscos de estouro?", "Previsão para o próximo mês?"].map((q, i) => (
-                                <button key={i} onClick={() => handleQuickPrompt(q)} className="p-4 bg-white rounded-xl border hover:border-yellow-400 text-left text-sm flex items-center justify-between group">
-                                    <span>{q}</span><Send size={16} className="text-slate-300 group-hover:text-yellow-500" />
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
                     {showHistory ? (
                         <div className="space-y-4 max-w-4xl mx-auto">
                             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-700">
@@ -409,7 +399,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                 )}
                             </div>
                         </div>
-                    ) : !response && !loading ? (
+                    ) : !response && !loading && !showHistory ? (
                         <div className="max-w-4xl mx-auto space-y-12 py-10">
                             {/* Empty State / Welcome */}
                             <div className="text-center space-y-4">
