@@ -492,6 +492,17 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     <p className="text-sm text-slate-500">Inteligência Artificial Generativa aplicada ao Controle de Obras</p>
                 </div>
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => {
+                            setResponse(null);
+                            setQuery('');
+                            setShowHistory(false);
+                            setShowSettings(false);
+                        }}
+                        className="p-2 rounded-lg border bg-white text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 transition-colors font-bold text-sm"
+                    >
+                        <Bot size={20} /> Nova Análise
+                    </button>
                     <button onClick={() => setShowHistory(!showHistory)} className={`p-2 rounded-lg border flex items-center gap-2 ${showHistory ? 'bg-slate-200 text-slate-800' : 'bg-white text-slate-500'}`}>
                         <History size={20} /> Histórico
                     </button>
@@ -735,9 +746,20 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                     <MarkdownText text={response.analysis} />
 
                                     <div className="mt-10 pt-8 border-t border-slate-50 flex flex-col md:flex-row justify-between items-center gap-4">
-                                        <div className="flex items-center gap-2">
-                                            <CheckCircle size={16} className="text-green-500" />
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dados integrados com sucesso da base de produção</p>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <CheckCircle size={16} className="text-green-500" />
+                                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Dados integrados</p>
+                                            </div>
+                                            <button
+                                                onClick={() => {
+                                                    setResponse(null);
+                                                    setQuery('');
+                                                }}
+                                                className="text-[10px] font-black uppercase text-indigo-600 hover:underline flex items-center gap-1"
+                                            >
+                                                <Bot size={12} /> Fazer Outra Pergunta
+                                            </button>
                                         </div>
                                         <button
                                             onClick={handleSaveAnalysis}
