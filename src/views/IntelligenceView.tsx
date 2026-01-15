@@ -293,7 +293,8 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
             console.log("AI Config Check:");
             console.log("- Env VITE_API_KEY:", import.meta.env.VITE_API_KEY ? "Detected" : "Missing");
-            console.log("- Effective Key detected:", apiKey ? "Yes" : "No");
+            const maskedKey = apiKey ? `${apiKey.substring(0, 5)}...${apiKey.substring(apiKey.length - 4)}` : "None";
+            console.log("- Effective Key detected:", maskedKey);
 
             const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -392,9 +393,16 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     <button onClick={() => setShowHistory(!showHistory)} className={`p-2 rounded-lg border flex items-center gap-2 ${showHistory ? 'bg-slate-200 text-slate-800' : 'bg-white text-slate-500'}`}>
                         <History size={20} /> Histórico
                     </button>
-                    {!apiKey && (
-                        <input type="password" placeholder="API Key..." className="text-xs border rounded px-2 py-1 w-48" value={manualApiKey} onChange={(e) => setManualApiKey(e.target.value)} />
-                    )}
+                    <div className="flex items-center gap-2 bg-slate-50 border rounded-lg px-2 py-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">API KEY:</span>
+                        <input
+                            type="password"
+                            placeholder={apiKey ? "Reconhecida (Autofill)" : "Cole sua chave aqui..."}
+                            className="text-xs bg-transparent outline-none w-32 text-slate-600 placeholder:text-slate-300"
+                            value={manualApiKey}
+                            onChange={(e) => setManualApiKey(e.target.value)}
+                        />
+                    </div>
                 </div>
             </div>
 
