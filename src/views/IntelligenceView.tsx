@@ -59,7 +59,6 @@ const AIInsightChart: React.FC<{ data: any }> = ({ data }) => {
     );
 };
 
-const BRZ_SUPPORT_KEY = "AIzaSyDGWmGZr4hPwUjAZU_xBu9bKm-W9yJd7rU";
 
 export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) => {
     const [query, setQuery] = useState('');
@@ -542,27 +541,24 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                     </p>
                                 </div>
 
-                                <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl space-y-3">
-                                    <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm">
-                                        <CheckCircle size={18} /> Chave de Suporte BRZ (Homologada)
+                                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                                    <div className="flex items-center gap-2 text-slate-700 font-bold text-sm">
+                                        <AlertTriangle size={18} className="text-yellow-500" /> Configuração Global (Vercel)
                                     </div>
-                                    <p className="text-xs text-indigo-600/80 leading-relaxed">
-                                        Se a chave automática da Vercel falhar, use esta chave mestra de suporte para ativar o Construction Brain imediatamente.
+                                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                                        Para que a IA funcione automaticamente para toda a equipe, configure a variável <strong>VITE_API_KEY</strong> no painel da Vercel e faça um <strong>Redeploy</strong>.
+                                        Enquanto isso, você pode limpar a chave atual abaixo se necessário.
                                     </p>
-                                    <div className="flex items-center gap-3">
-                                        <code className="text-[10px] bg-white px-2 py-1 rounded border border-indigo-200 text-indigo-500 font-mono">
-                                            AIzaSyD...Jd7rU
-                                        </code>
-                                        <button
-                                            onClick={() => {
-                                                setManualApiKey(BRZ_SUPPORT_KEY);
-                                                alert("✅ Chave de Suporte BRZ aplicada com sucesso!");
-                                            }}
-                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-sm"
-                                        >
-                                            Aplicar Esta Chave
-                                        </button>
-                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setManualApiKey('');
+                                            localStorage.removeItem('gemini_api_key');
+                                            alert("✨ Configurações de chave limpas.");
+                                        }}
+                                        className="text-[10px] text-red-500 font-bold hover:underline"
+                                    >
+                                        Limpar Chave Salva
+                                    </button>
                                 </div>
 
                                 <div className="pt-4 border-t border-slate-100">
