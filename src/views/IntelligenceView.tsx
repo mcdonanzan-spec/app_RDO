@@ -63,7 +63,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [response, setResponse] = useState<AIResponse | null>(null);
-    const [manualApiKey, setManualApiKey] = useState('');
+    const [manualApiKey, setManualApiKey] = useState(localStorage.getItem('gemini_api_key') || '');
     const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [forecastData, setForecastData] = useState<any>(null);
@@ -73,9 +73,33 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [cooldownSeconds, setCooldownSeconds] = useState(0);
     const [lastQueryTime, setLastQueryTime] = useState<number>(0);
 
-    const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash"); // Default to flash, user can change
+    const [selectedModel, setSelectedModel] = useState(localStorage.getItem('gemini_selected_model') || "gemini-1.5-flash");
     const [showSettings, setShowSettings] = useState(false);
     const [availableModels, setAvailableModels] = useState<string[]>([]);
+
+    // Persistence Effects
+    React.useEffect(() => {
+        if (manualApiKey) localStorage.setItem('gemini_api_key', manualApiKey);
+    }, [manualApiKey]);
+
+    React.useEffect(() => {
+        if (selectedModel) localStorage.setItem('gemini_selected_model', selectedModel);
+    }, [selectedModel]);
+
+    // Auto-fetch models if key exists
+    React.useEffect(() => {
+        const key = manualApiKey || (import.meta.env.VITE_API_KEY as string);
+        if (key && availableModels.length === 0) {
+            fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.models) {
+                        setAvailableModels(data.models.map((m: any) => m.name.replace('models/', '')));
+                    }
+                })
+                .catch(err => console.error("Silent model fetch failed", err));
+        }
+    }, [manualApiKey]);
 
     React.useEffect(() => {
         setQuery('');
