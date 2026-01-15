@@ -86,18 +86,39 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         if (selectedModel) localStorage.setItem('gemini_selected_model', selectedModel);
     }, [selectedModel]);
 
-    // Auto-fetch models if key exists
+    // Auto-fetch and Auto-configure models
     React.useEffect(() => {
         const key = manualApiKey || (import.meta.env.VITE_API_KEY as string);
-        if (key && availableModels.length === 0) {
+
+        // Only fetch if we don't have models yet (or if key changes)
+        if (key) {
             fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.models) {
-                        setAvailableModels(data.models.map((m: any) => m.name.replace('models/', '')));
+                        const models = data.models.map((m: any) => m.name.replace('models/', ''));
+                        setAvailableModels(models);
+
+                        // SMART AUTO-SELECT: If current model is not in list, pick the first valid one
+                        // This fixes the "Default to 1.5-flash" issue if the key doesn't support it
+                        if (models.length > 0) {
+                            // Check if current selected model is valid
+                            const isCurrentValid = models.includes(selectedModel);
+
+                            if (!isCurrentValid) {
+                                // Prefer "pro" or "flash" models that look stable
+                                const bestModel = models.find((m: string) => m.includes('1.5-pro')) ||
+                                    models.find((m: string) => m.includes('2.5')) ||
+                                    models.find((m: string) => m.includes('flash')) ||
+                                    models[0];
+
+                                console.log("Auto-switching model to:", bestModel);
+                                setSelectedModel(bestModel);
+                            }
+                        }
                     }
                 })
-                .catch(err => console.error("Silent model fetch failed", err));
+                .catch(err => console.error("Auto-configuration failed:", err));
         }
     }, [manualApiKey]);
 
