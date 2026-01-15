@@ -75,6 +75,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
     const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash"); // Default to flash, user can change
     const [showSettings, setShowSettings] = useState(false);
+    const [availableModels, setAvailableModels] = useState<string[]>([]);
 
     React.useEffect(() => {
         setQuery('');
@@ -168,8 +169,12 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             const data = await response.json();
 
             if (data.models) {
-                const modelNames = data.models.map((m: any) => m.name).join('\n');
-                alert(`✅ Modelos Disponíveis para sua Chave:\n\n${modelNames}`);
+                const modelNames = data.models.map((m: any) => m.name.replace('models/', ''));
+                setAvailableModels(modelNames);
+                if (modelNames.length > 0) {
+                    setSelectedModel(modelNames[0]);
+                }
+                alert(`✅ ${modelNames.length} Modelos encontrados!\n\nO seletor foi atualizado com as opções disponíveis para sua conta.`);
                 console.log("Available Models:", data.models);
             } else {
                 alert(`⚠️ Nenhum modelo listado. Resposta da API:\n${JSON.stringify(data, null, 2)}`);
@@ -469,9 +474,17 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                         onChange={(e) => setSelectedModel(e.target.value)}
                                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
                                     >
-                                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido & Econômico) - Recomendado</option>
-                                        <option value="gemini-pro">Gemini 1.0 Pro (Estável) - Legado</option>
-                                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Mais Inteligente) - Pode requerer conta paga</option>
+                                        {availableModels.length > 0 ? (
+                                            availableModels.map(model => (
+                                                <option key={model} value={model}>{model}</option>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido & Econômico)</option>
+                                                <option value="gemini-pro">Gemini 1.0 Pro (Estável)</option>
+                                                <option value="gemini-1.5-pro">Gemini 1.5 Pro (Mais Inteligente)</option>
+                                            </>
+                                        )}
                                     </select>
                                     <p className="text-xs text-slate-500 mt-2">
                                         Se estiver recebendo erro 404, tente alternar entre os modelos acima. O modelo "Pro" geralmente é o mais compatível com chaves antigas.
