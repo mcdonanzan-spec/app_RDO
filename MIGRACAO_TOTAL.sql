@@ -147,7 +147,7 @@ CREATE POLICY "Authenticated users can view entries" ON financial_entries FOR SE
 
 DROP POLICY IF EXISTS "Editors can insert entries" ON financial_entries;
 CREATE POLICY "Editors can insert entries" ON financial_entries FOR INSERT WITH CHECK (
-    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADMIN', 'EDITOR'))
+    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADM', 'GERENTE', 'ENGENHEIRO'))
 );
 
 -- =========================================
@@ -170,7 +170,7 @@ DROP POLICY IF EXISTS "Authenticated users can view allocations" ON financial_al
 CREATE POLICY "Authenticated users can view allocations" ON financial_allocations FOR SELECT USING (auth.role() = 'authenticated');
 DROP POLICY IF EXISTS "Editors can insert allocations" ON financial_allocations;
 CREATE POLICY "Editors can insert allocations" ON financial_allocations FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADMIN', 'EDITOR'))
+  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADM', 'GERENTE', 'ENGENHEIRO'))
 );
 
 -- Financial Installments
@@ -189,7 +189,7 @@ DROP POLICY IF EXISTS "Authenticated users can view installments" ON financial_i
 CREATE POLICY "Authenticated users can view installments" ON financial_installments FOR SELECT USING (auth.role() = 'authenticated');
 DROP POLICY IF EXISTS "Editors can insert installments" ON financial_installments;
 CREATE POLICY "Editors can insert installments" ON financial_installments FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADMIN', 'EDITOR'))
+  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADM', 'GERENTE', 'ENGENHEIRO'))
 );
 
 -- Budget Items (Relational fallback)
@@ -401,7 +401,9 @@ CREATE TABLE IF NOT EXISTS public.suppliers (
 );
 ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Authenticated users can view suppliers" ON suppliers FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Editors can insert suppliers" ON suppliers FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Editors can insert suppliers" ON suppliers FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND role IN ('ADM', 'GERENTE', 'ENGENHEIRO'))
+);
 
 -- =========================================
 -- 6. PURCHASE FLOW (New)

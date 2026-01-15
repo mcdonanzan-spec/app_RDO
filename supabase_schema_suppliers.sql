@@ -20,7 +20,7 @@ create policy "Editors can insert suppliers" on suppliers
   for insert with check (
     exists (
       select 1 from profiles
-      where profiles.id = auth.uid() and role in ('ADMIN', 'EDITOR')
+      where profiles.id = auth.uid() and role in ('ADM', 'GERENTE', 'ENGENHEIRO')
     )
   );
 
@@ -28,7 +28,7 @@ create policy "Editors can update suppliers" on suppliers
   for update using (
     exists (
       select 1 from profiles
-      where profiles.id = auth.uid() and role in ('ADMIN', 'EDITOR')
+      where profiles.id = auth.uid() and role in ('ADM', 'GERENTE', 'ENGENHEIRO')
     )
   );
 
@@ -36,6 +36,6 @@ create policy "Editors can delete suppliers" on suppliers
   for delete using (
     exists (
       select 1 from profiles
-      where profiles.id = auth.uid() and role in ('ADMIN', 'EDITOR')
+      where profiles.id = auth.uid() and role in ('ADM', 'GERENTE', 'ENGENHEIRO')
     )
   );
