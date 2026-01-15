@@ -6,6 +6,7 @@ import { PermissionService } from '../services/permissionService';
 import { UserService } from '../services/userService';
 import { supabase } from '../services/supabase';
 import { ApiService } from '../services/api'; // Import ApiService
+import { useAuth } from '../contexts/AuthContext';
 
 interface Props {
     appData: AppData;
@@ -15,21 +16,9 @@ interface Props {
 export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
     const [activeTab, setActiveTab] = useState<'create' | 'warehouse' | 'engineering' | 'manager' | 'totvs'>('create');
     const [requests, setRequests] = useState<PurchaseRequest[]>(appData.purchaseRequests || []);
-    const [userRole, setUserRole] = useState<string>('VIEWER');
-    const [loadingRole, setLoadingRole] = useState(true);
-
-    // Load user role
-    useEffect(() => {
-        const loadUserRole = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const profile = await UserService.getProfile(user.id);
-                setUserRole(profile?.role || 'VIEWER');
-            }
-            setLoadingRole(false);
-        };
-        loadUserRole();
-    }, []);
+    const { role: authRole, loading: loadingAuth } = useAuth();
+    const userRole = authRole || 'VIEWER';
+    const loadingRole = loadingAuth;
 
     // Sync requests with props when appData changes (e.g. after a reload or project switch)
     useEffect(() => {

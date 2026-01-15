@@ -307,9 +307,12 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         // Production / Visual Management (Physical Status)
         if (appData.visualManagement) {
             contextText += `\n\n=== STATUS DE PRODUÇÃO FÍSICA (GESTÃO À VISTA) ===\n`;
-            const { services, status, config } = appData.visualManagement;
+            const { services, status, config, foundationData, towerNames } = appData.visualManagement;
             const totalUnits = config.towers * config.floors * config.aptsPerFloor;
+
+            // Unit-based services
             services.forEach(svc => {
+                if (svc.name === 'Fundação') return; // Foundation is handled differently below
                 let completed = 0;
                 Object.values(status).forEach(unitServices => {
                     if (unitServices[svc.id] === 'completed') completed++;
@@ -317,6 +320,16 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                 const percent = totalUnits > 0 ? (completed / totalUnits) * 100 : 0;
                 contextText += `- Serviço: ${svc.name} [Vínculo G.O: ${svc.budgetCode || 'N/A'}] | Progresso: ${percent.toFixed(1)}% (${completed}/${totalUnits} unidades)\n`;
             });
+
+            // Foundation Data (Piles/Estacas)
+            if (foundationData) {
+                contextText += "\nDETALHAMENTO DE FUNDAÇÃO (ESTACAS):\n";
+                Object.entries(foundationData).forEach(([tIdx, data]: [string, any]) => {
+                    const towerName = towerNames?.[parseInt(tIdx)] || `Torre ${parseInt(tIdx) + 1}`;
+                    const percent = data.total > 0 ? (data.realized / data.total) * 100 : 0;
+                    contextText += `- ${towerName}: ${data.realized}/${data.total} estacas concluídas (${percent.toFixed(1)}%)\n`;
+                });
+            }
         }
 
         // Financial Entries

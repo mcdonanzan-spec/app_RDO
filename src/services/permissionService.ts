@@ -63,7 +63,8 @@ export class PermissionService {
      * Verifica se um role tem uma permissão específica
      */
     static hasPermission(userRole: string, permission: Permission): boolean {
-        const permissions = this.rolePermissions[userRole] || [];
+        const roleKey = (userRole || 'VIEWER').toUpperCase();
+        const permissions = this.rolePermissions[roleKey] || [];
         return permissions.includes(permission);
     }
 
