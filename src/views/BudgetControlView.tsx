@@ -769,6 +769,7 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
     const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
     const [installmentsCount, setInstallmentsCount] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
+    const [cnpj, setCnpj] = useState('');
 
     // Filtering State
     const [filterStart, setFilterStart] = useState('');
@@ -1152,11 +1153,30 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
         }
 
         try {
+            // 1. Check if supplier exists, if not, save it
+            const existingSupplier = suppliers.find(s => s.razaoSocial === supplier.toUpperCase());
+            if (!existingSupplier && cnpj) {
+                try {
+                    const { SupplierService } = await import('../services/supplierService');
+                    const newSupplierId = await SupplierService.addSupplier(appData.activeProjectId, {
+                        razaoSocial: supplier.toUpperCase(),
+                        cnpj: cnpj
+                    });
+                    // Dynamically update local suppliers list
+                    const newSupplier = { id: newSupplierId, razaoSocial: supplier.toUpperCase(), cnpj };
+                    setSuppliers(prev => [...prev, newSupplier]);
+                } catch (supErr) {
+                    console.error('Non-blocking error saving new supplier:', supErr);
+                    // We continue even if supplier registration fails, as the NF itself is more important
+                }
+            }
+
+            // 2. Save the NF
             await FinancialService.createEntry(newEntry, appData.activeProjectId, user.id);
             onUpdate([...entries, newEntry]);
             setViewMode('list');
             // Reset form
-            setSupplier(''); setDocNum(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
+            setSupplier(''); setDocNum(''); setCnpj(''); setPurchaseOrder(''); setIdMov(''); setNMov(''); setObservation('');
             setTotalValue(0); setAllocations([]); setInstallments([]);
             setErrors({});
             alert("Lançamento salvo com sucesso no banco de dados!");
@@ -1367,8 +1387,15 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                 className={`w-full border rounded p-2 uppercase focus:ring-2 focus:ring-indigo-100 outline-none ${errors.supplier ? 'border-red-500 bg-red-50' : ''}`}
                                 value={supplier}
                                 onChange={e => {
-                                    setSupplier(e.target.value.toUpperCase());
+                                    const val = e.target.value.toUpperCase();
+                                    setSupplier(val);
                                     if (errors.supplier) setErrors(prev => ({ ...prev, supplier: false }));
+
+                                    // Auto-check for existing supplier to fill CNPJ
+                                    const found = suppliers.find(s => s.razaoSocial === val);
+                                    if (found) {
+                                        setCnpj(found.cnpj);
+                                    }
                                 }}
                                 placeholder="DIGITE PARA BUSCAR..."
                                 list="suppliers-list"
@@ -1379,8 +1406,26 @@ const FinancialEntryTab = ({ entries, budgetTree, onUpdate, savedSuppliers, onSa
                                 ))}
                             </datalist>
                             {supplier && !suppliers.find(s => s.razaoSocial === supplier) && (
-                                <div className="text-[10px] text-orange-500 mt-1 font-bold flex items-center gap-1">
-                                    <AlertTriangle size={10} /> Novo fornecedor será cadastrado ao salvar.
+                                <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <div className="text-xs font-bold text-orange-700 mb-2 flex items-center gap-1 uppercase">
+                                        <AlertTriangle size={14} /> Novo Fornecedor Detectado
+                                    </div>
+                                    <p className="text-[10px] text-orange-600 mb-3">Este fornecedor não está na sua base. Informe o CNPJ para cadastrá-lo automaticamente.</p>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-[10px] font-bold text-orange-700 uppercase">CNPJ do Fornecedor</label>
+                                        <input
+                                            className="w-full border border-orange-300 rounded p-2 text-xs focus:ring-2 focus:ring-orange-100 outline-none"
+                                            value={cnpj}
+                                            onChange={e => setCnpj(e.target.value)}
+                                            placeholder="00.000.000/0001-00"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            {suppliers.find(s => s.razaoSocial === supplier) && (
+                                <div className="mt-2 flex items-center gap-2 px-2 py-1 bg-green-50 rounded border border-green-100">
+                                    <Check size={12} className="text-green-600" />
+                                    <span className="text-[10px] font-bold text-green-700 uppercase">Fornecedor Identificado: {suppliers.find(s => s.razaoSocial === supplier)?.cnpj}</span>
                                 </div>
                             )}
                         </div>
