@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2, AlertTriangle, ChevronRight, CheckCircle } from 'lucide-react';
+import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2, AlertTriangle, ChevronRight, CheckCircle, Settings } from 'lucide-react';
 import { AppData, AIResponse, SavedAnalysis } from '../../types';
 import { ApiService } from '../services/api';
 
@@ -73,6 +73,9 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     const [cooldownSeconds, setCooldownSeconds] = useState(0);
     const [lastQueryTime, setLastQueryTime] = useState<number>(0);
 
+    const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash"); // Default to flash, user can change
+    const [showSettings, setShowSettings] = useState(false);
+
     React.useEffect(() => {
         setQuery('');
         setResponse(null);
@@ -136,6 +139,26 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         (process.env.VITE_API_KEY as string) ||
         (process.env.GEMINI_API_KEY as string) ||
         "";
+
+    const handleTestConnection = async () => {
+        if (!apiKey) {
+            alert("❌ Insira uma Chave API primeiro.");
+            return;
+        }
+        try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: selectedModel });
+            const result = await model.generateContent("Say 'OK' if you can hear me.");
+            const response = await result.response;
+            const text = response.text();
+            alert(`✅ Conexão BEM SUCEDIDA com modelo ${selectedModel}!\nResposta: ${text}`);
+        } catch (error: any) {
+            console.error("Test Error:", error);
+            alert(`❌ Falha na conexão com ${selectedModel}:\n${error.message}`);
+        }
+    };
+
+
 
     const getContextData = () => {
         let contextText = "";
@@ -393,6 +416,9 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     <button onClick={() => setShowHistory(!showHistory)} className={`p-2 rounded-lg border flex items-center gap-2 ${showHistory ? 'bg-slate-200 text-slate-800' : 'bg-white text-slate-500'}`}>
                         <History size={20} /> Histórico
                     </button>
+                    <button onClick={() => setShowSettings(!showSettings)} className={`p-2 rounded-lg border flex items-center gap-2 ${showSettings ? 'bg-slate-200 text-slate-800' : 'bg-white text-slate-500'}`}>
+                        <Settings size={20} /> Config
+                    </button>
                     <div className="flex items-center gap-2 bg-slate-50 border rounded-lg px-2 py-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase">API KEY:</span>
                         <input
@@ -408,7 +434,46 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
             <div className="flex-1 overflow-auto p-6">
                 <div className="w-full space-y-6">
-                    {showHistory ? (
+                    {showSettings ? (
+                        <div className="space-y-6 max-w-4xl mx-auto bg-white p-8 rounded-3xl border border-slate-100 shadow-lg">
+                            <h3 className="text-xl font-bold flex items-center gap-2 text-slate-800 border-b pb-4">
+                                <Settings size={24} className="text-slate-400" /> Configurações Avançadas da IA
+                            </h3>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1">Modelo Generativo (Google Gemini)</label>
+                                    <select
+                                        value={selectedModel}
+                                        onChange={(e) => setSelectedModel(e.target.value)}
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Rápido & Econômico) - Recomendado</option>
+                                        <option value="gemini-pro">Gemini 1.0 Pro (Estável) - Legado</option>
+                                        <option value="gemini-1.5-pro">Gemini 1.5 Pro (Mais Inteligente) - Pode requerer conta paga</option>
+                                    </select>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        Se estiver recebendo erro 404, tente alternar entre os modelos acima. O modelo "Pro" geralmente é o mais compatível com chaves antigas.
+                                    </p>
+                                </div>
+
+                                <div className="pt-4 border-t border-slate-100">
+                                    <h4 className="font-bold text-slate-800 mb-2">Diagnóstico de Conexão</h4>
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            onClick={handleTestConnection}
+                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                                        >
+                                            <BrainCircuit size={16} /> Testar Conexão Agora
+                                        </button>
+                                        <span className="text-xs text-slate-400">
+                                            Isso enviará um comando simples "Hello" para verificar se sua chave e o modelo selecionado estão funcionando.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ) : showHistory ? (
                         <div className="space-y-4 max-w-4xl mx-auto">
                             <h3 className="text-lg font-bold flex items-center gap-2 text-slate-700">
                                 <History size={20} className="text-indigo-500" /> Histórico de Análises
