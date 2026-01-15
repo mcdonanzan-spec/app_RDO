@@ -130,7 +130,10 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         alert("✅ Análise salva com sucesso no Supabase!");
     };
 
-    const apiKey = manualApiKey || import.meta.env.VITE_API_KEY || "";
+    const apiKey = manualApiKey ||
+        (import.meta.env.VITE_API_KEY as string) ||
+        (typeof process !== 'undefined' ? (process.env.VITE_API_KEY || process.env.GEMINI_API_KEY) : "") ||
+        "";
 
     const getContextData = () => {
         let contextText = "";
@@ -284,8 +287,12 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         setLastQueryTime(Date.now());
         setLoading(true);
         try {
-            if (!apiKey) throw new Error("Chave API não configurada.");
-            console.log("VITE_API_KEY presence:", import.meta.env.VITE_API_KEY ? "Detected" : "Not found in env");
+            if (!apiKey) throw new Error("Chave API não configurada. Por favor, insira manualmente ou configure na Vercel.");
+
+            console.log("AI Config Check:");
+            console.log("- Manual Key:", manualApiKey ? "Present" : "Empty");
+            console.log("- Env VITE_API_KEY:", import.meta.env.VITE_API_KEY ? "Detected" : "Missing");
+            console.log("- Effective Key detected:", apiKey ? "Yes" : "No");
 
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
