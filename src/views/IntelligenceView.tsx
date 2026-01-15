@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2, AlertTriangle, ChevronRight, CheckCircle } from 'lucide-react';
 import { AppData, AIResponse, SavedAnalysis } from '../../types';
 import { ApiService } from '../services/api';
@@ -285,8 +285,10 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         setLoading(true);
         try {
             if (!apiKey) throw new Error("Chave API não configurada.");
-            console.log("VITE_API_KEY check:", import.meta.env.VITE_API_KEY ? "Detected" : "Not found");
-            const ai = new GoogleGenAI({ apiKey });
+            console.log("VITE_API_KEY presence:", import.meta.env.VITE_API_KEY ? "Detected" : "Not found in env");
+
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
             const context = getContextData();
             const prompt = `
             Você é o "Construction Brain", um Diretor de Inteligência da BRZ Empreendimentos.
@@ -305,10 +307,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             ESTILO: Tom de voz executivo, focado em riscos financeiros e desvios de obra.
             SAÍDA JSON APENAS.`;
 
-            const result = await ai.models.generateContent({
-                model: "gemini-1.5-flash-latest",
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
-            });
+            const result = await model.generateContent(prompt);
 
             // Handle response based on SDK structure
             let text = "";
