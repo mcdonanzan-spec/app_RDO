@@ -285,6 +285,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         setLoading(true);
         try {
             if (!apiKey) throw new Error("Chave API não configurada.");
+            console.log("VITE_API_KEY check:", import.meta.env.VITE_API_KEY ? "Detected" : "Not found");
             const ai = new GoogleGenAI({ apiKey });
             const context = getContextData();
             const prompt = `
@@ -305,7 +306,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             SAÍDA JSON APENAS.`;
 
             const result = await ai.models.generateContent({
-                model: "gemini-2.0-flash", // Reverting to confirmed found model
+                model: "gemini-1.5-flash",
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
@@ -332,13 +333,13 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             let userMessage = "Erro ao processar consulta IA.";
 
             if (error.message?.includes('429')) {
-                userMessage = "⚠️ Limite de Uso Atingido (Quota). Como você está na versão gratuita, por favor aguarde 60 segundos antes da próxima pergunta.";
+                userMessage = "⚠️ Limite de Uso Atingido (Quota). Por favor aguarde 60 segundos.";
             } else if (error.message?.includes('404')) {
-                userMessage = "⚠️ Modelo não encontrado. Verifique se o modelo 'gemini-2.0-flash' está disponível para sua chave.";
+                userMessage = "⚠️ Modelo não encontrado. Usando gemini-1.5-flash.";
             } else if (error.message?.includes('401') || error.message?.includes('403')) {
-                userMessage = "⚠️ Chave API Inválida ou Expirada. Verifique as configurações.";
+                userMessage = "⚠️ Chave API Inválida ou Rejeitada (401/403). Verifique no AI Studio se a chave está ativa.";
             } else {
-                userMessage = `Erro: ${error.message || 'Falha de conexão'}`;
+                userMessage = `Erro: ${error.message || 'Falha de conexão com a IA'}`;
             }
 
             setResponse({
