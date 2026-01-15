@@ -180,6 +180,19 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         alert("✅ Análise salva com sucesso no Supabase!");
     };
 
+    const handleDeleteAnalysis = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (!window.confirm("Deseja realmente excluir esta análise do histórico?")) return;
+
+        try {
+            await ApiService.deleteAIAnalysis(id);
+            await loadHistory();
+        } catch (error) {
+            console.error("Delete Error:", error);
+            alert("Erro ao excluir análise.");
+        }
+    };
+
     // Priority: Manual -> Vite Env -> Optional Fallback
     let apiKey = manualApiKey;
     if (!apiKey) {
@@ -627,14 +640,22 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                 {savedAnalyses.length > 0 ? savedAnalyses.map((item) => (
                                     <div
                                         key={item.id}
-                                        className="bg-white p-5 rounded-2xl border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group"
+                                        className="bg-white p-5 rounded-2xl border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer group relative"
                                         onClick={() => { setQuery(item.query); setResponse(item.response); setShowHistory(false); }}
                                     >
-                                        <div className="flex justify-between items-start">
+                                        <div className="flex justify-between items-start pr-8">
                                             <h4 className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">"{item.query}"</h4>
                                             <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-2 py-1 rounded-md">{new Date(item.date).toLocaleDateString()}</span>
                                         </div>
                                         <p className="text-xs text-slate-500 mt-2 line-clamp-2">{item.response.analysis.substring(0, 150)}...</p>
+
+                                        <button
+                                            onClick={(e) => handleDeleteAnalysis(e, String(item.id))}
+                                            className="absolute top-5 right-5 p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                            title="Excluir do Histórico"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
                                 )) : (
                                     <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-slate-200">

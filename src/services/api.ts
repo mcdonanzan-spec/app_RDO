@@ -253,6 +253,16 @@ export class ApiService {
         if (error) console.error("Error saving All Purchase Requests:", error);
     }
 
+    static async deletePurchaseRequest(projectId: string, requestId: string): Promise<void> {
+        const { error } = await supabase
+            .from('project_purchase_requests')
+            .delete()
+            .eq('project_id', projectId)
+            .eq('request_id', requestId);
+
+        if (error) throw error;
+    }
+
     static async getItemCatalog(projectId: string): Promise<any[]> {
         let allItems: any[] = [];
         let page = 0;
@@ -514,6 +524,15 @@ export class ApiService {
 
         if (error) console.error("Supabase AI Analysis Save Error:", error);
         else console.log("AI analysis saved successfully");
+    }
+
+    static async deleteAIAnalysis(analysisId: string): Promise<void> {
+        const { error } = await supabase
+            .from('project_ai_analyses')
+            .delete()
+            .eq('id', analysisId);
+
+        if (error) throw error;
     }
 
     // --- BUDGET VERSIONS ---

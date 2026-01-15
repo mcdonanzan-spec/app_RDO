@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AppData, PurchaseRequest, PurchaseRequestItem, BudgetNode, TotvsItem } from '../../types';
-import { Plus, Check, X, AlertCircle, ShoppingCart, Archive, FileText, Search, Upload, Lock } from 'lucide-react';
+import { Plus, Check, X, AlertCircle, ShoppingCart, Archive, FileText, Search, Upload, Lock, Trash, Trash2 } from 'lucide-react';
 import { ExcelService } from '../services/excelService';
 import { PermissionService } from '../services/permissionService';
 import { UserService } from '../services/userService';
@@ -19,6 +19,21 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
     const { role: authRole, loading: loadingAuth } = useAuth();
     const userRole = authRole || 'VIEWER';
     const loadingRole = loadingAuth;
+
+    const handleDelete = async (requestId: string) => {
+        if (!window.confirm("Deseja realmente excluir esta solicitação? Esta ação é irreversível.")) return;
+
+        try {
+            await ApiService.deletePurchaseRequest(appData.activeProjectId || '', requestId);
+            // Re-fetch or update local state
+            const updated = requests.filter(r => r.requestId !== requestId);
+            onUpdate({ purchaseRequests: updated });
+            alert("Solicitação excluída com sucesso.");
+        } catch (error) {
+            console.error("Delete Error:", error);
+            alert("Erro ao excluir solicitação.");
+        }
+    };
 
     // Sync requests with props when appData changes (e.g. after a reload or project switch)
     useEffect(() => {
@@ -97,6 +112,7 @@ export const PurchaseFlowView: React.FC<Props> = ({ appData, onUpdate }) => {
             <div className="flex-1 overflow-auto bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 {activeTab === 'create' && <CreateRequestForm
                     onSave={handleSaveRequest}
+                    onDelete={handleDelete}
                     requests={requests}
                     totvsItems={appData.totvsItems || []}
                     onUpdateAppData={onUpdate}
@@ -170,7 +186,7 @@ const DEFAULT_TOTVS_ITEMS = [
     { code: '999.000.000', description: 'SERVICO DE PEDREIRO (H)', unit: 'H' },
 ];
 
-const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUpdateRequests, activeProjectId }: { onSave: (r: PurchaseRequest) => void, requests: PurchaseRequest[], totvsItems: TotvsItem[], onUpdateAppData: (data: Partial<AppData>) => void, onUpdateRequests: (reqs: PurchaseRequest[]) => void, activeProjectId: string }) => {
+const CreateRequestForm = ({ onSave, onDelete, requests, totvsItems, onUpdateAppData, onUpdateRequests, activeProjectId }: { onSave: (r: PurchaseRequest) => void, onDelete: (id: string) => void, requests: PurchaseRequest[], totvsItems: TotvsItem[], onUpdateAppData: (data: Partial<AppData>) => void, onUpdateRequests: (reqs: PurchaseRequest[]) => void, activeProjectId: string }) => {
     const [view, setView] = useState<'list' | 'form'>('list');
     const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -330,12 +346,21 @@ const CreateRequestForm = ({ onSave, requests, totvsItems, onUpdateAppData, onUp
                                     <div className="text-sm text-slate-600 uppercase mt-1">{req.description}</div>
                                     <div className="text-xs text-slate-400 mt-1 uppercase">{req.items.length} itens • {new Date(req.date).toLocaleDateString()}</div>
                                 </div>
-                                <button
-                                    onClick={() => handleEdit(req)}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1 bg-slate-100 text-slate-600 rounded text-sm font-bold uppercase hover:bg-slate-200"
-                                >
-                                    Editar
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleEdit(req)}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1 bg-slate-100 text-slate-600 rounded text-sm font-bold uppercase hover:bg-slate-200"
+                                    >
+                                        Editar
+                                    </button>
+                                    <button
+                                        onClick={() => onDelete(req.requestId)}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-red-50 text-red-500 rounded hover:bg-red-100"
+                                        title="Excluir Solicitação"
+                                    >
+                                        <Trash size={16} />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
