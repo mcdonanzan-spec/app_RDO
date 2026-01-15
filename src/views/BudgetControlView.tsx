@@ -4,6 +4,7 @@ import { Download, Upload, Search, Calendar, ChevronDown, ChevronRight, Plus, Do
 import { useAuth } from '../contexts/AuthContext';
 import { FinancialService } from '../services/financialService';
 import { BudgetService } from '../services/budgetService';
+import { PermissionService } from '../services/permissionService';
 
 interface Props {
     appData: AppData;
@@ -266,10 +267,17 @@ const renderTreeRows = (
 };
 
 const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, onGlobalUpdate }: { tree: BudgetNode[], onUpdate: (t: BudgetNode[]) => void, versions?: BudgetSnapshot[], onSaveVersion: (desc: string) => void, appData: AppData, onGlobalUpdate: (data: Partial<AppData>) => void }) => {
+    const { user, role } = useAuth();
+
     const [showResources, setShowResources] = useState(true);
     const [activeSubTab, setActiveSubTab] = useState<string>('ALL');
     const costCenters = appData.activeProject?.settings?.cost_centers || [];
-    const isReadOnly = activeSubTab === 'ALL' && costCenters.length > 0;
+
+    // PERMISSION CHECK
+    const canEdit = role ? PermissionService.canEditBudget(role) : false;
+
+    // Combined ReadOnly Logic: (Consolidated View) OR (No Permission)
+    const isReadOnly = (activeSubTab === 'ALL' && costCenters.length > 0) || !canEdit;
 
 
     const recalculateTotals = (nodes: BudgetNode[]): { nodes: BudgetNode[], total: number } => {
@@ -295,6 +303,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
     };
 
     const handleUpdateNode = (updatedNode: BudgetNode) => {
+        if (!canEdit) return; // Fail safe
         const updateRecursive = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.map(n => {
                 if (n.id === updatedNode.id) {
@@ -312,6 +321,11 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
     };
 
     const handleAddRoot = () => {
+        if (!canEdit) {
+            alert("Apenas usuários com permissão de edição podem adicionar grupos.");
+            return;
+        }
+
         if (activeSubTab === 'ALL') {
             alert("Selecione um Centro de Custo específico (Abas acima) para adicionar um novo Grupo Raiz.");
             return;
@@ -341,6 +355,8 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
     };
 
     const handleAddChild = (parentId: string, type: 'GROUP' | 'ITEM' = 'GROUP') => {
+        if (!canEdit) return;
+
         const findAndAdd = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.map(node => {
                 if (node.id === parentId) {
@@ -400,6 +416,8 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
     };
 
     const handleAddResources = (nodeId: string) => {
+        if (!canEdit) return;
+
         const findAndAddRes = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.map(node => {
                 if (node.id === nodeId) {
@@ -428,6 +446,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
     };
 
     const handleRemoveResources = (nodeId: string) => {
+        if (!canEdit) return;
         const findAndRemoveRes = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.map(node => {
                 if (node.id === nodeId) {
@@ -445,6 +464,10 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
     }
 
     const handleDelete = (id: string) => {
+        if (!canEdit) {
+            alert("Sem permissão para excluir.");
+            return;
+        }
         if (!confirm("Tem certeza? Isso apagará o item e seus filhos.")) return;
         const deleteRecursive = (nodes: BudgetNode[]): BudgetNode[] => {
             return nodes.filter(n => n.id !== id).map(n => ({
@@ -548,7 +571,15 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
             <div className="bg-white border-b border-slate-200">
                 <div className="p-4 flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <button onClick={handleAddRoot} className="flex items-center gap-2 bg-indigo-600 text-white border border-indigo-700 px-3 py-1.5 rounded text-sm font-bold hover:bg-indigo-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled={activeSubTab === 'ALL'} title={activeSubTab === 'ALL' ? "Selecione uma aba de Centro de Custo para adicionar" : "Adicionar Grupo neste Centro de Custo"}>
+                        <button
+                            onClick={handleAddRoot}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-bold shadow-sm transition-all ${(activeSubTab === 'ALL' || !canEdit)
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                                : 'bg-indigo-600 text-white border border-indigo-700 hover:bg-indigo-700'
+                                }`}
+                            disabled={activeSubTab === 'ALL' || !canEdit}
+                            title={!canEdit ? "Sem permissão para editar" : (activeSubTab === 'ALL' ? "Selecione uma aba de Centro de Custo para adicionar" : "Adicionar Grupo neste Centro de Custo")}
+                        >
                             <Plus size={14} /> Adicionar Grupo Raiz
                         </button>
 
@@ -582,21 +613,23 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                                 <div className="font-bold text-slate-700">VERSÃO ATUAL: {versions && versions.length > 0 ? versions.length + 1 : 1}</div>
                                 <div className="text-orange-500 font-bold text-[10px]">EM EDIÇÃO</div>
                             </div>
-                            <button
-                                onClick={() => {
-                                    const desc = prompt("Descreva essa version (ex: Validação Inicial):");
-                                    if (desc) onSaveVersion(desc);
-                                }}
-                                className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 font-bold text-xs uppercase shadow-sm"
-                            >
-                                <Save size={14} /> Concluir Orçamento
-                            </button>
+                            {canEdit && (
+                                <button
+                                    onClick={() => {
+                                        const desc = prompt("Descreva essa version (ex: Validação Inicial):");
+                                        if (desc) onSaveVersion(desc);
+                                    }}
+                                    className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 font-bold text-xs uppercase shadow-sm"
+                                >
+                                    <Save size={14} /> Concluir Orçamento
+                                </button>
+                            )}
                         </div>
 
                         <button
                             onClick={async () => {
                                 if (isReadOnly) {
-                                    alert("Você não pode limpar o consolidado quando existem centros de custo. Limpe-as individualmente.");
+                                    alert("Você não tem permissão ou não pode limpar o consolidado. Selecione uma aba e garanta que tem permissão.");
                                     return;
                                 }
                                 if (!confirm("ATENÇÃO: Isso apagará TODOS os itens do orçamento desta obra (de todas as abas). Esta ação não pode ser desfeita. Deseja continuar?")) return;
@@ -618,7 +651,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                             }}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded font-bold text-[10px] uppercase border transition-colors ${isReadOnly ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'}`}
                             disabled={isReadOnly}
-                            title={isReadOnly ? "Não é possível limpar o consolidado" : "Apagar todos os itens desta obra"}
+                            title={isReadOnly ? "Ação Bloqueada (Permissão ou Consolidado)" : "Apagar todos os itens desta obra"}
                         >
                             <Trash size={14} /> Limpar Tudo
                         </button>
@@ -641,7 +674,7 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                                 className={`px-4 py-2 text-sm font-bold border-t border-l border-r rounded-t-lg flex-shrink-0 transition-all flex items-center gap-2 ${activeSubTab === cc.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700 border-b-transparent shadow-[0_-2px_5px_rgba(0,0,0,0.05)]' : 'bg-slate-100 text-slate-500 border-transparent border-b-slate-200 hover:bg-indigo-50/50 hover:text-indigo-600'}`}
                             >
                                 {cc.name}
-                                {activeSubTab === cc.id && (
+                                {activeSubTab === cc.id && canEdit && (
                                     <button
                                         onClick={async (e) => {
                                             e.stopPropagation();
@@ -688,39 +721,38 @@ const BudgetStructureTab = ({ tree, onUpdate, versions, onSaveVersion, appData, 
                         </div>
                     ))}
 
-                    <button
-                        onClick={async () => {
-                            const name = prompt("Nome do novo Centro de Custo / Aba (ex: Torres 01 & 02):");
-                            if (!name) return;
+                    {canEdit && (
+                        <button
+                            onClick={async () => {
+                                const name = prompt("Nome do novo Centro de Custo / Aba (ex: Torres 01 & 02):");
+                                if (!name) return;
 
-                            try {
-                                const newCc = { id: `cc_${Date.now()}`, name: name.toUpperCase() };
-                                const currentCcs = appData.activeProject?.settings?.cost_centers || [];
-                                const updatedSettings = {
-                                    ...appData.activeProject?.settings,
-                                    cost_centers: [...currentCcs, newCc]
-                                };
+                                try {
+                                    const newCc = { id: `cc_${Date.now()}`, name: name.toUpperCase() };
+                                    const currentCcs = appData.activeProject?.settings?.cost_centers || [];
+                                    const updatedSettings = {
+                                        ...appData.activeProject?.settings,
+                                        cost_centers: [...currentCcs, newCc]
+                                    };
 
-                                // Save to Supabase (indirectly via ProjectService in this simple implementation or direct update)
-                                const { ProjectService } = await import('../services/projectService');
-                                await ProjectService.updateProject(appData.activeProjectId!, { settings: updatedSettings });
+                                    // Save to Supabase (indirectly via ProjectService in this simple implementation or direct update)
+                                    const { ProjectService } = await import('../services/projectService');
+                                    await ProjectService.updateProject(appData.activeProjectId!, { settings: updatedSettings });
 
-                                // Update local state by forcing a refresh or optimistic update
-                                onGlobalUpdate({ activeProject: { ...appData.activeProject!, settings: updatedSettings } });
-                                setActiveSubTab(newCc.id);
-                                console.log("New tab created and saved successfully");
-                            } catch (err: any) {
-                                console.error("Failed to create new tab:", err);
-                                alert(`Erro ao criar nova aba: ${err.message || 'Verifique se a coluna "settings" existe na tabela projects no Supabase.'}`);
-                            }
-                        }}
-                        className="px-4 py-2 text-sm font-bold text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1 border-b border-b-slate-200 mb-px"
-                    >
-                        <Plus size={14} /> Nova Aba
-                    </button>
-
-                    {/* SPACER TO FILL REMAINING BORDER */}
-                    <div className="flex-1 border-b border-b-slate-200 mb-px"></div>
+                                    // Update local state by forcing a refresh or optimistic update
+                                    onGlobalUpdate({ activeProject: { ...appData.activeProject!, settings: updatedSettings } });
+                                    setActiveSubTab(newCc.id);
+                                    console.log("New tab created and saved successfully");
+                                } catch (err: any) {
+                                    console.error("Failed to create new tab:", err);
+                                    alert(`Erro ao criar nova aba: ${err.message || 'Verifique se a coluna "settings" existe na tabela projects no Supabase.'}`);
+                                }
+                            }}
+                            className="px-4 py-2 text-sm font-bold text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1 border-b border-b-slate-200 mb-px"
+                        >
+                            <Plus size={14} /> Nova Aba
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -2502,7 +2534,7 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
         onUpdate({ suppliers: newSuppliers });
     };
 
-    const handleSaveVersion = (desc: string) => {
+    const handleSaveVersion = async (desc: string) => {
         // Create Snapshot
         const newVersion: BudgetSnapshot = {
             version: (budgetVersions.length || 0) + 1,
@@ -2513,8 +2545,22 @@ export const BudgetControlView: React.FC<Props> = ({ appData, onUpdate }) => {
         };
         const newVersions = [...budgetVersions, newVersion];
         setBudgetVersions(newVersions);
-        onUpdate({ budgetVersions: newVersions });
-        alert(`Versão ${newVersion.version} salva com sucesso!`);
+
+        // Save to Supabase
+        if (appData.activeProjectId) {
+            try {
+                const { ApiService } = await import('../services/api');
+                await ApiService.saveBudgetVersion(appData.activeProjectId, newVersion);
+                onUpdate({ budgetVersions: newVersions });
+                alert(`Versão ${newVersion.version} salva com sucesso!`);
+            } catch (err) {
+                console.error("Failed to save version:", err);
+                alert("Erro ao salvar versão no banco de dados.");
+            }
+        } else {
+            onUpdate({ budgetVersions: newVersions });
+            alert(`Versão ${newVersion.version} salva localmente (sem ID de projeto).`);
+        }
     };
 
     return (

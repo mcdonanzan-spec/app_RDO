@@ -130,9 +130,11 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         alert("✅ Análise salva com sucesso no Supabase!");
     };
 
+    // Priority: Manual -> Vite Env -> Process Env (replaced by define)
     const apiKey = manualApiKey ||
         (import.meta.env.VITE_API_KEY as string) ||
-        (typeof process !== 'undefined' ? (process.env.VITE_API_KEY || process.env.GEMINI_API_KEY) : "") ||
+        (process.env.VITE_API_KEY as string) ||
+        (process.env.GEMINI_API_KEY as string) ||
         "";
 
     const getContextData = () => {

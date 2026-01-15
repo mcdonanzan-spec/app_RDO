@@ -39,7 +39,8 @@ export class ApiService {
                 budgetTree,
                 suppliers,
                 purchaseRequests,
-                itemCatalog
+                itemCatalog,
+                budgetVersions
             ] = await Promise.all([
                 ProjectService.getProjects(),
                 FinancialService.getEntries(projectId),
@@ -53,7 +54,8 @@ export class ApiService {
                 BudgetService.getBudgetTree(projectId),
                 SupplierService.getSuppliers(projectId),
                 ApiService.getPurchaseRequests(projectId),
-                ApiService.getItemCatalog(projectId)
+                ApiService.getItemCatalog(projectId),
+                ApiService.getBudgetVersions(projectId)
             ]);
 
             const activeProject = projects.find(p => p.id === projectId);
@@ -91,7 +93,8 @@ export class ApiService {
                 budgetGroups: [],
                 projectionData: [],
                 consolidatedTree: [], // can compute if needed
-                totvsItems: itemCatalog || []
+                totvsItems: itemCatalog || [],
+                budgetVersions: budgetVersions || []
             };
 
         } catch (error) {
@@ -511,6 +514,49 @@ export class ApiService {
 
         if (error) console.error("Supabase AI Analysis Save Error:", error);
         else console.log("AI analysis saved successfully");
+    }
+
+    // --- BUDGET VERSIONS ---
+
+    static async getBudgetVersions(projectId: string): Promise<any[]> {
+        const { data, error } = await supabase
+            .from('project_budget_versions')
+            .select('*')
+            .eq('project_id', projectId)
+            .order('version', { ascending: true });
+
+        if (error) {
+            console.error("Error fetching budget versions:", error);
+            return [];
+        }
+
+        return data.map((row: any) => ({
+            version: row.version,
+            createdAt: row.created_at,
+            description: row.description,
+            tree: row.tree_data,
+            totalValue: Number(row.total_value)
+        }));
+    }
+
+    static async saveBudgetVersion(projectId: string, snapshot: any): Promise<void> {
+        const { error } = await supabase
+            .from('project_budget_versions')
+            .insert({
+                project_id: projectId,
+                version: snapshot.version,
+                created_at: snapshot.createdAt,
+                description: snapshot.description,
+                tree_data: snapshot.tree,
+                total_value: snapshot.totalValue
+            });
+
+        if (error) {
+            console.error("Supabase Budget Version Save Error:", error);
+            throw error;
+        } else {
+            console.log(`Budget Version ${snapshot.version} saved successfully.`);
+        }
     }
 
     // --- CORE DATA HELPERS ---
