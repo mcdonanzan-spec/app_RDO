@@ -292,12 +292,11 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             if (!apiKey) throw new Error("Chave API não configurada. Por favor, insira manualmente ou configure na Vercel.");
 
             console.log("AI Config Check:");
-            console.log("- Manual Key:", manualApiKey ? "Present" : "Empty");
             console.log("- Env VITE_API_KEY:", import.meta.env.VITE_API_KEY ? "Detected" : "Missing");
             console.log("- Effective Key detected:", apiKey ? "Yes" : "No");
 
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
             const context = getContextData();
             const prompt = `
             Você é o "Construction Brain", um Diretor de Inteligência da BRZ Empreendimentos.
@@ -308,15 +307,32 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
             PERGUNTA DO USUÁRIO: "${query}"
 
-            REQUISITOS DE SAÍDA (Obrigatório JSON válido):
-            1. "analysis": Texto rico em Markdown (use ## Títulos, **Negrito**, - Listas). Seja crítico e direto.
-            2. "kpis": Array de até 4 objetos { "label": "Título Curto", "value": "Valor Formatado" }.
-            3. "chart": Objeto { "title": "Título do Gráfico", "items": [{ "label": "Eixo X", "value": Numero, "format": "currency" | "percent" }] }.
+            REQUISITOS DE SAÍDA (Obrigatório JSON válido com a estrutura abaixo):
+            {
+              "analysis": "Texto rico em Markdown (## Títulos, **Negrito**, - Listas). Seja executivo.",
+              "kpis": [{ "label": "Título", "value": "Valor" }],
+              "chart": { "title": "...", "items": [{ "label": "...", "value": 0, "format": "currency" }] }
+            }
             
             ESTILO: Tom de voz executivo, focado em riscos financeiros e desvios de obra.
-            SAÍDA JSON APENAS.`;
+            SAÍDA JSON APENAS. SEM CODE BLOCKS.`;
 
-            const result = await model.generateContent(prompt);
+            let result;
+            try {
+                // Tentativa 1: Gemini 1.5 Flash (Mais rápido e barato)
+                console.log("Attempting Gemini 1.5 Flash...");
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                result = await model.generateContent(prompt);
+            } catch (err: any) {
+                if (err.message && (err.message.includes('404') || err.message.includes('not found'))) {
+                    // Tentativa 2: Fallback para Gemini Pro (Mais estável em algumas contas)
+                    console.warn("Gemini 1.5 Flash failed (404). Falling back to Gemini Pro.");
+                    const modelFallback = genAI.getGenerativeModel({ model: "gemini-pro" });
+                    result = await modelFallback.generateContent(prompt);
+                } else {
+                    throw err;
+                }
+            }
 
             // Handle response based on SDK structure
             let text = "";
@@ -334,16 +350,16 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
             if (!text) text = "{}";
 
             const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            let parsed = JSON.parse(jsonString);
+            const parsed = JSON.parse(jsonString);
             setResponse(parsed);
         } catch (error: any) {
-            console.error(error);
+            console.error("Critical AI Error:", error);
             let userMessage = "Erro ao processar consulta IA.";
 
             if (error.message?.includes('429')) {
                 userMessage = "⚠️ Limite de Uso Atingido (Quota). Por favor aguarde 60 segundos.";
             } else if (error.message?.includes('404')) {
-                userMessage = "⚠️ Modelo não encontrado. Usando gemini-1.5-flash.";
+                userMessage = "⚠️ Erro de Modelo (404). Verifique se sua chave suporta 'gemini-1.5-flash' ou 'gemini-pro'.";
             } else if (error.message?.includes('401') || error.message?.includes('403')) {
                 userMessage = "⚠️ Chave API Inválida ou Rejeitada (401/403). Verifique no AI Studio se a chave está ativa.";
             } else {
