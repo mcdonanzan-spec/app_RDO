@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { Sparkles, Send, BrainCircuit, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2, AlertTriangle, ChevronRight, CheckCircle, Settings } from 'lucide-react';
+import { Sparkles, Send, Brain, FileText, PieChart, BarChart3, Bot, Save, History, Clock, Trash2, AlertTriangle, ChevronRight, CheckCircle, Settings } from 'lucide-react';
 import { AppData, AIResponse, SavedAnalysis } from '../../types';
 import { ApiService } from '../services/api';
 
@@ -181,9 +181,14 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
     };
 
     // Priority: Manual -> Vite Env -> Optional Fallback
-    const apiKey = manualApiKey ||
-        ((import.meta.env?.VITE_API_KEY) as string) ||
-        "";
+    let apiKey = manualApiKey;
+    if (!apiKey) {
+        try {
+            apiKey = (import.meta.env?.VITE_API_KEY as string) || "";
+        } catch (e) {
+            console.warn("import.meta.env access failed", e);
+        }
+    }
 
     const handleTestConnection = async () => {
         if (!apiKey) {
@@ -567,7 +572,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                                 onClick={handleTestConnection}
                                                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
                                             >
-                                                <BrainCircuit size={16} /> Testar Conexão Agora
+                                                <Brain size={16} /> Testar Conexão Agora
                                             </button>
                                             <span className="text-xs text-slate-400">
                                                 Testa envio de mensagem simples.
@@ -620,7 +625,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                             {/* Empty State / Welcome */}
                             <div className="text-center space-y-4">
                                 <div className="w-20 h-20 bg-gradient-to-tr from-yellow-400 to-orange-500 rounded-3xl shadow-xl shadow-yellow-100 flex items-center justify-center mx-auto mb-6 transform -rotate-6">
-                                    <BrainCircuit size={40} className="text-white" />
+                                    <Brain size={40} className="text-white" />
                                 </div>
                                 <h2 className="text-4xl font-black text-slate-900 tracking-tight">O que vamos analisar hoje?</h2>
                                 <p className="text-slate-500 max-w-lg mx-auto leading-relaxed">
@@ -687,7 +692,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                             <div className="relative mb-10">
                                 <div className="absolute inset-0 bg-yellow-400/20 blur-3xl rounded-full scale-150 animate-pulse"></div>
                                 <div className="relative w-24 h-24 bg-white rounded-[32px] shadow-2xl flex items-center justify-center border border-slate-50">
-                                    <BrainCircuit className="text-yellow-500 animate-spin-slow" size={48} />
+                                    <Brain className="text-yellow-500 animate-spin-slow" size={48} />
                                 </div>
                                 <div className="absolute -top-2 -right-2 w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center border-4 border-white shadow-lg">
                                     <Sparkles size={14} className="text-white animate-pulse" />
@@ -756,7 +761,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                                                 Você pode pedir para a IA comparar o cenário de projeção manual com o realizado oficial das notas fiscais para identificar desvios de provisionamento.
                                             </p>
                                         </div>
-                                        <BrainCircuit className="absolute -right-8 -bottom-8 text-white opacity-10 group-hover:scale-125 group-hover:rotate-12 transition-all duration-1000" size={180} />
+                                        <Brain className="absolute -right-8 -bottom-8 text-white opacity-10 group-hover:scale-125 group-hover:rotate-12 transition-all duration-1000" size={180} />
                                     </div>
                                 </div>
                             </div>
@@ -783,7 +788,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
                     >
                         {loading ? (
                             <span className="flex items-center gap-2">
-                                <BrainCircuit className="animate-spin" size={18} />
+                                <Brain className="animate-spin" size={18} />
                                 Processando...
                             </span>
                         ) : cooldownSeconds > 0 ? (
