@@ -89,7 +89,7 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
 
     // Auto-fetch and Auto-configure models
     React.useEffect(() => {
-        const key = manualApiKey || (import.meta.env.VITE_API_KEY as string);
+        const key = manualApiKey || ((import.meta.env?.VITE_API_KEY) as string);
 
         // Only fetch if we don't have models yet (or if key changes)
         if (key) {
@@ -180,11 +180,9 @@ export const IntelligenceView: React.FC<IntelligenceViewProps> = ({ appData }) =
         alert("✅ Análise salva com sucesso no Supabase!");
     };
 
-    // Priority: Manual -> Vite Env -> Process Env (replaced by define)
+    // Priority: Manual -> Vite Env -> Optional Fallback
     const apiKey = manualApiKey ||
-        (import.meta.env.VITE_API_KEY as string) ||
-        (process.env.VITE_API_KEY as string) ||
-        (process.env.GEMINI_API_KEY as string) ||
+        ((import.meta.env?.VITE_API_KEY) as string) ||
         "";
 
     const handleTestConnection = async () => {
